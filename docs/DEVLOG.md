@@ -4,6 +4,50 @@
 
 ---
 
+## 2026-09-28 · 2단계: 계정·서버 목록
+
+### 한 일
+- **데모 모드** (`./gradlew runDemo`, 또는 `--demo` 인자): 목업과 같은 가짜 계정 3개·서버 3대. 설정 파일·키체인·네트워크를 쓰지 않음. 타이틀바에 "데모 모드" 배지.
+- **storage**: `JsonAccountStore`(계정 설정 JSON, 원자적 저장, POSIX에서 `rw-------`), `KeychainSecretStore`(OS 키체인), 데모·테스트용 인메모리 구현.
+- **provider/oracle**: `OracleProvider` — 인스턴스 목록(페이지 처리), VNIC로 공인/사설 IP, 시작(START)/정지(SOFTSTOP)/재부팅(SOFTRESET) 호출, OCI 오류를 한국어 메시지로 변환. 메트릭은 5단계.
+- **provider/demo**: `DemoProvider` — 지연 시간 흉내, 시작/정지/재부팅 시 8초간 전이 상태(정지 중 등)를 거쳐 안정.
+- **service**: `ProviderRegistry`(ProviderType → 팩토리), `InventoryService`(계정 추가/삭제, 계정별 병렬 조회 — 한 계정 실패가 다른 계정에 영향 없음, 연결 테스트), `AccountValidation`.
+- **UI**: 계정별 서버 목록(검색, 키보드 선택, 우클릭으로 계정 삭제), 서버 상세(헤더·상태 배지·4×2 정보 그리드), 계정 추가 다이얼로그(연결 테스트, 개인키 파일 선택), 새로고침.
+- 네트워크 호출은 모두 `Async`(가상 스레드)에서 실행하고 결과만 EDT로 넘김.
+- 스냅샷: `main.png`, `main-empty.png`, `add-account.png`.
+- 테스트 19개 통과 (저장소, 서비스, 검증, 데모 전이, OCI 매핑).
+
+### 결정한 것
+| 항목 | 결정 | 이유 |
+|---|---|---|
+| 비밀값 저장 | API 개인키 **내용**을 OS 키체인에 저장 (`account.<id>.privateKey`) | 목업 문구는 "마스터 비밀번호 암호화"였지만 CLAUDE.md 우선순위(키체인 → 불가 시 AES-GCM)에 따름. 안내 문구도 키체인으로 수정 |
+| 계정 설정 | `Account.properties`에 OCID·fingerprint (비밀 아님) | OCID는 커밋 금지 대상이지만 로컬 설정 파일은 괜찮음. 파일 권한은 소유자만 |
+| 조회 범위 | 기본은 tenancy 루트 compartment. `compartmentOcid` 속성으로 바꿀 수 있음 | 계정당 서버 1대인 프리티어 구성에 맞춤 |
+| IP 조회 | compartment의 VNIC 연결 목록을 한 번 조회 후 VNIC별 `getVnic` | 인스턴스마다 attachment를 조회하는 것보다 호출 수가 적음 |
+| 정지/재부팅 | `SOFTSTOP`, `SOFTRESET` (OS에 종료 신호를 먼저 보냄) | 데이터 손상 위험이 적은 쪽 |
+| `CloudProvider` | `AutoCloseable` 추가 (기본 no-op) | OCI SDK 클라이언트 해제 |
+| 서비스 계층 | 새 패키지 `service/` | UI가 storage·provider를 직접 조립하지 않도록 |
+| 로깅 | `slf4j-nop` | OCI SDK 로그가 콘솔에 쏟아지지 않게. 필요해지면 로거 연결 |
+
+### 추가한 라이브러리
+- `oci-java-sdk-core`, `oci-java-sdk-common-httpclient-jersey3` 3.97.0 — OCI API 호출 (SDK 3.x는 HTTP 클라이언트 구현을 따로 골라야 함)
+- `jackson-databind`, `jackson-datatype-jsr310` 2.22.3 — 계정 설정 JSON
+- `java-keyring` 1.0.4 — macOS 키체인 / Windows 자격 증명 관리자 접근
+- `slf4j-nop` 2.0.20 — SDK 로그 끄기
+
+### 확인한 것
+- 이 Mac에서 키체인 접근 확인 (없는 항목 조회만, 아무것도 쓰지 않음).
+- 실제 OCI 연결은 아직 확인하지 않음 (API 키 없음 → 0단계 이후 확인).
+
+### 남은 일 / TODO
+- **실제 창 확인 필요**: 스냅샷에서 기본 크기(13px) 글자의 `.`와 `'`가 보이지 않음. 12px 글자는 정상이라 오프스크린 렌더링 문제로 추정. `./gradlew runDemo`로 실제 창에서 확인.
+- 키체인을 쓸 수 없을 때 마스터 비밀번호(AES-GCM) 대체 저장소는 아직 없음.
+- Windows 자격 증명 관리자는 값 길이 제한(약 2.5KB)이 있어 4096비트 RSA 키는 안 들어갈 수 있음 → Windows 빌드할 때 확인.
+- 업타임·OS·부트 볼륨·열린 포트는 "—" (SSH 이후 단계에서 채움).
+- 개인키 passphrase 입력칸 없음 (OCI 기본 키는 passphrase 없음).
+
+---
+
 ## 2026-09-27 · 1단계: 뼈대
 
 ### 한 일
@@ -41,5 +85,5 @@
 - FlatLaf가 네이티브 라이브러리를 로드하므로 `--enable-native-access=ALL-UNNAMED` JVM 옵션을 붙임.
 
 ### 남은 일 / TODO
-- "계정 추가" 버튼이 지금은 패널이라 키보드 포커스가 안 됨 → 2단계에서 다이얼로그 붙일 때 버튼으로 교체.
+- ~~"계정 추가" 버튼 키보드 포커스~~ → 2단계에서 `DashedButton`으로 해결.
 - 실제 창에서 macOS 타이틀바 드래그·신호등 위치 눈으로 확인 필요 (사용자 확인).

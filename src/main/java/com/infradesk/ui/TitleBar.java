@@ -26,7 +26,7 @@ public class TitleBar extends JPanel {
     private final JLabel lastRefresh = new JLabel();
     private final JButton refreshButton = Buttons.icon("refresh", "새로고침", 28);
 
-    public TitleBar() {
+    public TitleBar(boolean demoMode) {
         super(new BorderLayout());
         setBackground(Theme.PANEL_BG);
         setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.DIVIDER));
@@ -40,6 +40,14 @@ public class TitleBar extends JPanel {
         left.add(name);
         summary.setForeground(Theme.TEXT_MUTED);
         left.add(summary);
+        if (demoMode) {
+            JLabel demo = new JLabel("데모 모드");
+            demo.setForeground(Theme.WARNING);
+            demo.setToolTipText("가짜 데이터로 실행 중이에요. 실제 클라우드에 연결하지 않아요.");
+            demo.putClientProperty(FlatClientProperties.STYLE,
+                    "font: -2; border: 1,6,1,6,#5C4E2E,1,10");
+            left.add(demo);
+        }
 
         JPanel right = row(12);
         lastRefresh.setForeground(Theme.TEXT_MUTED);
@@ -59,6 +67,13 @@ public class TitleBar extends JPanel {
 
     public void setCounts(int servers, int accounts) {
         summary.setText("서버 " + servers + "대 · 계정 " + accounts + "개");
+    }
+
+    public void setRefreshing(boolean refreshing) {
+        refreshButton.setEnabled(!refreshing);
+        if (refreshing) {
+            lastRefresh.setText("새로고침 중…");
+        }
     }
 
     public void markRefreshed(LocalTime time) {

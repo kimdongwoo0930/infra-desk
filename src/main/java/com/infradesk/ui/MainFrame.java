@@ -2,29 +2,52 @@ package com.infradesk.ui;
 
 import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.util.SystemInfo;
+import com.infradesk.core.Account;
+import com.infradesk.core.Server;
+import com.infradesk.service.AccountInventory;
+import com.infradesk.service.InventoryService;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagLayout;
 import java.time.LocalTime;
+import java.util.List;
+import java.util.Optional;
+import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.Box;
-import java.awt.Component;
 
-/** Main window: title bar on top, sidebar on the left, content on the right. */
+/** Main window: title bar on top, sidebar on the left, server detail on the right. */
 public class MainFrame extends JFrame {
 
-    private final TitleBar titleBar = new TitleBar();
-    private final Sidebar sidebar = new Sidebar();
-    private final JPanel content = new JPanel(new BorderLayout());
+    private static final String EMPTY = "empty";
+    private static final String DETAIL = "detail";
 
-    public MainFrame() {
+    private final InventoryService service;
+    private final boolean demoMode;
+    private final TitleBar titleBar;
+    private final Sidebar sidebar = new Sidebar();
+    private final ServerDetailPanel detail = new ServerDetailPanel();
+    private final CardLayout cards = new CardLayout();
+    private final JPanel content = new JPanel(cards);
+    private final JLabel emptyTitle = new JLabel();
+    private final JLabel emptyHint = new JLabel();
+
+    private List<AccountInventory> inventory = List.of();
+    private String selectedServerId;
+    private boolean refreshing;
+
+    public MainFrame(InventoryService service, boolean demoMode) {
         super("InfraDesk");
+        this.service = service;
+        this.demoMode = demoMode;
+        this.titleBar = new TitleBar(demoMode);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setMinimumSize(new Dimension(960, 600));
         setSize(1280, 800);
@@ -40,7 +63,8 @@ public class MainFrame extends JFrame {
         }
 
         content.setBackground(Theme.APP_BG);
-        content.add(emptyState(), BorderLayout.CENTER);
+        content.add(emptyState(), EMPTY);
+        content.add(detail, DETAIL);
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Theme.APP_BG);
@@ -49,13 +73,99 @@ public class MainFrame extends JFrame {
         root.add(content, BorderLayout.CENTER);
         setContentPane(root);
 
-        titleBar.refreshButton().addActionListener(e -> titleBar.markRefreshed(LocalTime.now()));
-        sidebar.onAddAccount(() -> JOptionPane.showMessageDialog(this,
-                "계정 추가 화면은 2단계에서 만들어요.", "준비 중", JOptionPane.INFORMATION_MESSAGE));
-        titleBar.markRefreshed(LocalTime.now());
+        titleBar.refreshButton().addActionListener(e -> refresh());
+        sidebar.onAddAccount(this::addAccount);
+        sidebar.onRemoveAccount(this::removeAccount);
+        sidebar.onSelect(this::showServer);
+        showEmpty();
     }
 
-    private static JPanel emptyState() {
+    /** Reloads every account's servers in the background. */
+    public void refresh() {
+        if (refreshing) {
+            return;
+        }
+        refreshing = true;
+        titleBar.setRefreshing(true);
+        sidebar.setLoading(true);
+        Async.run(service::loadAll, this::setInventory, err -> {
+            refreshing = false;
+            titleBar.setRefreshing(false);
+            sidebar.setLoading(false);
+            JOptionPane.showMessageDialog(this, Async.message(err), "새로고침 실패", JOptionPane.WARNING_MESSAGE);
+        });
+    }
+
+    /** Applies loaded data. Public so the snapshot tool can inject data synchronously. */
+    public void setInventory(List<AccountInventory> loaded) {
+        refreshing = false;
+        inventory = List.copyOf(loaded);
+        titleBar.setRefreshing(false);
+        titleBar.markRefreshed(LocalTime.now());
+        titleBar.setCounts(inventory.stream().mapToInt(i -> i.servers().size()).sum(), inventory.size());
+        sidebar.setLoading(false);
+        sidebar.setInventory(inventory);
+
+        Optional<Server> selected = findServer(selectedServerId);
+        if (selected.isPresent()) {
+            showServer(selected.get());
+        } else if (selectedServerId == null) {
+            inventory.stream().flatMap(i -> i.servers().stream()).findFirst().ifPresentOrElse(this::showServer, this::showEmpty);
+        } else {
+            selectedServerId = null;
+            showEmpty();
+        }
+    }
+
+    private void showServer(Server server) {
+        Optional<Account> account = inventory.stream()
+                .filter(i -> i.account().id().equals(server.accountId()))
+                .map(AccountInventory::account)
+                .findFirst();
+        if (account.isEmpty()) {
+            return;
+        }
+        selectedServerId = server.id();
+        sidebar.select(server.id());
+        detail.show(server, account.get());
+        cards.show(content, DETAIL);
+    }
+
+    private void showEmpty() {
+        boolean noAccounts = inventory.isEmpty();
+        emptyTitle.setText(noAccounts ? "계정을 추가하세요" : "서버를 선택하세요");
+        emptyHint.setText(noAccounts
+                ? "왼쪽 아래 '계정 추가'로 클라우드 계정을 등록하면 서버 목록이 표시돼요."
+                : "왼쪽 목록에서 서버를 고르면 상세 정보가 표시돼요.");
+        cards.show(content, EMPTY);
+    }
+
+    private void addAccount() {
+        new AddAccountDialog(this, service, demoMode).showDialog().ifPresent(a -> refresh());
+    }
+
+    private void removeAccount(Account account) {
+        int answer = JOptionPane.showConfirmDialog(this,
+                "'" + account.displayName() + "' 계정을 삭제할까요?\n저장된 API 키도 함께 지워져요. 클라우드의 서버는 그대로 남아요.",
+                "계정 삭제", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (answer != JOptionPane.OK_OPTION) {
+            return;
+        }
+        Async.run(() -> {
+            service.removeAccount(account.id());
+            return null;
+        }, ignored -> refresh(), err -> JOptionPane.showMessageDialog(this, Async.message(err),
+                "계정 삭제 실패", JOptionPane.WARNING_MESSAGE));
+    }
+
+    private Optional<Server> findServer(String id) {
+        if (id == null) {
+            return Optional.empty();
+        }
+        return inventory.stream().flatMap(i -> i.servers().stream()).filter(s -> s.id().equals(id)).findFirst();
+    }
+
+    private JPanel emptyState() {
         JPanel wrap = new JPanel(new GridBagLayout());
         wrap.setOpaque(false);
 
@@ -64,19 +174,17 @@ public class MainFrame extends JFrame {
         box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
 
         JLabel icon = new JLabel(Icons.get("cloud", 48, Theme.TEXT_MUTED));
-        JLabel title = new JLabel("서버를 선택하세요");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 22f));
-        JLabel hint = new JLabel("계정을 추가하면 서버 목록이 왼쪽에 표시돼요.");
-        hint.setForeground(Theme.TEXT_MUTED);
+        emptyTitle.setFont(emptyTitle.getFont().deriveFont(Font.BOLD, 22f));
+        emptyHint.setForeground(Theme.TEXT_MUTED);
 
-        for (JLabel l : new JLabel[] {icon, title, hint}) {
+        for (JLabel l : new JLabel[] {icon, emptyTitle, emptyHint}) {
             l.setAlignmentX(Component.CENTER_ALIGNMENT);
         }
         box.add(icon);
         box.add(Box.createVerticalStrut(12));
-        box.add(title);
+        box.add(emptyTitle);
         box.add(Box.createVerticalStrut(6));
-        box.add(hint);
+        box.add(emptyHint);
         wrap.add(box);
         return wrap;
     }

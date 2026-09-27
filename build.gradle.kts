@@ -18,6 +18,12 @@ repositories {
 dependencies {
     implementation(libs.flatlaf)
     implementation(libs.flatlaf.extras)
+    implementation(libs.oci.core)
+    implementation(libs.oci.httpclient)
+    implementation(libs.jackson.databind)
+    implementation(libs.jackson.jsr310)
+    implementation(libs.java.keyring)
+    runtimeOnly(libs.slf4j.nop)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
@@ -42,15 +48,25 @@ application {
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
-// Dev tool: renders the main window to build/snapshots/main.png without showing it.
+// Dev tool: renders screens with demo data to build/snapshots/*.png without showing them.
 tasks.register<JavaExec>("snapshot") {
     group = "application"
-    description = "Renders the main window off-screen to build/snapshots/main.png"
+    description = "Renders screens with demo data off-screen to build/snapshots/*.png"
     classpath = sourceSets.test.get().runtimeClasspath
     mainClass = "com.infradesk.ui.UiSnapshot"
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
 tasks.named<JavaExec>("run") {
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}
+
+// Runs the app with fake data: no settings file, keychain, or network access.
+tasks.register<JavaExec>("runDemo") {
+    group = "application"
+    description = "Runs InfraDesk in demo mode with fake servers"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "com.infradesk.app.InfraDeskApp"
+    args("--demo")
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }

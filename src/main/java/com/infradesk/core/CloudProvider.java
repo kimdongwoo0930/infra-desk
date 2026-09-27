@@ -6,7 +6,7 @@ import java.util.List;
  * The only entry point UI and service code use to talk to a cloud. One instance serves one
  * {@link Account}. All methods block on network I/O and must never be called on the EDT.
  */
-public interface CloudProvider {
+public interface CloudProvider extends AutoCloseable {
 
     /** Lists servers in the account. */
     List<Server> listServers();
@@ -19,4 +19,9 @@ public interface CloudProvider {
 
     /** Returns recent utilization, roughly the last hour. */
     Metrics getMetrics(String serverId);
+
+    /** Releases SDK clients. */
+    @Override
+    default void close() {
+    }
 }

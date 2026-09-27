@@ -22,7 +22,7 @@ class ModelTest {
 
     @Test
     void accountRequiresFields() {
-        assertThrows(NullPointerException.class, () -> new Account("a", "A", null, "region-1"));
+        assertThrows(NullPointerException.class, () -> new Account("a", "A", null, "region-1", null));
     }
 
     @Test

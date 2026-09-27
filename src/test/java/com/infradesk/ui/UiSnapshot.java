@@ -1,52 +1,82 @@
 package com.infradesk.ui;
 
+import com.infradesk.app.InfraDeskApp;
+import com.infradesk.provider.demo.DemoProviderFactory;
+import com.infradesk.service.AccountInventory;
+import com.infradesk.service.InventoryService;
+
+import java.awt.Container;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Window;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.lang.reflect.InvocationTargetException;
+import java.io.IOException;
+import java.time.Clock;
+import java.time.Duration;
+import java.util.List;
 import javax.imageio.ImageIO;
-import javax.swing.JFrame;
+import javax.swing.JDialog;
 import javax.swing.SwingUtilities;
 
 /**
- * Dev tool: renders the main window off-screen to a PNG so UI changes can be checked without
- * screen-recording permission. Run with {@code ./gradlew snapshot}.
+ * Dev tool: renders screens off-screen with demo data into build/snapshots/*.png, so UI changes
+ * can be checked without screen-recording permission. Run with {@code ./gradlew snapshot}.
  */
 public final class UiSnapshot {
+
+    private static final File DIR = new File("build/snapshots");
 
     private UiSnapshot() {
     }
 
-    public static void main(String[] args) throws InterruptedException, InvocationTargetException, java.io.IOException {
-        File out = new File(args.length > 0 ? args[0] : "build/snapshots/main.png");
-        out.getParentFile().mkdirs();
-        BufferedImage[] image = new BufferedImage[1];
+    public static void main(String[] args) throws Exception {
+        DIR.mkdirs();
+        InventoryService service = InfraDeskApp.demoService(new DemoProviderFactory(Clock.systemUTC(), Duration.ZERO));
+        List<AccountInventory> inventory = service.loadAll();
+
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
-            JFrame frame = new MainFrame();
-            frame.addNotify();
-            frame.getContentPane().setSize(1280, 800);
-            frame.getContentPane().validate();
-            layoutAll(frame.getContentPane());
-            BufferedImage img = new BufferedImage(1280 * 2, 800 * 2, BufferedImage.TYPE_INT_RGB);
-            Graphics2D g = img.createGraphics();
-            g.scale(2, 2);
-            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            frame.getContentPane().paint(g);
-            g.dispose();
-            image[0] = img;
-            frame.dispose();
+            try {
+                MainFrame empty = new MainFrame(service, true);
+                empty.setInventory(List.of());
+                write(empty, empty.getContentPane(), 1280, 800, "main-empty.png");
+
+                MainFrame frame = new MainFrame(service, true);
+                frame.setInventory(inventory);
+                write(frame, frame.getContentPane(), 1280, 800, "main.png");
+
+                JDialog dialog = new AddAccountDialog(frame, service, false);
+                write(dialog, dialog.getContentPane(), dialog.getWidth(), dialog.getContentPane().getPreferredSize().height,
+                        "add-account.png");
+                dialog.dispose();
+                frame.dispose();
+                empty.dispose();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         });
-        ImageIO.write(image[0], "png", out);
-        System.out.println("Snapshot written to " + out.getAbsolutePath());
+        System.out.println("Snapshots written to " + DIR.getAbsolutePath());
         System.exit(0);
     }
 
-    private static void layoutAll(java.awt.Container c) {
+    private static void write(Window window, Container pane, int width, int height, String name) throws IOException {
+        window.addNotify();
+        pane.setSize(width, height);
+        layoutAll(pane);
+        BufferedImage img = new BufferedImage(width * 2, height * 2, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = img.createGraphics();
+        g.scale(2, 2);
+        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        pane.paint(g);
+        g.dispose();
+        ImageIO.write(img, "png", new File(DIR, name));
+    }
+
+    private static void layoutAll(Container c) {
         c.doLayout();
-        for (java.awt.Component child : c.getComponents()) {
-            if (child instanceof java.awt.Container cc) {
+        for (var child : c.getComponents()) {
+            if (child instanceof Container cc) {
                 layoutAll(cc);
             }
         }

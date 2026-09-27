@@ -20,7 +20,16 @@ public final class Buttons {
         JButton b = base(text, icon, Color.WHITE);
         b.putClientProperty(FlatClientProperties.STYLE,
                 "background: $Component.accentColor; foreground: #FFFFFF; borderWidth: 0; font: +0 bold;"
-                        + " hoverBackground: lighten($Component.accentColor,6%); pressedBackground: darken($Component.accentColor,6%)");
+                        + " hoverBackground: lighten($Component.accentColor,6%); pressedBackground: darken($Component.accentColor,6%);"
+                        + " disabledBackground: #2E436E; disabledText: #9AA6BF");
+        return b;
+    }
+
+    /** Transparent background, no border (e.g. "취소"). */
+    public static JButton ghost(String text) {
+        JButton b = base(text, null, Theme.TEXT);
+        b.putClientProperty(FlatClientProperties.STYLE,
+                "background: #00000000; borderWidth: 0; hoverBackground: #FFFFFF10; pressedBackground: #FFFFFF18");
         return b;
     }
 
@@ -28,7 +37,8 @@ public final class Buttons {
     public static JButton secondary(String text, String icon) {
         JButton b = base(text, icon, Theme.TEXT);
         b.putClientProperty(FlatClientProperties.STYLE,
-                "background: null; borderColor: #4E5157; hoverBackground: #2B2D30");
+                "background: #00000000; borderWidth: 1; borderColor: #4E5157; hoverBackground: #FFFFFF10; pressedBackground: #FFFFFF18;"
+                        + " disabledBackground: #00000000; disabledBorderColor: #393B40");
         return b;
     }
 
@@ -36,7 +46,8 @@ public final class Buttons {
     public static JButton danger(String text, String icon) {
         JButton b = base(text, icon, Theme.DANGER_TEXT);
         b.putClientProperty(FlatClientProperties.STYLE,
-                "background: null; foreground: #F08A8A; borderColor: #6B3A3A; hoverBackground: #3A2426");
+                "background: #00000000; borderWidth: 1; foreground: #F08A8A; borderColor: #6B3A3A; hoverBackground: #F08A8A18;"
+                        + " disabledBackground: #00000000; disabledBorderColor: #4A3030; disabledText: #7A5555");
         return b;
     }
 

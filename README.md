@@ -6,7 +6,8 @@
 Java 25가 필요합니다. Gradle은 Wrapper가 포함돼 있어 따로 설치하지 않아도 됩니다.
 
 ```bash
-./gradlew run        # 앱 실행
+./gradlew runDemo    # 데모 모드: 키 없이 가짜 서버로 실행
+./gradlew run        # 실제 모드: 등록한 클라우드 계정에 연결
 ./gradlew test       # 테스트
 ```
 
