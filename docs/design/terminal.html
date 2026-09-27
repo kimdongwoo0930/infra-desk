@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>SSH 터미널</title>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#1e1f22;font-family:'IBM Plex Sans KR',sans-serif;color:#dfe1e5}
+a{color:#6ea2ff}a:hover{color:#9cc0ff}
+button{font-family:inherit}
+</style>
+<div style="width: 1280px; height: 800px; display: flex; flex-direction: column; background: #1e1f22; font-size: 13px;">
+<div style="height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: #2b2d30; border-bottom: 1px solid #393b40;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<a href="dashboard.html" style="display: flex; align-items: center; gap: 6px; color: #b4b8bf; text-decoration: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>대시보드</a>
+<span style="color: #55585e;">/</span>
+<span style="font-weight: 600;">SSH 터미널</span>
+</div>
+<span style="font-size: 12px; color: #8c8f94;">열린 세션 2개</span>
+</div>
+<div style="flex-grow: 1; display: flex; min-height: 0;">
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: #191a1c;">
+<div style="height: 38px; flex-shrink: 0; display: flex; align-items: stretch; background: #232427; border-bottom: 1px solid #393b40;">
+<span style="display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #191a1c; border-right: 1px solid #393b40; border-top: 2px solid #3b73e0;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #5fb865;"></span>discord-bot<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8c8f94" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+<span style="display: flex; align-items: center; gap: 8px; padding: 0 14px; color: #8c8f94; border-right: 1px solid #393b40;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #5fb865;"></span>web-server<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6f737a" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+<button aria-label="새 세션" style="width: 38px; border: 0; background: transparent; color: #8c8f94; display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+<div style="flex-grow: 1; padding: 16px 18px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.75; color: #c9ccd1; overflow: hidden;">
+<div style="color: #8c8f94;">Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 6.5.0-1020-oracle aarch64)</div>
+<div style="color: #8c8f94;">Last login: Sun Sep 27 20:41:12 2026 from 121.xx.xx.xx</div>
+<div>&nbsp;</div>
+<div><span style="color: #7fd184;">ubuntu@discord-bot</span><span style="color: #8c8f94;">:~$</span> df -h /</div>
+<div style="color: #b4b8bf;">Filesystem &nbsp;&nbsp;Size &nbsp;Used Avail Use% Mounted on</div>
+<div>/dev/sda1 &nbsp;&nbsp;&nbsp;&nbsp;97G &nbsp;&nbsp;45G &nbsp;&nbsp;52G &nbsp;47% /</div>
+<div><span style="color: #7fd184;">ubuntu@discord-bot</span><span style="color: #8c8f94;">:~$</span> docker logs --tail 4 bot-app</div>
+<div>[20:52:10] INFO &nbsp;voice tracker tick · 12 users online</div>
+<div>[20:53:10] INFO &nbsp;voice tracker tick · 13 users online</div>
+<div><span style="color: #e5c07b;">[20:53:44] WARN &nbsp;rate limited, retry in 1.2s</span></div>
+<div>[20:54:10] INFO &nbsp;voice tracker tick · 13 users online</div>
+<div><span style="color: #7fd184;">ubuntu@discord-bot</span><span style="color: #8c8f94;">:~$</span> <span style="display: inline-block; width: 8px; height: 16px; vertical-align: -3px; background: #c9ccd1;"></span></div>
+</div>
+<div style="height: 30px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; background: #232427; border-top: 1px solid #393b40; font-size: 12px; color: #8c8f94;">
+<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #5fb865;"></span>연결됨 · ubuntu@132.145.xx.xx:22</span>
+<span>UTF-8 · 120×32</span>
+</div>
+</div>
+<div style="width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; padding: 16px; background: #2b2d30; border-left: 1px solid #393b40;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-weight: 600;">저장된 명령어</span><button aria-label="명령어 추가" style="width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: #b4b8bf; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button></div>
+<button style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1px solid #43454a; border-radius: 6px; background: #1e1f22; color: #dfe1e5; font-size: 13px; text-align: left;"><span>봇 재시작</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c8f94;">docker restart bot-app</span></button>
+<button style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1px solid #43454a; border-radius: 6px; background: #1e1f22; color: #dfe1e5; font-size: 13px; text-align: left;"><span>봇 로그 보기</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c8f94;">docker logs -f --tail 100 bot-app</span></button>
+<button style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1px solid #43454a; border-radius: 6px; background: #1e1f22; color: #dfe1e5; font-size: 13px; text-align: left;"><span>디스크 확인</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c8f94;">df -h &amp;&amp; du -sh /var/lib/docker</span></button>
+<button style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1px solid #43454a; border-radius: 6px; background: #1e1f22; color: #dfe1e5; font-size: 13px; text-align: left;"><span>패키지 업데이트</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c8f94;">sudo apt update &amp;&amp; sudo apt upgrade -y</span></button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid #393b40;">
+<span style="font-weight: 600;">일괄 실행</span>
+<span style="font-size: 12px; color: #8c8f94;">선택한 서버에 같은 명령어를 한 번에 보내요.</span>
+<label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" checked style="accent-color: #3b73e0; width: 16px; height: 16px;">discord-bot</label>
+<label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" checked style="accent-color: #3b73e0; width: 16px; height: 16px;">web-server</label>
+<label style="display: flex; align-items: center; gap: 8px; color: #8c8f94;"><input type="checkbox" disabled style="width: 16px; height: 16px;">test-box (정지됨)</label>
+<label for="bulk-cmd" style="position: absolute; width: 1px; height: 1px; overflow: hidden;">일괄 명령어</label>
+<input id="bulk-cmd" value="uptime" style="height: 32px; padding: 0 10px; background: #1e1f22; border: 1px solid #43454a; border-radius: 6px; color: #dfe1e5; font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+<button style="height: 34px; border: 0; border-radius: 6px; background: #3b73e0; color: #ffffff; font-size: 13px; font-weight: 500;">2대에 실행</button>
+</div>
+<div style="margin-top: auto; display: flex; gap: 8px;">
+<button style="flex-grow: 1; height: 34px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #4e5157; border-radius: 6px; background: transparent; color: #dfe1e5; font-size: 13px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>SFTP 파일</button>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>

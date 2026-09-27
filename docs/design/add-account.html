@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>계정 추가</title>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#121314;font-family:'IBM Plex Sans KR',sans-serif;color:#dfe1e5}
+a{color:#6ea2ff}a:hover{color:#9cc0ff}
+button{font-family:inherit}
+</style>
+<div style="width: 1280px; height: 800px; display: flex; align-items: center; justify-content: center; background: #121314; font-size: 13px;">
+<div style="width: 560px; display: flex; flex-direction: column; background: #2b2d30; border: 1px solid #43454a; border-radius: 12px; overflow: hidden;">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid #393b40;">
+<h1 style="margin: 0; font-size: 17px; font-weight: 600;">계정 추가</h1>
+<a href="dashboard.html" aria-label="닫기" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #b4b8bf;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 16px; padding: 20px 22px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="font-size: 12px; color: #b4b8bf;">클라우드</span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+<button style="height: 44px; border: 2px solid #3b73e0; border-radius: 8px; background: #25324d; color: #ffffff; font-size: 13px; font-weight: 500;">Oracle Cloud</button>
+<button style="height: 44px; border: 1px solid #43454a; border-radius: 8px; background: transparent; color: #8c8f94; font-size: 13px;">AWS · 준비 중</button>
+<button style="height: 44px; border: 1px solid #43454a; border-radius: 8px; background: transparent; color: #8c8f94; font-size: 13px;">GCP · 준비 중</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;"><label for="acc-name" style="font-size: 12px; color: #b4b8bf;">표시 이름</label><input id="acc-name" value="계정 A" style="height: 34px; padding: 0 10px; background: #1e1f22; border: 1px solid #43454a; border-radius: 6px; color: #dfe1e5; font-family: inherit; font-size: 13px;"></div>
+<div style="display: flex; flex-direction: column; gap: 6px;"><label for="acc-tenancy" style="font-size: 12px; color: #b4b8bf;">Tenancy OCID</label><input id="acc-tenancy" placeholder="ocid1.tenancy.oc1..aaaa" style="height: 34px; padding: 0 10px; background: #1e1f22; border: 1px solid #43454a; border-radius: 6px; color: #dfe1e5; font-family: 'JetBrains Mono', monospace; font-size: 12px;"></div>
+<div style="display: flex; flex-direction: column; gap: 6px;"><label for="acc-user" style="font-size: 12px; color: #b4b8bf;">User OCID</label><input id="acc-user" placeholder="ocid1.user.oc1..aaaa" style="height: 34px; padding: 0 10px; background: #1e1f22; border: 1px solid #43454a; border-radius: 6px; color: #dfe1e5; font-family: 'JetBrains Mono', monospace; font-size: 12px;"></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 6px;"><label for="acc-fp" style="font-size: 12px; color: #b4b8bf;">Fingerprint</label><input id="acc-fp" placeholder="12:34:56:78:9a:bc…" style="height: 34px; padding: 0 10px; background: #1e1f22; border: 1px solid #43454a; border-radius: 6px; color: #dfe1e5; font-family: 'JetBrains Mono', monospace; font-size: 12px;"></div>
+<div style="display: flex; flex-direction: column; gap: 6px;"><label for="acc-region" style="font-size: 12px; color: #b4b8bf;">리전</label><select id="acc-region" style="height: 34px; padding: 0 8px; background: #1e1f22; border: 1px solid #43454a; border-radius: 6px; color: #dfe1e5; font-family: inherit; font-size: 13px;"><option>ap-chuncheon-1 (춘천)</option><option>ap-seoul-1 (서울)</option></select></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<label for="acc-key" style="font-size: 12px; color: #b4b8bf;">API 개인키 (.pem)</label>
+<div style="display: flex; gap: 8px;"><input id="acc-key" placeholder="파일을 선택하세요" readonly style="flex-grow: 1; height: 34px; padding: 0 10px; background: #1e1f22; border: 1px solid #43454a; border-radius: 6px; color: #dfe1e5; font-family: inherit; font-size: 13px;"><button style="height: 34px; padding: 0 14px; border: 1px solid #4e5157; border-radius: 6px; background: transparent; color: #dfe1e5; font-size: 13px;">찾아보기</button></div>
+</div>
+<div style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; background: #1e1f22; border-radius: 8px; color: #b4b8bf; font-size: 12px; line-height: 1.6;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+<span>키는 마스터 비밀번호로 암호화해서 이 PC에만 저장돼요. 서버 SSH 키는 서버를 불러온 뒤 서버별로 등록해요.</span>
+</div>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 22px; border-top: 1px solid #393b40; background: #26282b;">
+<button style="height: 34px; padding: 0 14px; border: 1px solid #4e5157; border-radius: 6px; background: transparent; color: #dfe1e5; font-size: 13px;">연결 테스트</button>
+<div style="display: flex; gap: 8px;">
+<a href="dashboard.html" style="height: 34px; padding: 0 14px; display: flex; align-items: center; border-radius: 6px; color: #dfe1e5; text-decoration: none;">취소</a>
+<a href="dashboard.html" style="height: 34px; padding: 0 16px; display: flex; align-items: center; border-radius: 6px; background: #3b73e0; color: #ffffff; text-decoration: none; font-weight: 500;">저장하고 서버 불러오기</a>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>
