@@ -144,7 +144,8 @@ MainFrame.setInventory → AlertService.onInventory → AlertMonitor (상태 변
 | `components.Toast` | 창 오른쪽 아래 잠깐 뜨는 알림 |
 | `metrics.MetricsPanel` | 모니터링 섹션: 카드 3개, 상태 문구, 실시간 토글 |
 | `metrics.LiveController` | 실시간 모드 상태(OFF/CONNECTING/RUNNING/PAUSED), 일시정지·재개, 10분 자동 꺼짐 |
-| `metrics.MetricCard` | 스탯 타일: 현재값 + XChart 스파크라인(커서 툴팁) + 범례/설명 |
+| `metrics.MetricCard` | 스탯 타일: 현재값 + XChart 스파크라인 + 범례/설명 |
+| `metrics.HoverChartPanel` | 스파크라인 위 마우스 커서: 세로선 + 가장 가까운 시점의 시리즈별 값 툴팁 |
 | `terminal.TerminalView` | 세션 탭 모음, 새 세션 메뉴 |
 | `terminal.TerminalPanel` | 탭 하나: 연결, JediTerm 위젯, 상태바, 실패 안내 |
 | `terminal.TerminalSidePanel` | 오른쪽 패널: 저장된 명령어, 일괄 실행, SFTP 버튼 |

@@ -4,7 +4,6 @@ import com.formdev.flatlaf.FlatClientProperties;
 import com.infradesk.core.Metrics;
 import com.infradesk.ui.Theme;
 import com.infradesk.ui.components.RoundedPanel;
-import org.knowm.xchart.XChartPanel;
 import org.knowm.xchart.XYChart;
 import org.knowm.xchart.XYChartBuilder;
 import org.knowm.xchart.XYSeries;
@@ -22,7 +21,6 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -54,9 +52,9 @@ public class MetricCard extends RoundedPanel {
     private final JLabel empty = new JLabel("", SwingConstants.CENTER);
     private final List<JLabel> legend;
     private final XYChart chart;
+    private final HoverChartPanel chartPanel;
     private final CardLayout plotCards = new CardLayout();
     private final JPanel plot = new JPanel(plotCards);
-    private boolean seconds;
 
     /**
      * @param yMax fixed top of the y range (e.g. 100 for percentages), or null to fit the data
@@ -79,8 +77,7 @@ public class MetricCard extends RoundedPanel {
 
         chart = new XYChartBuilder().width(300).height(56).build();
         styleChart();
-        XChartPanel<XYChart> chartPanel = new XChartPanel<>(chart);
-        chartPanel.setCursorEnabled(true);
+        chartPanel = new HoverChartPanel(chart, this.series, format);
         chartPanel.setOpaque(false);
         chartPanel.setBackground(Theme.PANEL_BG);
         chartPanel.setPreferredSize(new Dimension(100, 56));
@@ -145,13 +142,6 @@ public class MetricCard extends RoundedPanel {
             st.setYAxisMax(yMax);
         }
         st.setDefaultSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line);
-        st.setCursorColor(Theme.TEXT_MUTED);
-        st.setCursorLineWidth(1f);
-        st.setCursorBackgroundColor(Theme.APP_BG);
-        st.setCursorFontColor(Theme.TEXT);
-        st.setCursorFont(new JLabel().getFont().deriveFont(11f));
-        st.setCustomCursorXDataFormattingFunction(x -> (seconds ? SECOND : MINUTE).format(Instant.ofEpochMilli(x.longValue())));
-        st.setCustomCursorYDataFormattingFunction(format::apply);
         for (Series s : series) {
             XYSeries xy = chart.addSeries(s.name(), new double[] {0, 1}, new double[] {0, 0});
             xy.setLineColor(s.color());
@@ -166,7 +156,6 @@ public class MetricCard extends RoundedPanel {
      * @param secondsResolution true for live samples (tooltip shows seconds)
      */
     public void show(List<List<Metrics.Sample>> data, String captionText, boolean secondsResolution, String emptyText) {
-        this.seconds = secondsResolution;
         caption.setText(captionText);
         boolean any = data.stream().anyMatch(d -> !d.isEmpty());
         if (!any) {
@@ -196,6 +185,7 @@ public class MetricCard extends RoundedPanel {
                 legend.get(i).setText(series.get(i).name() + " " + (d.isEmpty() ? "—" : format.apply(d.getLast().value())));
             }
         }
+        chartPanel.setData(data, secondsResolution ? SECOND : MINUTE);
         plotCards.show(plot, "chart");
         plot.repaint();
     }

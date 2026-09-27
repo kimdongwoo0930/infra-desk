@@ -57,6 +57,21 @@ public final class UiSnapshot {
                 MainFrame frame = mainFrame[0];
                 write(frame, frame.getContentPane(), 1280, 800, "main.png");
 
+                // Hover: move the mouse over each chart (left, middle, right edge) and render.
+                List<java.awt.Component> charts = new java.util.ArrayList<>();
+                collect(frame.getContentPane(), "HoverChartPanel", charts);
+                double[] at = {0.3, 0.55, 0.97};
+                for (int i = 0; i < charts.size() && i < at.length; i++) {
+                    java.awt.Component c = charts.get(i);
+                    c.dispatchEvent(new java.awt.event.MouseEvent(c, java.awt.event.MouseEvent.MOUSE_MOVED,
+                            System.currentTimeMillis(), 0, (int) (c.getWidth() * at[i]), 20, 0, false));
+                }
+                write(frame, frame.getContentPane(), 1280, 800, "main-hover.png");
+                for (java.awt.Component c : charts) {
+                    c.dispatchEvent(new java.awt.event.MouseEvent(c, java.awt.event.MouseEvent.MOUSE_EXITED,
+                            System.currentTimeMillis(), 0, -1, -1, 0, false));
+                }
+
                 MainFrame stoppingFrame = new MainFrame(stoppingService, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
                 stoppingFrame.setInventory(stopping);
                 write(stoppingFrame, stoppingFrame.getContentPane(), 1280, 800, "main-stopping.png");
@@ -151,6 +166,17 @@ public final class UiSnapshot {
         pane.paint(g);
         g.dispose();
         ImageIO.write(img, "png", new File(DIR, name));
+    }
+
+    private static void collect(Container c, String simpleName, List<java.awt.Component> out) {
+        for (var child : c.getComponents()) {
+            if (child.getClass().getSimpleName().equals(simpleName)) {
+                out.add(child);
+            }
+            if (child instanceof Container cc) {
+                collect(cc, simpleName, out);
+            }
+        }
     }
 
     private static <T> T find(Container c, Class<T> type) {
