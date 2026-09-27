@@ -13,6 +13,10 @@ java {
 
 repositories {
     mavenCentral()
+    // JediTerm is published only to JetBrains' repository.
+    maven("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies") {
+        content { includeGroup("org.jetbrains.jediterm") }
+    }
 }
 
 dependencies {
@@ -23,6 +27,10 @@ dependencies {
     implementation(libs.jackson.databind)
     implementation(libs.jackson.jsr310)
     implementation(libs.java.keyring)
+    implementation(libs.sshd.core)
+    runtimeOnly(libs.eddsa) // lets MINA SSHD read ed25519 keys
+    implementation(libs.jediterm.core)
+    implementation(libs.jediterm.ui)
     runtimeOnly(libs.slf4j.nop)
 
     testImplementation(platform(libs.junit.bom))

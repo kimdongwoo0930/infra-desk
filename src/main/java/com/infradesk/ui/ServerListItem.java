@@ -32,7 +32,7 @@ class ServerListItem extends JPanel {
     private boolean selected;
     private boolean hover;
 
-    ServerListItem(Server server, Runnable onSelect) {
+    ServerListItem(Server server, Runnable onSelect, Runnable onSshSettings) {
         super(new BorderLayout(10, 0));
         this.server = server;
         setOpaque(false);
@@ -52,9 +52,18 @@ class ServerListItem extends JPanel {
         add(detail, BorderLayout.EAST);
         applyColors();
 
+        javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+        javax.swing.JMenuItem ssh = new javax.swing.JMenuItem("SSH 설정…");
+        ssh.addActionListener(e -> onSshSettings.run());
+        menu.add(ssh);
+        setComponentPopupMenu(menu);
+
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    return;
+                }
                 requestFocusInWindow();
                 onSelect.run();
             }

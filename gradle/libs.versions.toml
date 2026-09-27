@@ -4,6 +4,9 @@ oci = "3.97.0"
 jackson = "2.22.3"
 keyring = "1.0.4"
 slf4j = "2.0.20"
+sshd = "2.19.0"
+jediterm = "3.76"
+eddsa = "0.3.0"
 junit = "6.1.3"
 
 [libraries]
@@ -14,6 +17,10 @@ oci-httpclient = { module = "com.oracle.oci.sdk:oci-java-sdk-common-httpclient-j
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jackson-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
 java-keyring = { module = "com.github.javakeyring:java-keyring", version.ref = "keyring" }
+sshd-core = { module = "org.apache.sshd:sshd-core", version.ref = "sshd" }
+eddsa = { module = "net.i2p.crypto:eddsa", version.ref = "eddsa" }
+jediterm-core = { module = "org.jetbrains.jediterm:jediterm-core", version.ref = "jediterm" }
+jediterm-ui = { module = "org.jetbrains.jediterm:jediterm-ui", version.ref = "jediterm" }
 slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }

@@ -25,6 +25,10 @@ public class TitleBar extends JPanel {
     private final JLabel summary = new JLabel();
     private final JLabel lastRefresh = new JLabel();
     private final JButton refreshButton = Buttons.icon("refresh", "새로고침", 28);
+    private final JButton backButton = new JButton("대시보드", Icons.get("arrow-left", 15));
+    private final JLabel sessions = new JLabel();
+    private final JPanel dashboardLeft;
+    private final JPanel terminalLeft;
 
     public TitleBar(boolean demoMode) {
         super(new BorderLayout());
@@ -32,8 +36,7 @@ public class TitleBar extends JPanel {
         setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.DIVIDER));
 
         JPanel left = row(10);
-        left.add(placeholder("mac zeroInFullScreen"));
-        left.add(Box.createHorizontalStrut(6));
+        dashboardLeft = left;
         left.add(new JLabel(Icons.get("app", 18, Theme.ACCENT)));
         JLabel name = new JLabel("InfraDesk");
         name.setFont(name.getFont().deriveFont(Font.BOLD));
@@ -49,16 +52,60 @@ public class TitleBar extends JPanel {
             left.add(demo);
         }
 
+        terminalLeft = row(10);
+        backButton.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
+        backButton.setForeground(Theme.TEXT_SECONDARY);
+        backButton.setIconTextGap(6);
+        backButton.setFocusable(false);
+        terminalLeft.add(backButton);
+        JLabel slash = new JLabel("/");
+        slash.setForeground(Theme.DASHED_BORDER);
+        terminalLeft.add(slash);
+        JLabel terminalTitle = new JLabel("SSH 터미널");
+        terminalTitle.setFont(terminalTitle.getFont().deriveFont(Font.BOLD));
+        terminalLeft.add(terminalTitle);
+        terminalLeft.setVisible(false);
+
+        JPanel leftWrap = row(0);
+        leftWrap.add(placeholder("mac zeroInFullScreen"));
+        leftWrap.add(Box.createHorizontalStrut(6));
+        leftWrap.add(dashboardLeft);
+        leftWrap.add(terminalLeft);
+
         JPanel right = row(12);
         lastRefresh.setForeground(Theme.TEXT_MUTED);
         lastRefresh.putClientProperty(FlatClientProperties.STYLE, "font: -1");
+        sessions.setForeground(Theme.TEXT_MUTED);
+        sessions.putClientProperty(FlatClientProperties.STYLE, "font: -1");
+        sessions.setVisible(false);
+        sessions.setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
+        right.add(sessions);
         right.add(lastRefresh);
         right.add(refreshButton);
         right.add(placeholder("win"));
 
-        add(left, BorderLayout.WEST);
+        add(leftWrap, BorderLayout.WEST);
         add(right, BorderLayout.EAST);
         setCounts(0, 0);
+    }
+
+    public JButton backButton() {
+        return backButton;
+    }
+
+    /** Switches between the dashboard header and the "← 대시보드 / SSH 터미널" breadcrumb. */
+    public void setTerminalMode(boolean terminal) {
+        dashboardLeft.setVisible(!terminal);
+        terminalLeft.setVisible(terminal);
+        sessions.setVisible(terminal);
+        lastRefresh.setVisible(!terminal);
+        refreshButton.setVisible(!terminal);
+        revalidate();
+        repaint();
+    }
+
+    public void setSessionCount(int count) {
+        sessions.setText("열린 세션 " + count + "개");
     }
 
     public JButton refreshButton() {

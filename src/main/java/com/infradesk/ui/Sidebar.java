@@ -42,6 +42,7 @@ public class Sidebar extends JPanel {
     private String selectedServerId;
     private Consumer<Server> onSelect = s -> { };
     private Consumer<Account> onRemoveAccount = a -> { };
+    private Consumer<Server> onSshSettings = s -> { };
     private boolean loading;
 
     public Sidebar() {
@@ -114,6 +115,10 @@ public class Sidebar extends JPanel {
         this.onSelect = listener;
     }
 
+    public void onSshSettings(Consumer<Server> listener) {
+        this.onSshSettings = listener;
+    }
+
     public void onRemoveAccount(Consumer<Account> listener) {
         this.onRemoveAccount = listener;
     }
@@ -169,7 +174,7 @@ public class Sidebar extends JPanel {
                 ServerListItem item = new ServerListItem(s, () -> {
                     select(s.id());
                     onSelect.accept(s);
-                });
+                }, () -> onSshSettings.accept(s));
                 item.setSelected(s.id().equals(selectedServerId));
                 item.setAlignmentX(Component.LEFT_ALIGNMENT);
                 items.add(item);

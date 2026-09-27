@@ -8,6 +8,9 @@ import com.infradesk.service.AccountInventory;
 import com.infradesk.service.InventoryService;
 import com.infradesk.service.RefreshPolicy;
 import com.infradesk.service.ServerAction;
+import com.infradesk.service.TerminalService;
+import com.infradesk.ui.terminal.SshSettingsDialog;
+import com.infradesk.ui.terminal.TerminalView;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -34,8 +37,14 @@ public class MainFrame extends JFrame {
 
     private static final String EMPTY = "empty";
     private static final String DETAIL = "detail";
+    private static final String DASHBOARD = "dashboard";
+    private static final String TERMINAL = "terminal";
 
     private final InventoryService service;
+    private final TerminalService terminalService;
+    private final CardLayout screens = new CardLayout();
+    private final JPanel screenPanel = new JPanel(screens);
+    private final TerminalView terminalView;
     private final boolean demoMode;
     private final TitleBar titleBar;
     private final Sidebar sidebar = new Sidebar();
@@ -52,12 +61,20 @@ public class MainFrame extends JFrame {
     private String selectedServerId;
     private boolean refreshing;
 
-    public MainFrame(InventoryService service, boolean demoMode) {
+    public MainFrame(InventoryService service, TerminalService terminalService, boolean demoMode) {
         super("InfraDesk");
         this.service = service;
+        this.terminalService = terminalService;
+        this.terminalView = new TerminalView(terminalService, this::editSshSettings, this::allServers);
         this.demoMode = demoMode;
         this.titleBar = new TitleBar(demoMode);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                terminalView.closeAll();
+            }
+        });
         setMinimumSize(new Dimension(960, 600));
         setSize(1280, 800);
         setLocationRelativeTo(null);
@@ -75,12 +92,24 @@ public class MainFrame extends JFrame {
         content.add(emptyState(), EMPTY);
         content.add(detail, DETAIL);
 
+        JPanel dashboard = new JPanel(new BorderLayout());
+        dashboard.setBackground(Theme.APP_BG);
+        dashboard.add(sidebar, BorderLayout.WEST);
+        dashboard.add(content, BorderLayout.CENTER);
+        screenPanel.add(dashboard, DASHBOARD);
+        screenPanel.add(terminalView, TERMINAL);
+
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Theme.APP_BG);
         root.add(titleBar, BorderLayout.NORTH);
-        root.add(sidebar, BorderLayout.WEST);
-        root.add(content, BorderLayout.CENTER);
+        root.add(screenPanel, BorderLayout.CENTER);
         setContentPane(root);
+
+        titleBar.backButton().addActionListener(e -> showDashboard());
+        terminalView.onCountChange(titleBar::setSessionCount);
+        terminalView.onEmpty(this::showDashboard);
+        detail.onSsh(this::openSsh);
+        sidebar.onSshSettings(this::editSshSettings);
 
         titleBar.refreshButton().addActionListener(e -> refresh());
         sidebar.onAddAccount(this::addAccount);
@@ -149,6 +178,46 @@ public class MainFrame extends JFrame {
         RefreshPolicy.Plan plan = policy.next(inventory);
         pollTimer.setInitialDelay((int) plan.delay().toMillis());
         pollTimer.restart();
+    }
+
+    private void openSsh() {
+        findServer(selectedServerId).ifPresent(server -> {
+            if (!terminalService.isConfigured(server.id())
+                    && !new SshSettingsDialog(this, terminalService, server).showDialog()) {
+                return;
+            }
+            showTerminal();
+            terminalView.openOrSelect(server);
+        });
+    }
+
+    private void editSshSettings(Server server) {
+        if (new SshSettingsDialog(this, terminalService, server).showDialog()) {
+            terminalView.reconnect(server.id());
+        }
+    }
+
+    private List<Server> allServers() {
+        return inventory.stream().flatMap(i -> i.servers().stream()).toList();
+    }
+
+    /** Public so the snapshot tool can render the terminal screen. */
+    public void showTerminal() {
+        screens.show(screenPanel, TERMINAL);
+        titleBar.setTerminalMode(true);
+        titleBar.setSessionCount(terminalView.sessionCount());
+        terminalView.focusActive();
+    }
+
+    private void showDashboard() {
+        screens.show(screenPanel, DASHBOARD);
+        titleBar.setTerminalMode(false);
+    }
+
+    /** Opens a terminal tab for the server without the settings check; for the snapshot tool. */
+    public void openTerminalFor(Server server) {
+        showTerminal();
+        terminalView.openOrSelect(server);
     }
 
     private void runAction(ServerAction action) {

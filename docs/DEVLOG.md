@@ -4,6 +4,44 @@
 
 ---
 
+## 2026-09-28 · 4단계: SSH 터미널
+
+### 한 일
+- **ssh 계층** (클라우드와 무관): `ShellConnector`/`ShellSession` 인터페이스, `MinaShellConnector`(Apache MINA SSHD), `DemoShellConnector`(데모용 가짜 셸).
+- **호스트 키 검증**: 설정 디렉터리의 `known_hosts` 사용. 처음 보는 서버는 지문(SHA256)을 보여주고 사용자에게 물어봄. 저장된 키와 다르면 **연결 거부** (중간자 공격 방지).
+- **서버별 SSH 설정**: 사용자 이름·포트는 `ssh-settings.json`(소유자만 읽기), 개인키·키 암호는 OS 키체인 (`server.<id>.sshKey`).
+- **터미널 화면** (목업 `terminal.html`): 타이틀바가 "← 대시보드 / SSH 터미널 · 열린 세션 N개"로 바뀜. 서버별 탭(연결 상태 점, 닫기, 가운데 클릭으로 닫기), [+]로 실행 중인 서버 골라 새 세션. 하단 상태바 "연결됨 · user@ip:22 · UTF-8 · 120×32".
+- 연결 실패 시 이유(인증 실패, 시간 초과, 연결 거부, 호스트 키 변경, 공인 IP 없음)와 [다시 연결] [SSH 설정] 버튼.
+- 서버 상세의 [SSH 열기]: 실행 중일 때만 켜짐. 설정이 없으면 SSH 설정 창부터. 이미 열린 세션이 있으면 그 탭으로 이동.
+- 사이드바 서버 우클릭 → "SSH 설정…".
+- 데모 모드: 키 없이 가짜 셸 (`help`, `whoami`, `uptime`, `free -h`, `df -h`, `ls`, `ps`, `docker ps`, `date`, `echo`, `clear`, `exit`).
+- 스냅샷 `terminal.png`, `ssh-settings.png`.
+- 테스트 39개 통과. 그중 SSH 6개는 **테스트 안에서 MINA SSH 서버를 띄워** 실제로 접속: RSA/ed25519 키 인증, 첫 접속 확인 후 known_hosts 기억, 호스트 키 거부, 호스트 키 변경 거부, 잘못된 키로 인증 실패, 잘못된 키 파일.
+
+### 결정한 것
+| 항목 | 결정 | 이유 |
+|---|---|---|
+| 호스트 키 | TOFU(첫 접속 시 확인) + 변경 시 거부 | 일반 `ssh`와 같은 모델. 변경된 키를 자동 수락하면 중간자 공격에 열림 |
+| 연결별 상태 전달 | MINA connection context 속성 | 호스트 키 확인이 MINA I/O 스레드에서 돌아서 ThreadLocal로는 전달 안 됨 |
+| PTY | `xterm-256color`, 120×32로 열고 창 크기에 맞춰 `window-change` | JediTerm이 레이아웃 후 크기를 알려줌 |
+| 기본 사용자 이름 | `ubuntu` (목록: ubuntu, opc, ec2-user, root) | 서버 OS를 아직 모름. SSH로 OS를 알아내면 추천값 개선 가능 |
+| 오른쪽 패널(저장된 명령어·일괄 실행·SFTP) | 이번 단계에서 제외 | CLAUDE.md 6단계 기능 |
+| 터미널 기본 스타일 | `getDefaultStyle()` 재정의 (폐기 예정 API) | JediTerm 3.76이 초기 스타일에 여전히 사용하고, 기본값이 흰 배경이라 색 없는 인사말 뒤에 흰 막대가 생김 |
+
+### 추가한 라이브러리
+- `sshd-core` 2.19.0 — SSH 클라이언트 (3.0은 아직 마일스톤)
+- `eddsa` 0.3.0 (runtime) — MINA SSHD가 ed25519 키를 읽는 데 필요. 없으면 `id_ed25519` 키를 못 읽음
+- `jediterm-core`, `jediterm-ui` 3.76 (JetBrains 저장소, Kotlin stdlib 포함) — 터미널 에뮬레이터
+
+### 남은 일 / TODO
+- 실제 서버 SSH 접속 확인 (서버 SSH 키 필요).
+- 한글이 터미널에서 두 칸 폭이라 글자 사이가 넓어 보임 (Menlo에 한글 글리프가 없어 대체 글꼴 사용). 한글 지원 고정폭 글꼴(D2Coding 등, OFL) 번들 검토.
+- 데모 상태바 주소가 `ubuntu@demo:web-server:22`로 보임 (데모 전용 표기).
+- 대시보드의 미니 터미널(목업 4번 영역)은 아직 없음.
+- 사설 IP / 배스천 경유 접속 없음.
+
+---
+
 ## 2026-09-28 · 3단계: 제어·자동 새로고침
 
 ### 한 일

@@ -8,7 +8,7 @@
 ui/ ─────► service/ ─────► core/ ◄───── provider/oracle/   (OCI SDK는 여기서만)
  │             │             ▲   ◄───── provider/demo/     (가짜 데이터)
  │             └──► storage/ ┘
- └──► ssh/  (4단계)
+ └──► ssh/  (MINA SSHD / 데모 셸)
 ```
 
 - **ui**: Swing 화면. `service`와 `core` 타입만 안다. 네트워크 작업은 `Async`로 EDT 밖에서.
@@ -16,7 +16,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 - **core**: 공통 모델과 인터페이스. 다른 패키지에 의존하지 않는다.
 - **provider/<cloud>**: `CloudProvider`·`CloudProviderFactory` 구현. SDK 타입을 `core` 모델로 변환해서 내보낸다.
 - **storage**: 계정 설정(JSON), 비밀값(OS 키체인).
-- **ssh**: 클라우드와 무관한 SSH 연결·세션 (4단계).
+- **ssh**: 클라우드와 무관한 SSH 연결·세션. `ShellConnector`(MINA / 데모), `ShellSession`, `known_hosts` 검증.
 - **app**: 진입점. 실제 모드와 데모 모드의 구성 요소를 조립한다.
 
 ## 실제 모드 vs 데모 모드
@@ -24,6 +24,8 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | | 실제 (`./gradlew run`) | 데모 (`./gradlew runDemo`) |
 |---|---|---|
 | 계정 저장 | `JsonAccountStore` | `InMemoryAccountStore` (가짜 계정 3개로 시작) |
+| SSH 설정 | `JsonSshSettingsStore` | `InMemorySshSettingsStore` (없어도 `ubuntu`로 접속) |
+| SSH 연결 | `MinaShellConnector` + `known_hosts` | `DemoShellConnector` (가짜 셸) |
 | 비밀값 | `KeychainSecretStore` | `InMemorySecretStore` |
 | provider | `OracleProviderFactory` | `DemoProviderFactory` (모든 ProviderType) |
 | 네트워크 | OCI API | 없음 (지연 시간만 흉내) |
@@ -39,6 +41,9 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `core.CloudProviderException` | SDK 예외를 감싼 공통 예외. 메시지는 사용자에게 보여줄 한국어 |
 | `service.InventoryService` | `loadAll()` / `load(accounts)`(계정별 병렬, 실패는 계정 단위로 `AccountInventory.error`), `control`, `addAccount`, `removeAccount`, `testConnection` |
 | `service.ServerAction` | `START`, `STOP`, `REBOOT`. 확인 창이 필요한지(`needsConfirmation`) 포함 |
+| `service.TerminalService` | 서버별 SSH 설정·키 저장, 공인 IP로 셸 열기 |
+| `ssh.ShellConnector` / `ShellSession` | 셸 열기 / 입출력 스트림·크기 조정·종료 대기 |
+| `ssh.SshException` | 종류(`CONNECT`, `AUTH`, `KEY_FORMAT`, `HOST_KEY_REJECTED`, `HOST_KEY_CHANGED`)와 한국어 메시지 |
 | `service.RefreshPolicy` | 다음 조회 시점과 대상 계정 결정 (평소 45초 전체, 전이·요청 직후 5초 해당 계정만) |
 | `storage.SecretStore` | 키: `account.<accountId>.<secretName>` (예: `privateKey`) |
 
@@ -50,7 +55,19 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | Windows | `%APPDATA%\InfraDesk\accounts.json` |
 | 기타 | `$XDG_CONFIG_HOME/infradesk` 또는 `~/.config/infradesk` |
 
-API 개인키는 파일이 아니라 OS 키체인(서비스 이름 `InfraDesk`)에 저장된다.
+| 파일 | 내용 |
+|---|---|
+| `accounts.json` | 계정 설정 (OCID, fingerprint, 리전) |
+| `ssh-settings.json` | 서버별 SSH 사용자 이름·포트 |
+| `known_hosts` | 신뢰한 SSH 호스트 키 (OpenSSH 형식) |
+
+API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서비스 이름 `InfraDesk`)에 저장된다.
+
+| 키체인 항목 | 내용 |
+|---|---|
+| `account.<accountId>.privateKey` | OCI API 개인키 |
+| `server.<serverId>.sshKey` | SSH 개인키 |
+| `server.<serverId>.sshPassphrase` | SSH 키 암호 (있을 때만) |
 
 ## OCI 매핑
 
@@ -70,6 +87,16 @@ API 개인키는 파일이 아니라 OS 키체인(서비스 이름 `InfraDesk`)�
           → 안정 상태가 되면 45초 전체 조회로 복귀
 ```
 
+## SSH 연결 흐름
+
+```
+[SSH 열기] → 설정 없음? → SshSettingsDialog (키 → 키체인)
+          → TerminalView 탭 추가 → Async: TerminalService.open(server)
+             → MinaShellConnector: connect → 호스트 키 확인(known_hosts / HostKeyDialog)
+               → 공개키 인증 → shell 채널(PTY xterm-256color)
+          → ShellTtyConnector로 JediTerm에 연결 → 창 크기 변경 시 window-change
+```
+
 ## UI 구성 (`com.infradesk.ui`)
 
 | 클래스 | 역할 |
@@ -81,6 +108,10 @@ API 개인키는 파일이 아니라 OS 키체인(서비스 이름 `InfraDesk`)�
 | `ServerDetailPanel` | 서버 헤더, 시작/정지/재부팅 버튼(상태별 활성화), 요청 결과 한 줄, 정보 그리드 |
 | `AddAccountDialog` | 계정 추가, 연결 테스트 |
 | `Async` | 가상 스레드에서 작업 → 결과는 EDT로 |
+| `terminal.TerminalView` | 세션 탭 모음, 새 세션 메뉴 |
+| `terminal.TerminalPanel` | 탭 하나: 연결, JediTerm 위젯, 상태바, 실패 안내 |
+| `terminal.SshSettingsDialog` | 서버별 사용자 이름·포트·SSH 키 등록 |
+| `terminal.HostKeyDialog` | 처음 보는 호스트 키 확인 (어느 스레드에서든 호출 가능) |
 | `components.*` | `Buttons`, `DashedButton`, `StatusDot`, `StatusBadge`, `RoundedPanel` |
 
 ## 빌드·실행

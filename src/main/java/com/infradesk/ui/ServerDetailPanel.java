@@ -38,6 +38,7 @@ public class ServerDetailPanel extends JPanel {
     private final JButton startButton = Buttons.secondary("시작", "play");
     private final JLabel actionStatus = new JLabel(" ");
     private Consumer<ServerAction> onAction = a -> { };
+    private Runnable onSsh = () -> { };
     private Server server;
     private boolean busy;
 
@@ -60,12 +61,14 @@ public class ServerDetailPanel extends JPanel {
         add(infoGrid());
         add(Box.createVerticalGlue());
 
-        // Wired in stage 4.
-        sshButton.setEnabled(false);
-        sshButton.setToolTipText("4단계에서 연결돼요");
+        sshButton.addActionListener(e -> onSsh.run());
         startButton.addActionListener(e -> onAction.accept(ServerAction.START));
         stopButton.addActionListener(e -> onAction.accept(ServerAction.STOP));
         rebootButton.addActionListener(e -> onAction.accept(ServerAction.REBOOT));
+    }
+
+    public void onSsh(Runnable listener) {
+        this.onSsh = listener;
     }
 
     public void onAction(Consumer<ServerAction> listener) {
@@ -95,6 +98,8 @@ public class ServerDetailPanel extends JPanel {
         startButton.setEnabled(!busy && status.canStart());
         stopButton.setEnabled(!busy && status.canStop());
         rebootButton.setEnabled(!busy && status.canReboot());
+        sshButton.setEnabled(status == ServerStatus.RUNNING);
+        sshButton.setToolTipText(status == ServerStatus.RUNNING ? null : "서버가 실행 중일 때 연결할 수 있어요");
         String reason = busy ? "요청을 보내는 중이에요"
                 : status.isTransitional() ? status.label() + "이에요. 끝나면 다시 누를 수 있어요" : null;
         for (JButton b : new JButton[] {startButton, stopButton, rebootButton}) {
