@@ -40,6 +40,11 @@ public class OracleProvider implements CloudProvider {
     private final OracleMetrics metrics;
 
     public OracleProvider(Account account, Map<String, String> secrets) {
+        this(account, secrets, null);
+    }
+
+    /** @param endpointOverride base URL for every client (tests only); null uses the region's endpoints */
+    OracleProvider(Account account, Map<String, String> secrets, String endpointOverride) {
         this.account = account;
         String tenancy = require(account, OracleProperties.TENANCY_OCID);
         String privateKey = secrets.get(AccountSecrets.PRIVATE_KEY);
@@ -64,6 +69,11 @@ public class OracleProvider implements CloudProvider {
         this.compute = ComputeClient.builder().build(auth);
         this.network = VirtualNetworkClient.builder().build(auth);
         this.monitoring = MonitoringClient.builder().build(auth);
+        if (endpointOverride != null) {
+            compute.setEndpoint(endpointOverride);
+            network.setEndpoint(endpointOverride);
+            monitoring.setEndpoint(endpointOverride);
+        }
         this.metrics = new OracleMetrics(monitoring, compartmentId, java.time.Clock.systemUTC());
     }
 
