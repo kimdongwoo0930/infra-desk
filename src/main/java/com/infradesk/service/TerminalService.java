@@ -1,6 +1,7 @@
 package com.infradesk.service;
 
 import com.infradesk.core.Server;
+import com.infradesk.ssh.HostFacts;
 import com.infradesk.ssh.HostKeyPrompt;
 import com.infradesk.ssh.ProcStats;
 import com.infradesk.ssh.SshConfig;
@@ -161,6 +162,15 @@ public class TerminalService {
             watchdog.interrupt();
             session.close();
         }
+    }
+
+    /** Reads uptime, OS, disk and listening ports over SSH (one short exec). */
+    public HostFacts facts(Server server, HostKeyPrompt prompt) {
+        ExecResult r = run(server, HostFacts.COMMAND, prompt, Duration.ofSeconds(20));
+        if (r.error() != null) {
+            throw new SshException(SshException.Kind.CHANNEL, r.error());
+        }
+        return HostFacts.parse(r.output());
     }
 
     /** Opens SFTP to the server with its saved SSH settings. */

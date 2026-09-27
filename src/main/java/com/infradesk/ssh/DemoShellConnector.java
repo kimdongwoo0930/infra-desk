@@ -46,6 +46,9 @@ public class DemoShellConnector implements ShellConnector {
         if (command.equals(ProcStats.COMMAND)) {
             return new DemoStatsSession(target, hostnameOf(target), statsInterval);
         }
+        if (command.equals(HostFacts.COMMAND)) {
+            return new FinishedSession(target.address(), demoFacts(hostnameOf(target)), 0);
+        }
         try {
             Thread.sleep(latency);
         } catch (InterruptedException e) {
@@ -64,6 +67,23 @@ public class DemoShellConnector implements ShellConnector {
             Thread.currentThread().interrupt();
         }
         return new DemoRemoteFiles(target.username(), hostnameOf(target));
+    }
+
+    /** Plausible HostFacts output that varies a little per host. */
+    private static String demoFacts(String host) {
+        int seed = Math.floorMod(host.hashCode(), 20);
+        long totalKb = 100L * 1024 * 1024 * (seed % 2 == 0 ? 1 : 2) - 1024 * 1024;
+        long usedKb = totalKb * (30 + seed * 2) / 100;
+        String ports = seed % 3 == 0 ? "22 80 443" : seed % 3 == 1 ? "22 8080" : "22 80 443 3000";
+        StringBuilder ss = new StringBuilder("State  Recv-Q Send-Q Local Address:Port Peer Address:Port\n");
+        for (String p : ports.split(" ")) {
+            ss.append("LISTEN 0 4096 0.0.0.0:").append(p).append(" 0.0.0.0:*\n");
+        }
+        ss.append("LISTEN 0 4096 127.0.0.1:6379 0.0.0.0:*\n");
+        return "@uptime\n" + (86400L * (3 + seed) + 3600L * (seed % 24)) + ".42 1000.0\n"
+                + "@os\nUbuntu 22.04.4 LTS\n"
+                + "@disk\n/dev/sda1 " + totalKb + " " + usedKb + " " + (totalKb - usedKb) + " 47% /\n"
+                + "@ports\n" + ss;
     }
 
     /** A command that already ran: its output, then EOF. */

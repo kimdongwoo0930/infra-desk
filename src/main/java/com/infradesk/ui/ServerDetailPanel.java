@@ -136,11 +136,63 @@ public class ServerDetailPanel extends JPanel {
         publicIp.setText(server.publicIpAddress().orElse(NONE));
         privateIp.setText(server.privateIpAddress().orElse(NONE));
         created.setText(server.createdAt() == null ? NONE : DATE.format(server.createdAt()));
-        // Filled over SSH in later stages.
-        uptime.setText(NONE);
-        os.setText(NONE);
-        bootVolume.setText(NONE);
-        ports.setText(NONE);
+        if (!sameServer) {
+            setFactsMessage(NONE);
+        }
+    }
+
+    /** Fills uptime, OS, boot volume and ports from an SSH read. */
+    public void setFacts(com.infradesk.ssh.HostFacts f) {
+        uptime.setText(f.uptime() == null ? NONE : formatUptime(f.uptime()));
+        uptime.setToolTipText(null);
+        os.setText(f.osName() == null ? NONE : f.osName());
+        os.setToolTipText(f.osName());
+        bootVolume.setText(f.diskTotal() <= 0 ? NONE
+                : gb(f.diskUsed()) + " / " + gb(f.diskTotal()) + " GB");
+        bootVolume.setToolTipText(f.diskTotal() <= 0 ? null
+                : "루트(/) 파일 시스템 사용량 " + Math.round(100.0 * f.diskUsed() / f.diskTotal()) + "%");
+        ports.setText(formatPorts(f.ports()));
+        ports.setToolTipText(f.ports().isEmpty() ? null : "외부에서 접속을 받는 TCP 포트 (localhost 전용 제외): "
+                + String.join(", ", f.ports().stream().map(String::valueOf).toList()));
+        for (JLabel l : new JLabel[] {uptime, os, bootVolume, ports}) {
+            l.setForeground(Theme.TEXT);
+        }
+    }
+
+    /** Shows the same short text (e.g. "SSH 설정 후 표시") in the four SSH-only cells. */
+    public void setFactsMessage(String message) {
+        for (JLabel l : new JLabel[] {uptime, os, bootVolume, ports}) {
+            l.setText(message);
+            l.setToolTipText(message.equals(NONE) ? null : message);
+            l.setForeground(message.equals(NONE) ? Theme.TEXT : Theme.TEXT_MUTED);
+        }
+    }
+
+    static String formatUptime(java.time.Duration d) {
+        long days = d.toDays();
+        long hours = d.toHoursPart();
+        long minutes = d.toMinutesPart();
+        if (days > 0) {
+            return days + "일 " + hours + "시간";
+        }
+        if (hours > 0) {
+            return hours + "시간 " + minutes + "분";
+        }
+        return Math.max(1, minutes) + "분";
+    }
+
+    static String formatPorts(java.util.List<Integer> ports) {
+        if (ports.isEmpty()) {
+            return "없음";
+        }
+        int shown = Math.min(4, ports.size());
+        String text = String.join(", ", ports.subList(0, shown).stream().map(String::valueOf).toList());
+        return ports.size() > shown ? text + " 외 " + (ports.size() - shown) + "개" : text;
+    }
+
+    private static String gb(long bytes) {
+        double v = bytes / (1024.0 * 1024 * 1024);
+        return v >= 10 ? String.valueOf(Math.round(v)) : String.format(java.util.Locale.ROOT, "%.1f", v);
     }
 
     private JPanel header() {

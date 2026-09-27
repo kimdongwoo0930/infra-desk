@@ -63,6 +63,10 @@ public class MainFrame extends JFrame {
     /** OCI aggregates metrics per minute, so polling faster gains nothing. */
     private final Timer metricsTimer;
     private LiveStats liveStats;
+    /** SSH-read facts per server id, reused for five minutes. */
+    private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.HostFacts>> factsCache =
+            new java.util.HashMap<>();
+    private static final java.time.Duration FACTS_TTL = java.time.Duration.ofMinutes(5);
     private final com.infradesk.ui.metrics.LiveController live;
     private boolean dashboardVisible = true;
     private String metricsServerId;
@@ -375,9 +379,11 @@ public class MainFrame extends JFrame {
 
     private void openSsh() {
         findServer(selectedServerId).ifPresent(server -> {
-            if (!terminalService.isConfigured(server.id())
-                    && !new SshSettingsDialog(this, terminalService, server).showDialog()) {
-                return;
+            if (!terminalService.isConfigured(server.id())) {
+                if (!new SshSettingsDialog(this, terminalService, server).showDialog()) {
+                    return;
+                }
+                loadFacts(server, true);
             }
             showTerminal();
             terminalView.openOrSelect(server);
@@ -387,7 +393,39 @@ public class MainFrame extends JFrame {
     private void editSshSettings(Server server) {
         if (new SshSettingsDialog(this, terminalService, server).showDialog()) {
             terminalView.reconnect(server.id());
+            if (server.id().equals(selectedServerId)) {
+                loadFacts(server, true);
+            }
         }
+    }
+
+    /** Reads uptime/OS/disk/ports over SSH for the detail grid, cached for a few minutes. */
+    private void loadFacts(Server server, boolean force) {
+        if (server.status() != com.infradesk.core.ServerStatus.RUNNING) {
+            detail.setFactsMessage("—");
+            return;
+        }
+        if (!terminalService.isConfigured(server.id())) {
+            detail.setFactsMessage("SSH 설정 후 표시");
+            return;
+        }
+        var cached = factsCache.get(server.id());
+        if (!force && cached != null && cached.getKey().plus(FACTS_TTL).isAfter(java.time.Instant.now())) {
+            detail.setFacts(cached.getValue());
+            return;
+        }
+        detail.setFactsMessage("불러오는 중…");
+        String id = server.id();
+        Async.run(() -> terminalService.facts(server, new HostKeyDialog(this)), facts -> {
+            factsCache.put(id, java.util.Map.entry(java.time.Instant.now(), facts));
+            if (id.equals(selectedServerId)) {
+                detail.setFacts(facts);
+            }
+        }, err -> {
+            if (id.equals(selectedServerId)) {
+                detail.setFactsMessage("SSH로 읽지 못함");
+            }
+        });
     }
 
     private List<Server> allServers() {
@@ -501,8 +539,10 @@ public class MainFrame extends JFrame {
         if (switched) {
             live.stop();
             loadMetrics(server, true);
+            loadFacts(server, false);
         } else if (server.status() != metricsServerStatus) {
             loadMetrics(server, server.status() == com.infradesk.core.ServerStatus.RUNNING);
+            loadFacts(server, true);
         }
     }
 
