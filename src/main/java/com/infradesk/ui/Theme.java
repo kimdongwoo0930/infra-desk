@@ -60,6 +60,10 @@ public final class Theme {
                 Map.entry("Label.disabledForeground", hex(TEXT_MUTED)),
                 Map.entry("TitlePane.background", hex(PANEL_BG)),
                 Map.entry("TitlePane.inactiveBackground", hex(PANEL_BG)),
+                // FlatLaf on macOS otherwise shows every popup as a separate native window (for the
+                // shadow and rounded border). Inside a modal dialog that window left the dialog
+                // without keyboard/mouse input; plain Swing popups draw inside the window instead.
+                Map.entry("Popup.dropShadowPainted", "false"),
                 Map.entry("ScrollBar.width", "10"),
                 Map.entry("ScrollBar.thumbArc", "999"),
                 Map.entry("ScrollBar.thumbInsets", "2,2,2,2")));
@@ -70,7 +74,7 @@ public final class Theme {
             FlatDarculaLaf.setup();
         }
         warmUpGlyphCache();
-        com.infradesk.ui.components.TextContextMenu.install();
+        com.infradesk.ui.components.TextUndo.install();
     }
 
     /**

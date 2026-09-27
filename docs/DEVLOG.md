@@ -19,7 +19,12 @@
   1. 영문만 들어가는 칸(OCID, fingerprint, SSH 포트, 웹훅 URL)은 `enableInputMethods(false)` → 입력기를 거치지 않으므로 ⌘V가 바로 도착해야 함. 한글 오입력도 막음.
   2. 우클릭 메뉴를 표준 `setComponentPopupMenu`로 교체 (입력칸이 추가될 때 붙임). 직접 띄우기·이벤트 소비 제거.
   3. macOS 메뉴 막대에 "편집" 메뉴(잘라내기·복사·붙여넣기·모두 선택). 입력칸과 터미널 모두에 동작. 대화 상자가 떠 있을 때도 보이도록 기본 메뉴 막대로도 등록.
-- 사용자 확인 필요: 한글 입력 상태에서 OCID 칸 ⌘V, 표시 이름 칸(입력기 유지) 붙여넣기, 우클릭 붙여넣기 뒤 다른 칸 클릭, 영문 상태에서 ⌘V가 두 번 붙지 않는지.
+- 2차 확인 (`--debug-input`): 입력기를 끈 OCID 칸에서는 이제 ⌘Z, ⇧⌘← 같은 단축키가 도착함 → 입력기 문제는 해결된 것으로 보임.
+- 그런데 표준 우클릭 메뉴로 바꿔도 **메뉴를 여는 순간** 또 입력이 멈춤 (`MOUSE_PRESS popup=true` → `FOCUS_GAINED JRootPane` → 이후 입력 없음).
+  - 원인: FlatLaf `FlatPopupFactory`는 macOS에서 `Popup.dropShadowPainted`가 켜져 있으면 **모든 팝업을 네이티브 창(heavyweight)으로 강제**함 (그림자·둥근 테두리용). 모달 대화 상자 위의 이 창이 입력을 잡고 놓지 않음.
+  - 조치: `Popup.dropShadowPainted=false` → Swing 기본 규칙으로 창 안에 들어가면 창 내부(lightweight)에 그림. 같은 대화 상자의 리전 선택 상자 등 모든 팝업에 적용.
+  - 입력칸 우클릭 메뉴는 **제거** (두 번 멈춤 유발). 붙여넣기는 ⌘V와 메뉴 막대 "편집"으로.
+- 사용자가 ⌘Z를 눌렀는데 Swing 입력칸엔 실행 취소가 없음 → `components.TextUndo`: 모든 입력칸에 실행 취소/다시 실행(⌘Z, ⇧⌘Z), 편집 메뉴에도 추가.
 
 ### `~/.ssh/config`에서 SSH 설정 가져오기
 - 사용자가 이미 `~/.ssh/config`에 서버별 Host(HostName·User·IdentityFile)를 정리해 두고 있어서, SSH 설정 창을 처음 열 때 **서버 공인 IP와 HostName이 같은 Host**를 찾아 사용자 이름·포트·키 파일을 미리 채움. 없으면 서버 이름과 같은 Host 별칭으로 찾음.

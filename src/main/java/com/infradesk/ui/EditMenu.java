@@ -51,6 +51,11 @@ public final class EditMenu {
 
     private static JMenuBar create() {
         JMenu edit = new JMenu("편집");
+        edit.add(item("실행 취소", KeyEvent.VK_Z, () -> com.infradesk.ui.components.TextUndo.undo(focused())));
+        JMenuItem redo = item("다시 실행", KeyEvent.VK_Z, () -> com.infradesk.ui.components.TextUndo.redo(focused()));
+        redo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.META_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
+        edit.add(redo);
+        edit.addSeparator();
         edit.add(item("잘라내기", KeyEvent.VK_X, EditMenu::cut));
         edit.add(item("복사", KeyEvent.VK_C, EditMenu::copy));
         edit.add(item("붙여넣기", KeyEvent.VK_V, EditMenu::paste));
