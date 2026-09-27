@@ -49,7 +49,21 @@ public class InventoryService {
 
     /** Loads every account's servers in parallel. A failing account doesn't fail the others. */
     public List<AccountInventory> loadAll() {
-        List<Account> accounts = accounts();
+        return load(accounts());
+    }
+
+    /** Loads one account's servers; failures are reported in the result, not thrown. */
+    public AccountInventory load(Account account) {
+        try {
+            return new AccountInventory(account, provider(account).listServers(), null);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "Failed to load servers for account " + account.id() + ": " + e.getMessage());
+            return new AccountInventory(account, List.of(), e.getMessage());
+        }
+    }
+
+    /** Loads only the given accounts, in parallel. */
+    public List<AccountInventory> load(java.util.Collection<Account> accounts) {
         try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<AccountInventory>> futures = new ArrayList<>();
             for (Account a : accounts) {
@@ -68,12 +82,13 @@ public class InventoryService {
         }
     }
 
-    private AccountInventory load(Account account) {
-        try {
-            return new AccountInventory(account, provider(account).listServers(), null);
-        } catch (RuntimeException e) {
-            LOG.log(Level.WARNING, "Failed to load servers for account " + account.id() + ": " + e.getMessage());
-            return new AccountInventory(account, List.of(), e.getMessage());
+    /** Starts, stops or reboots a server. Returns once the provider accepted the request. */
+    public void control(Account account, String serverId, ServerAction action) {
+        CloudProvider p = provider(account);
+        switch (action) {
+            case START -> p.start(serverId);
+            case STOP -> p.stop(serverId);
+            case REBOOT -> p.reboot(serverId);
         }
     }
 

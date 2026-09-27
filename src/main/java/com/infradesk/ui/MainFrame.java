@@ -6,6 +6,8 @@ import com.infradesk.core.Account;
 import com.infradesk.core.Server;
 import com.infradesk.service.AccountInventory;
 import com.infradesk.service.InventoryService;
+import com.infradesk.service.RefreshPolicy;
+import com.infradesk.service.ServerAction;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -13,15 +15,19 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagLayout;
+import java.time.Clock;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.Timer;
 
 /** Main window: title bar on top, sidebar on the left, server detail on the right. */
 public class MainFrame extends JFrame {
@@ -38,6 +44,9 @@ public class MainFrame extends JFrame {
     private final JPanel content = new JPanel(cards);
     private final JLabel emptyTitle = new JLabel();
     private final JLabel emptyHint = new JLabel();
+
+    private final RefreshPolicy policy = new RefreshPolicy(Clock.systemUTC());
+    private final Timer pollTimer;
 
     private List<AccountInventory> inventory = List.of();
     private String selectedServerId;
@@ -77,23 +86,111 @@ public class MainFrame extends JFrame {
         sidebar.onAddAccount(this::addAccount);
         sidebar.onRemoveAccount(this::removeAccount);
         sidebar.onSelect(this::showServer);
+        detail.onAction(this::runAction);
         showEmpty();
+
+        pollTimer = new Timer((int) RefreshPolicy.NORMAL_INTERVAL.toMillis(), e -> poll());
+        pollTimer.setRepeats(false);
     }
 
     /** Reloads every account's servers in the background. */
     public void refresh() {
+        reload(Set.of(), true);
+    }
+
+    /** Timer tick: reload what the policy asks for. */
+    private void poll() {
+        RefreshPolicy.Plan plan = policy.next(inventory);
+        reload(plan.accountIds(), false);
+    }
+
+    /**
+     * @param accountIds accounts to reload; empty reloads all
+     * @param userInitiated whether to surface failures in a dialog (timer failures stay quiet)
+     */
+    private void reload(Set<String> accountIds, boolean userInitiated) {
         if (refreshing) {
             return;
         }
+        pollTimer.stop();
         refreshing = true;
         titleBar.setRefreshing(true);
         sidebar.setLoading(true);
-        Async.run(service::loadAll, this::setInventory, err -> {
-            refreshing = false;
-            titleBar.setRefreshing(false);
-            sidebar.setLoading(false);
-            JOptionPane.showMessageDialog(this, Async.message(err), "새로고침 실패", JOptionPane.WARNING_MESSAGE);
-        });
+        boolean full = accountIds.isEmpty();
+        List<Account> targets = full ? null : inventory.stream().map(AccountInventory::account)
+                .filter(a -> accountIds.contains(a.id())).toList();
+        Async.run(() -> full ? service.loadAll() : service.load(targets),
+                loaded -> setInventory(full ? loaded : merge(loaded)),
+                err -> {
+                    refreshing = false;
+                    titleBar.setRefreshing(false);
+                    sidebar.setLoading(false);
+                    scheduleNext();
+                    if (userInitiated) {
+                        JOptionPane.showMessageDialog(this, Async.message(err), "새로고침 실패", JOptionPane.WARNING_MESSAGE);
+                    }
+                });
+    }
+
+    /** Replaces the reloaded accounts in the current inventory, keeping order. */
+    private List<AccountInventory> merge(List<AccountInventory> partial) {
+        List<AccountInventory> merged = new ArrayList<>(inventory);
+        for (AccountInventory p : partial) {
+            for (int i = 0; i < merged.size(); i++) {
+                if (merged.get(i).account().id().equals(p.account().id())) {
+                    merged.set(i, p);
+                }
+            }
+        }
+        return merged;
+    }
+
+    private void scheduleNext() {
+        RefreshPolicy.Plan plan = policy.next(inventory);
+        pollTimer.setInitialDelay((int) plan.delay().toMillis());
+        pollTimer.restart();
+    }
+
+    private void runAction(ServerAction action) {
+        Optional<Server> server = findServer(selectedServerId);
+        if (server.isEmpty()) {
+            return;
+        }
+        Server s = server.get();
+        Account account = accountOf(s).orElseThrow();
+        if (action.needsConfirmation() && !confirm(action, s, account)) {
+            return;
+        }
+        detail.setBusy(true, action.label() + " 요청을 보내는 중…");
+        Async.run(() -> {
+            service.control(account, s.id(), action);
+            return null;
+        }, ignored -> {
+            policy.actionSent(account.id());
+            detail.setBusy(false, action.label() + " 요청을 보냈어요. 상태를 5초마다 확인해요.");
+            reload(Set.of(account.id()), false);
+        }, err -> detail.showActionError(Async.message(err)));
+    }
+
+    private boolean confirm(ServerAction action, Server server, Account account) {
+        String detailText = switch (action) {
+            case STOP -> "서버에서 실행 중인 프로그램이 모두 멈춰요.";
+            case REBOOT -> "서버가 다시 시작되는 동안 잠시 연결이 끊겨요.";
+            case START -> "";
+        };
+        Object[] options = {action.label(), "취소"};
+        int choice = JOptionPane.showOptionDialog(this,
+                "'" + server.name() + "' 서버를 " + action.question() + "\n"
+                        + account.displayName() + " · " + server.publicIpAddress().orElse(server.region()) + "\n\n" + detailText,
+                "서버 " + action.label(), JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[1]);
+        return choice == 0;
+    }
+
+    private Optional<Account> accountOf(Server server) {
+        return inventory.stream()
+                .filter(i -> i.account().id().equals(server.accountId()))
+                .map(AccountInventory::account)
+                .findFirst();
     }
 
     /** Applies loaded data. Public so the snapshot tool can inject data synchronously. */
@@ -115,13 +212,11 @@ public class MainFrame extends JFrame {
             selectedServerId = null;
             showEmpty();
         }
+        scheduleNext();
     }
 
     private void showServer(Server server) {
-        Optional<Account> account = inventory.stream()
-                .filter(i -> i.account().id().equals(server.accountId()))
-                .map(AccountInventory::account)
-                .findFirst();
+        Optional<Account> account = accountOf(server);
         if (account.isEmpty()) {
             return;
         }

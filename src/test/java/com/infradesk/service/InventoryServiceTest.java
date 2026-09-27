@@ -25,9 +25,10 @@ class InventoryServiceTest {
     private static final Account OK = new Account("ok", "OK", ProviderType.ORACLE, "r", Map.of());
     private static final Account BAD = new Account("bad", "BAD", ProviderType.ORACLE, "r", Map.of());
 
-    /** Fails for the "bad" account, returns one server otherwise; records the secrets it got. */
+    /** Fails for the "bad" account, returns one server otherwise; records the actions it got. */
     private static final class FakeProvider implements CloudProvider {
         private final Account account;
+        final List<String> calls = new java.util.ArrayList<>();
 
         FakeProvider(Account account) {
             this.account = account;
@@ -44,14 +45,17 @@ class InventoryServiceTest {
 
         @Override
         public void start(String id) {
+            calls.add("start " + id);
         }
 
         @Override
         public void stop(String id) {
+            calls.add("stop " + id);
         }
 
         @Override
         public void reboot(String id) {
+            calls.add("reboot " + id);
         }
 
         @Override
@@ -94,6 +98,31 @@ class InventoryServiceTest {
         svc.removeAccount("ok");
         assertTrue(svc.accounts().isEmpty());
         assertTrue(secrets.get(SecretStore.accountKey("ok", AccountSecrets.PRIVATE_KEY)).isEmpty());
+    }
+
+    @Test
+    void controlDispatchesToTheAccountsProvider() {
+        List<FakeProvider> created = new java.util.ArrayList<>();
+        ProviderRegistry registry = new ProviderRegistry().register(ProviderType.ORACLE, (account, s) -> {
+            FakeProvider p = new FakeProvider(account);
+            created.add(p);
+            return p;
+        });
+        InventoryService svc = new InventoryService(new InMemoryAccountStore(List.of(OK)), new InMemorySecretStore(), registry);
+
+        svc.control(OK, "srv-1", ServerAction.STOP);
+        svc.control(OK, "srv-1", ServerAction.START);
+        svc.control(OK, "srv-1", ServerAction.REBOOT);
+
+        assertEquals(1, created.size(), "provider is cached per account");
+        assertEquals(List.of("stop srv-1", "start srv-1", "reboot srv-1"), created.getFirst().calls);
+    }
+
+    @Test
+    void onlyDisruptiveActionsNeedConfirmation() {
+        assertTrue(ServerAction.STOP.needsConfirmation());
+        assertTrue(ServerAction.REBOOT.needsConfirmation());
+        assertFalse(ServerAction.START.needsConfirmation());
     }
 
     @Test

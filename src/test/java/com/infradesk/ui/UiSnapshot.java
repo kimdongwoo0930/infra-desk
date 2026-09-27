@@ -34,6 +34,10 @@ public final class UiSnapshot {
         DIR.mkdirs();
         InventoryService service = InfraDeskApp.demoService(new DemoProviderFactory(Clock.systemUTC(), Duration.ZERO));
         List<AccountInventory> inventory = service.loadAll();
+        // Stop discord-bot so the "stopping" state can be rendered too.
+        var accountA = service.accounts().getFirst();
+        service.control(accountA, inventory.getFirst().servers().getFirst().id(), com.infradesk.service.ServerAction.STOP);
+        List<AccountInventory> stopping = service.loadAll();
 
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
@@ -45,6 +49,11 @@ public final class UiSnapshot {
                 MainFrame frame = new MainFrame(service, true);
                 frame.setInventory(inventory);
                 write(frame, frame.getContentPane(), 1280, 800, "main.png");
+
+                MainFrame stoppingFrame = new MainFrame(service, true);
+                stoppingFrame.setInventory(stopping);
+                write(stoppingFrame, stoppingFrame.getContentPane(), 1280, 800, "main-stopping.png");
+                stoppingFrame.dispose();
 
                 JDialog dialog = new AddAccountDialog(frame, service, false);
                 write(dialog, dialog.getContentPane(), dialog.getWidth(), dialog.getContentPane().getPreferredSize().height,

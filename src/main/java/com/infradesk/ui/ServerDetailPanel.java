@@ -3,6 +3,8 @@ package com.infradesk.ui;
 import com.formdev.flatlaf.FlatClientProperties;
 import com.infradesk.core.Account;
 import com.infradesk.core.Server;
+import com.infradesk.core.ServerStatus;
+import com.infradesk.service.ServerAction;
 import com.infradesk.ui.components.Buttons;
 import com.infradesk.ui.components.StatusBadge;
 
@@ -13,6 +15,7 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -32,6 +35,11 @@ public class ServerDetailPanel extends JPanel {
     private final JButton sshButton = Buttons.primary("SSH 열기", "terminal");
     private final JButton rebootButton = Buttons.secondary("재부팅", "refresh");
     private final JButton stopButton = Buttons.danger("정지", "stop");
+    private final JButton startButton = Buttons.secondary("시작", "play");
+    private final JLabel actionStatus = new JLabel(" ");
+    private Consumer<ServerAction> onAction = a -> { };
+    private Server server;
+    private boolean busy;
 
     private final JLabel cpuMem = value(false);
     private final JLabel publicIp = value(true);
@@ -52,16 +60,58 @@ public class ServerDetailPanel extends JPanel {
         add(infoGrid());
         add(Box.createVerticalGlue());
 
-        // Wired in later stages: control (3), SSH (4).
+        // Wired in stage 4.
         sshButton.setEnabled(false);
         sshButton.setToolTipText("4단계에서 연결돼요");
-        rebootButton.setEnabled(false);
-        rebootButton.setToolTipText("3단계에서 연결돼요");
-        stopButton.setEnabled(false);
-        stopButton.setToolTipText("3단계에서 연결돼요");
+        startButton.addActionListener(e -> onAction.accept(ServerAction.START));
+        stopButton.addActionListener(e -> onAction.accept(ServerAction.STOP));
+        rebootButton.addActionListener(e -> onAction.accept(ServerAction.REBOOT));
+    }
+
+    public void onAction(Consumer<ServerAction> listener) {
+        this.onAction = listener;
+    }
+
+    /** Disables the power buttons while a request is in flight and shows a short message. */
+    public void setBusy(boolean busy, String message) {
+        this.busy = busy;
+        actionStatus.setText(message == null || message.isEmpty() ? " " : message);
+        actionStatus.setForeground(Theme.TEXT_SECONDARY);
+        updateButtons();
+    }
+
+    public void showActionError(String message) {
+        this.busy = false;
+        actionStatus.setText(message);
+        actionStatus.setForeground(Theme.DANGER_TEXT);
+        updateButtons();
+    }
+
+    private void updateButtons() {
+        ServerStatus status = server == null ? ServerStatus.UNKNOWN : server.status();
+        boolean stopped = status == ServerStatus.STOPPED;
+        startButton.setVisible(stopped);
+        stopButton.setVisible(!stopped);
+        startButton.setEnabled(!busy && status.canStart());
+        stopButton.setEnabled(!busy && status.canStop());
+        rebootButton.setEnabled(!busy && status.canReboot());
+        String reason = busy ? "요청을 보내는 중이에요"
+                : status.isTransitional() ? status.label() + "이에요. 끝나면 다시 누를 수 있어요" : null;
+        for (JButton b : new JButton[] {startButton, stopButton, rebootButton}) {
+            b.setToolTipText(b.isEnabled() ? null : reason);
+        }
     }
 
     public void show(Server server, Account account) {
+        boolean sameServer = this.server != null && this.server.id().equals(server.id());
+        this.server = server;
+        if (!sameServer) {
+            busy = false;
+            actionStatus.setText(" ");
+        } else if (!server.status().isTransitional() && !busy) {
+            actionStatus.setText(" ");
+        }
+        updateButtons();
         title.setText(server.name());
         badge.setStatus(server.status());
         subtitle.setText(String.join(" · ", account.displayName(), nz(server.region()), nz(server.shape())));
@@ -99,12 +149,17 @@ public class ServerDetailPanel extends JPanel {
         left.add(titleRow);
         left.add(Box.createVerticalStrut(6));
         left.add(subtitle);
+        actionStatus.setAlignmentX(Component.LEFT_ALIGNMENT);
+        actionStatus.putClientProperty(FlatClientProperties.STYLE, "font: -1");
+        left.add(Box.createVerticalStrut(4));
+        left.add(actionStatus);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
         actions.add(sshButton);
         actions.add(rebootButton);
         actions.add(stopButton);
+        actions.add(startButton);
 
         header.add(left, BorderLayout.CENTER);
         header.add(actions, BorderLayout.EAST);

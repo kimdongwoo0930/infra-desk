@@ -37,7 +37,9 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `core.Account` | id, 표시 이름, `ProviderType`, 리전, `properties`(비밀 아닌 설정). 비밀값 없음 |
 | `core.Server` / `ServerStatus` / `Metrics` | 공통 모델. 상태는 정규화된 enum |
 | `core.CloudProviderException` | SDK 예외를 감싼 공통 예외. 메시지는 사용자에게 보여줄 한국어 |
-| `service.InventoryService` | `loadAll()`(계정별 병렬, 실패는 계정 단위로 `AccountInventory.error`), `addAccount`, `removeAccount`, `testConnection` |
+| `service.InventoryService` | `loadAll()` / `load(accounts)`(계정별 병렬, 실패는 계정 단위로 `AccountInventory.error`), `control`, `addAccount`, `removeAccount`, `testConnection` |
+| `service.ServerAction` | `START`, `STOP`, `REBOOT`. 확인 창이 필요한지(`needsConfirmation`) 포함 |
+| `service.RefreshPolicy` | 다음 조회 시점과 대상 계정 결정 (평소 45초 전체, 전이·요청 직후 5초 해당 계정만) |
 | `storage.SecretStore` | 키: `account.<accountId>.<secretName>` (예: `privateKey`) |
 
 ## 저장 위치
@@ -59,15 +61,24 @@ API 개인키는 파일이 아니라 OS 키체인(서비스 이름 `InfraDesk`)�
 | 정지 / 재부팅 | `SOFTSTOP` / `SOFTRESET` |
 | 401 / 403·404 / 409 / 429 | 인증 실패 / 권한·OCID 확인 / 다른 작업 중 / 요청 한도 |
 
+## 제어 흐름
+
+```
+[정지] 클릭 → 확인 창 → Async: service.control(STOP)
+          → policy.actionSent(account) → 해당 계정 즉시 재조회
+          → RefreshPolicy가 5초 주기 유지 (전이 상태 또는 요청 후 20초)
+          → 안정 상태가 되면 45초 전체 조회로 복귀
+```
+
 ## UI 구성 (`com.infradesk.ui`)
 
 | 클래스 | 역할 |
 |---|---|
 | `Theme`, `Icons` | DESIGN.md 색상, FlatLaf 설치, SVG 아이콘 |
-| `MainFrame` | 메인 창. 새로고침, 선택 유지, 계정 추가/삭제 흐름 |
+| `MainFrame` | 메인 창. 조회 타이머, 부분 새로고침 병합, 제어 요청·확인 창, 선택 유지, 계정 추가/삭제 |
 | `TitleBar` | 앱 이름, 서버·계정 수, 데모 배지, 마지막 새로고침 |
 | `Sidebar`, `ServerListItem` | 검색, 계정별 그룹, 서버 행 |
-| `ServerDetailPanel` | 서버 헤더, 동작 버튼(3·4단계에서 연결), 정보 그리드 |
+| `ServerDetailPanel` | 서버 헤더, 시작/정지/재부팅 버튼(상태별 활성화), 요청 결과 한 줄, 정보 그리드 |
 | `AddAccountDialog` | 계정 추가, 연결 테스트 |
 | `Async` | 가상 스레드에서 작업 → 결과는 EDT로 |
 | `components.*` | `Buttons`, `DashedButton`, `StatusDot`, `StatusBadge`, `RoundedPanel` |
