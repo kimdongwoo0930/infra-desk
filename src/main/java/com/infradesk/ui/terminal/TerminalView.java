@@ -41,6 +41,7 @@ public class TerminalView extends JPanel {
     private final JPanel terminals = new JPanel(cards);
     private final List<TerminalPanel> sessions = new ArrayList<>();
     private final JButton newSession = Buttons.icon("plus", "새 세션", 38);
+    private final TerminalSidePanel sidePanel;
     private TerminalPanel active;
     private IntConsumer onCountChange = n -> { };
     private Runnable onEmpty = () -> { };
@@ -63,8 +64,34 @@ public class TerminalView extends JPanel {
         strip.add(tabStrip, BorderLayout.CENTER);
 
         terminals.setBackground(Theme.TERMINAL_BG);
-        add(strip, BorderLayout.NORTH);
-        add(terminals, BorderLayout.CENTER);
+        JPanel main = new JPanel(new BorderLayout());
+        main.add(strip, BorderLayout.NORTH);
+        main.add(terminals, BorderLayout.CENTER);
+        sidePanel = new TerminalSidePanel(service, connectableServers, this::sendToActive);
+        add(main, BorderLayout.CENTER);
+        add(sidePanel, BorderLayout.EAST);
+    }
+
+    /** Called when the screen is shown so the batch checkboxes match the latest server list. */
+    public void refreshServers() {
+        sidePanel.refreshServers();
+    }
+
+    public JButton sftpButton() {
+        return sidePanel.sftpButton();
+    }
+
+    /** The server of the selected tab, if any. */
+    public java.util.Optional<Server> activeServer() {
+        return active == null ? java.util.Optional.empty() : java.util.Optional.of(active.server());
+    }
+
+    private void sendToActive(String commandLine) {
+        if (active == null || !active.send(commandLine)) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "연결된 터미널 탭이 없어요. 서버 세션을 먼저 열어 주세요.", "저장된 명령어",
+                    javax.swing.JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     public void onCountChange(IntConsumer listener) {

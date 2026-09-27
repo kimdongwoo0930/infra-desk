@@ -130,6 +130,20 @@ public class TerminalPanel extends JPanel {
         }
     }
 
+    /** Types a command line into the shell and presses Enter. False if not connected. */
+    public boolean send(String commandLine) {
+        if (widget == null || state != State.CONNECTED || widget.getTtyConnector() == null) {
+            return false;
+        }
+        try {
+            widget.getTtyConnector().write(commandLine + "\r");
+            widget.requestFocusInWindow();
+            return true;
+        } catch (java.io.IOException e) {
+            return false;
+        }
+    }
+
     public void focusTerminal() {
         if (widget != null) {
             widget.requestFocusInWindow();

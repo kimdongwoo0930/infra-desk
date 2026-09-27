@@ -12,9 +12,11 @@ import com.infradesk.ssh.DemoShellConnector;
 import com.infradesk.ssh.MinaShellConnector;
 import com.infradesk.storage.AppPaths;
 import com.infradesk.storage.InMemoryAccountStore;
+import com.infradesk.storage.InMemorySavedCommandStore;
 import com.infradesk.storage.InMemorySecretStore;
 import com.infradesk.storage.InMemorySshSettingsStore;
 import com.infradesk.storage.JsonAccountStore;
+import com.infradesk.storage.JsonSavedCommandStore;
 import com.infradesk.storage.JsonSshSettingsStore;
 import com.infradesk.storage.KeychainSecretStore;
 import com.infradesk.storage.SecretStore;
@@ -55,13 +57,15 @@ public final class InfraDeskApp {
     }
 
     public static TerminalService demoTerminalService() {
-        return new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), new DemoShellConnector(), true);
+        return new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), new DemoShellConnector(),
+                new InMemorySavedCommandStore(DemoData.savedCommands()), true);
     }
 
     private static TerminalService realTerminalService(SecretStore secrets) {
         var connector = new MinaShellConnector(AppPaths.configDir().resolve("known_hosts"));
         Runtime.getRuntime().addShutdownHook(new Thread(connector::close));
-        return new TerminalService(new JsonSshSettingsStore(AppPaths.configDir()), secrets, connector, false);
+        return new TerminalService(new JsonSshSettingsStore(AppPaths.configDir()), secrets, connector,
+                new JsonSavedCommandStore(AppPaths.configDir()), false);
     }
 
     public static InventoryService demoService(DemoProviderFactory factory) {

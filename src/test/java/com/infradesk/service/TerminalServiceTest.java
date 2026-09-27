@@ -43,7 +43,7 @@ class TerminalServiceTest {
 
     @Test
     void notConfiguredUntilSettingsAndKeyAreSaved() {
-        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, false);
+        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, new com.infradesk.storage.InMemorySavedCommandStore(java.util.List.of()), false);
         assertFalse(svc.isConfigured("srv-1"));
         svc.save(new SshSettings("srv-1", "ubuntu", 22), KEY, "");
         assertTrue(svc.isConfigured("srv-1"));
@@ -51,7 +51,7 @@ class TerminalServiceTest {
 
     @Test
     void opensWithPublicIpSavedUserPortKeyAndPassphrase() {
-        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, false);
+        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, new com.infradesk.storage.InMemorySavedCommandStore(java.util.List.of()), false);
         svc.save(new SshSettings("srv-1", "opc", 2222), KEY, "secret");
         svc.open(WITH_IP, (h, p, t, f) -> true, 80, 24);
         SshTarget t = lastTarget.get();
@@ -64,7 +64,7 @@ class TerminalServiceTest {
 
     @Test
     void savingWithoutNewKeyKeepsOldKeyAndEmptyPassphraseClearsIt() {
-        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, false);
+        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, new com.infradesk.storage.InMemorySavedCommandStore(java.util.List.of()), false);
         svc.save(new SshSettings("srv-1", "ubuntu", 22), KEY, "secret");
         svc.save(new SshSettings("srv-1", "ubuntu", 22), null, "");
         svc.open(WITH_IP, (h, p, t, f) -> true, 80, 24);
@@ -74,7 +74,7 @@ class TerminalServiceTest {
 
     @Test
     void serverWithoutPublicIpFailsClearly() {
-        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, false);
+        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, new com.infradesk.storage.InMemorySavedCommandStore(java.util.List.of()), false);
         svc.save(new SshSettings("srv-2", "ubuntu", 22), KEY, "");
         SshException e = assertThrows(SshException.class, () -> svc.open(NO_IP, (h, p, t, f) -> true, 80, 24));
         assertTrue(e.getMessage().contains("공인 IP"));
@@ -82,7 +82,7 @@ class TerminalServiceTest {
 
     @Test
     void forgetRemovesSettingsAndKey() {
-        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, false);
+        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, new com.infradesk.storage.InMemorySavedCommandStore(java.util.List.of()), false);
         svc.save(new SshSettings("srv-1", "ubuntu", 22), KEY, "");
         svc.forget("srv-1");
         assertFalse(svc.isConfigured("srv-1"));
@@ -91,7 +91,7 @@ class TerminalServiceTest {
 
     @Test
     void demoModeNeedsNoSettings() {
-        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, true);
+        TerminalService svc = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(), capturing, new com.infradesk.storage.InMemorySavedCommandStore(java.util.List.of()), true);
         assertTrue(svc.isConfigured("anything"));
         svc.open(NO_IP, (h, p, t, f) -> true, 80, 24);
         assertEquals("ubuntu", lastTarget.get().username());

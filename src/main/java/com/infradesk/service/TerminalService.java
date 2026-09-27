@@ -8,7 +8,18 @@ import com.infradesk.ssh.ShellSession;
 import com.infradesk.ssh.SshException;
 import com.infradesk.ssh.SshSettings;
 import com.infradesk.ssh.SshTarget;
+import com.infradesk.ssh.ExecResult;
+import com.infradesk.ssh.SavedCommand;
+import com.infradesk.storage.SavedCommandStore;
 import com.infradesk.storage.SecretStore;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import com.infradesk.storage.SshSettingsStore;
 
 import java.util.Optional;
@@ -25,12 +36,15 @@ public class TerminalService {
     private final SshSettingsStore settingsStore;
     private final SecretStore secretStore;
     private final ShellConnector connector;
+    private final SavedCommandStore commandStore;
     private final boolean demo;
 
-    public TerminalService(SshSettingsStore settingsStore, SecretStore secretStore, ShellConnector connector, boolean demo) {
+    public TerminalService(SshSettingsStore settingsStore, SecretStore secretStore, ShellConnector connector,
+                           SavedCommandStore commandStore, boolean demo) {
         this.settingsStore = settingsStore;
         this.secretStore = secretStore;
         this.connector = connector;
+        this.commandStore = commandStore;
         this.demo = demo;
     }
 
@@ -73,6 +87,69 @@ public class TerminalService {
     /** Opens a shell to the server's public IP with its saved settings. */
     public ShellSession open(Server server, HostKeyPrompt prompt, int columns, int rows) {
         return connector.open(target(server), prompt, columns, rows);
+    }
+
+    /** Output kept per server for batch runs; the rest is dropped. */
+    public static final int MAX_OUTPUT_BYTES = 256 * 1024;
+
+    /**
+     * Runs a command without a PTY and waits for it. Never throws: connection and timeout
+     * failures come back as {@link ExecResult#failure}.
+     */
+    public ExecResult run(Server server, String command, HostKeyPrompt prompt, Duration timeout) {
+        ShellSession session;
+        try {
+            session = connector.exec(target(server), prompt, command);
+        } catch (RuntimeException e) {
+            return ExecResult.failure(e.getMessage());
+        }
+        AtomicBoolean timedOut = new AtomicBoolean();
+        Thread watchdog = Thread.ofVirtual().start(() -> {
+            try {
+                Thread.sleep(timeout);
+                timedOut.set(true);
+                session.close();
+            } catch (InterruptedException ignored) {
+                // Finished in time.
+            }
+        });
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        boolean truncated = false;
+        try (InputStream in = session.output()) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                int room = MAX_OUTPUT_BYTES - out.size();
+                if (room > 0) {
+                    out.write(buf, 0, Math.min(n, room));
+                }
+                truncated |= n > room;
+            }
+            int exit = session.waitFor();
+            String text = out.toString(StandardCharsets.UTF_8);
+            if (timedOut.get()) {
+                return new ExecResult(-1, text, timeout.toSeconds() + "초 안에 끝나지 않아 중단했어요", truncated);
+            }
+            return new ExecResult(exit, text, null, truncated);
+        } catch (IOException e) {
+            return new ExecResult(-1, out.toString(StandardCharsets.UTF_8),
+                    timedOut.get() ? timeout.toSeconds() + "초 안에 끝나지 않아 중단했어요" : "출력을 읽지 못했어요: " + e.getMessage(),
+                    truncated);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return ExecResult.failure("중단됐어요");
+        } finally {
+            watchdog.interrupt();
+            session.close();
+        }
+    }
+
+    public List<SavedCommand> savedCommands() {
+        return commandStore.load();
+    }
+
+    public void saveCommands(List<SavedCommand> commands) {
+        commandStore.save(commands);
     }
 
     /** Starts streaming /proc snapshots from the server (see {@link ProcStats#COMMAND}). */

@@ -25,6 +25,15 @@ public final class DemoData {
                 account("demo-c", "계정 C", "ap-seoul-1"));
     }
 
+    /** Saved commands from the terminal mockup. */
+    public static List<com.infradesk.ssh.SavedCommand> savedCommands() {
+        return List.of(
+                new com.infradesk.ssh.SavedCommand("demo-cmd-1", "봇 재시작", "docker restart bot-app"),
+                new com.infradesk.ssh.SavedCommand("demo-cmd-2", "봇 로그 보기", "docker logs -f --tail 100 bot-app"),
+                new com.infradesk.ssh.SavedCommand("demo-cmd-3", "디스크 확인", "df -h && du -sh /var/lib/docker"),
+                new com.infradesk.ssh.SavedCommand("demo-cmd-4", "패키지 업데이트", "sudo apt update && sudo apt upgrade -y"));
+    }
+
     /** Initial servers for a demo account; unknown accounts (added in demo mode) get one generic server. */
     static List<Server> serversFor(Account account) {
         return switch (account.id()) {

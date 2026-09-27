@@ -37,13 +37,54 @@ public class DemoShellConnector implements ShellConnector {
         return new DemoShellSession(target, hostnameOf(target));
     }
 
-    /** Only {@link ProcStats#COMMAND} is supported: emits fake /proc snapshots every interval. */
+    /**
+     * {@link ProcStats#COMMAND} streams fake /proc snapshots; anything else gets the same canned
+     * answer the interactive demo shell would print, then exits.
+     */
     @Override
     public ShellSession exec(SshTarget target, HostKeyPrompt prompt, String command) {
-        if (!command.equals(ProcStats.COMMAND)) {
-            throw new SshException(SshException.Kind.CHANNEL, "데모 셸은 이 명령을 실행할 수 없어요: " + command);
+        if (command.equals(ProcStats.COMMAND)) {
+            return new DemoStatsSession(target, hostnameOf(target), statsInterval);
         }
-        return new DemoStatsSession(target, hostnameOf(target), statsInterval);
+        try {
+            Thread.sleep(latency);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        String output = DemoShellSession.respond(command.strip(), target.username(), hostnameOf(target)).replace("\r\n", "\n");
+        int exit = output.contains("command not found") ? 127 : 0;
+        return new FinishedSession(target.address(), output, exit);
+    }
+
+    /** A command that already ran: its output, then EOF. */
+    private record FinishedSession(String address, String text, int exit) implements ShellSession {
+        @Override
+        public InputStream output() {
+            return new java.io.ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8));
+        }
+
+        @Override
+        public OutputStream input() {
+            return OutputStream.nullOutputStream();
+        }
+
+        @Override
+        public void resize(int columns, int rows) {
+        }
+
+        @Override
+        public boolean isOpen() {
+            return false;
+        }
+
+        @Override
+        public int waitFor() {
+            return exit;
+        }
+
+        @Override
+        public void close() {
+        }
     }
 
     private static String hostnameOf(SshTarget target) {
@@ -97,7 +138,7 @@ public class DemoShellConnector implements ShellConnector {
                             write("logout\r\n");
                             break;
                         }
-                        write(respond(cmd));
+                        write(respond(cmd, target.username(), hostname));
                         write(prompt());
                     } else if (c == 0x7f || c == 0x08) {
                         if (!line.isEmpty()) {
@@ -121,14 +162,17 @@ public class DemoShellConnector implements ShellConnector {
             }
         }
 
-        private String respond(String cmd) {
+        static String respond(String cmd, String username, String hostname) {
             if (cmd.isEmpty()) {
                 return "";
             }
             String name = cmd.split("\\s+")[0];
+            if (name.equals("sudo")) {
+                return respond(cmd.substring(4).strip(), username, hostname);
+            }
             return switch (name) {
                 case "help" -> "사용할 수 있는 명령: whoami, hostname, uptime, free -h, df -h, ls, ps, docker ps, date, echo, clear, exit\r\n";
-                case "whoami" -> target.username() + "\r\n";
+                case "whoami" -> username + "\r\n";
                 case "hostname" -> hostname + "\r\n";
                 case "uptime" -> " 21:04:33 up 14 days,  6:02,  1 user,  load average: 0.23, 0.18, 0.12\r\n";
                 case "free" -> String.join("\r\n",
@@ -144,13 +188,21 @@ public class DemoShellConnector implements ShellConnector {
                         "    PID TTY          TIME CMD",
                         "   1811 pts/0    00:00:00 bash",
                         "   1934 pts/0    00:00:00 ps", "");
-                case "docker" -> String.join("\r\n",
+                case "docker" -> cmd.startsWith("docker restart") ? cmd.substring(15).strip() + "\r\n"
+                        : cmd.startsWith("docker logs") ? String.join("\r\n",
+                        "[20:52:10] INFO  voice tracker tick · 12 users online",
+                        "[20:53:10] INFO  voice tracker tick · 13 users online",
+                        "[20:53:44] WARN  rate limited, retry in 1.2s",
+                        "[20:54:10] INFO  voice tracker tick · 13 users online", "")
+                        : String.join("\r\n",
                         "CONTAINER ID   IMAGE              STATUS        NAMES",
                         "3f2a1b9c8d7e   " + hostname + ":latest   Up 14 days    " + hostname,
                         "9a8b7c6d5e4f   redis:7-alpine     Up 14 days    redis", "");
                 case "date" -> java.time.ZonedDateTime.now().format(java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME) + "\r\n";
                 case "echo" -> cmd.substring(4).strip() + "\r\n";
                 case "clear" -> "\u001b[H\u001b[2J";
+                case "apt" -> "Reading package lists... Done\r\nAll packages are up to date. (데모)\r\n";
+                case "du" -> "21G\t/var/lib/docker\r\n";
                 default -> name + ": command not found (데모 셸)\r\n";
             };
         }

@@ -387,6 +387,7 @@ public class MainFrame extends JFrame {
     public void showTerminal() {
         dashboardVisible = false;
         live.pause();
+        terminalView.refreshServers();
         screens.show(screenPanel, TERMINAL);
         titleBar.setTerminalMode(true);
         titleBar.setSessionCount(terminalView.sessionCount());
