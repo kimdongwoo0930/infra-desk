@@ -145,6 +145,36 @@ class InventoryServiceTest {
     }
 
     @Test
+    void updateKeepsIdOrderAndStoredKeyUnlessReplaced() {
+        InMemorySecretStore secrets = new InMemorySecretStore();
+        Map<String, Map<String, String>> seen = new java.util.HashMap<>();
+        InventoryService svc = service(List.of(), secrets, seen);
+        svc.addAccount(OK, Map.of(AccountSecrets.PRIVATE_KEY, "old-key"));
+        svc.addAccount(BAD, Map.of(AccountSecrets.PRIVATE_KEY, "bad-key"));
+
+        Account renamed = new Account("ok", "새 이름", ProviderType.ORACLE, "ap-seoul-1", Map.of());
+        svc.updateAccount(renamed, Map.of());
+        assertEquals(List.of(renamed, BAD), svc.accounts(), "same position, new values");
+        assertEquals("old-key", secrets.get(SecretStore.accountKey("ok", AccountSecrets.PRIVATE_KEY)).orElseThrow());
+
+        svc.updateAccount(renamed, Map.of(AccountSecrets.PRIVATE_KEY, "new-key"));
+        assertEquals("new-key", secrets.get(SecretStore.accountKey("ok", AccountSecrets.PRIVATE_KEY)).orElseThrow());
+    }
+
+    @Test
+    void connectionTestFallsBackToStoredKey() {
+        InMemorySecretStore secrets = new InMemorySecretStore();
+        Map<String, Map<String, String>> seen = new java.util.HashMap<>();
+        InventoryService svc = service(List.of(), secrets, seen);
+        svc.addAccount(OK, Map.of(AccountSecrets.PRIVATE_KEY, "stored"));
+
+        svc.testConnection(OK, Map.of());
+        assertEquals("stored", seen.get("ok").get(AccountSecrets.PRIVATE_KEY));
+        svc.testConnection(OK, Map.of(AccountSecrets.PRIVATE_KEY, "typed"));
+        assertEquals("typed", seen.get("ok").get(AccountSecrets.PRIVATE_KEY));
+    }
+
+    @Test
     void unsupportedProviderFailsPerAccount() {
         Account aws = new Account("aws", "AWS", ProviderType.AWS, "r", Map.of());
         var result = service(List.of(aws), new InMemorySecretStore(), new java.util.HashMap<>()).loadAll();

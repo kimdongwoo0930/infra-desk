@@ -63,11 +63,19 @@ public class AddAccountDialog extends JDialog {
 
     private String privateKeyPem;
     private Account result;
+    /** Account being edited, or null when adding a new one. */
+    private final Account existing;
 
     public AddAccountDialog(Window owner, InventoryService service, boolean demoMode) {
-        super(owner, "계정 추가", ModalityType.APPLICATION_MODAL);
+        this(owner, service, demoMode, null);
+    }
+
+    /** @param existing account to edit; its API key is kept unless a new key file is chosen */
+    public AddAccountDialog(Window owner, InventoryService service, boolean demoMode, Account existing) {
+        super(owner, existing == null ? "계정 추가" : "계정 설정 · " + existing.displayName(), ModalityType.APPLICATION_MODAL);
         this.service = service;
         this.demoMode = demoMode;
+        this.existing = existing;
         this.region = new JComboBox<>(service.regions(ProviderType.ORACLE).toArray(String[]::new));
         region.setRenderer(new DefaultListCellRenderer() {
             @Override
@@ -93,7 +101,9 @@ public class AddAccountDialog extends JDialog {
         getRootPane().registerKeyboardAction(e -> dispose(), KeyStroke.getKeyStroke("ESCAPE"),
                 JComponent.WHEN_IN_FOCUSED_WINDOW);
 
-        if (demoMode) {
+        if (existing != null) {
+            fillFrom(existing);
+        } else if (demoMode) {
             fillDemoValues();
         }
         pack();
@@ -240,8 +250,30 @@ public class AddAccountDialog extends JDialog {
         }
     }
 
+    private void fillFrom(Account a) {
+        displayName.setText(a.displayName());
+        tenancy.setText(nz(a.property("tenancyOcid")));
+        user.setText(nz(a.property("userOcid")));
+        fingerprint.setText(nz(a.property("fingerprint")));
+        region.setSelectedItem(a.region());
+        if (!a.region().equals(region.getSelectedItem())) {
+            region.addItem(a.region());
+            region.setSelectedItem(a.region());
+        }
+        keyPath.setText("");
+        keyPath.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "저장된 키 사용 (바꾸려면 찾아보기)");
+        saveButton.setText("저장");
+        showStatus("API 키는 새 파일을 고를 때만 바뀌어요. 연결 테스트는 저장된 키로도 할 수 있어요.", false);
+    }
+
+    private static String nz(String s) {
+        return s == null ? "" : s;
+    }
+
     private Optional<Account> buildAccount() {
-        String keyForValidation = privateKeyPem == null && !demoMode ? "" : privateKeyPem;
+        boolean keepStoredKey = existing != null && privateKeyPem == null;
+        String keyForValidation = keepStoredKey || (privateKeyPem == null && demoMode) ? null
+                : privateKeyPem == null ? "" : privateKeyPem;
         List<String> errors = AccountValidation.oracle(displayName.getText(), tenancy.getText(), user.getText(),
                 fingerprint.getText(), (String) region.getSelectedItem(), keyForValidation);
         if (!errors.isEmpty()) {
@@ -252,7 +284,7 @@ public class AddAccountDialog extends JDialog {
         props.put("tenancyOcid", tenancy.getText().strip());
         props.put("userOcid", user.getText().strip());
         props.put("fingerprint", fingerprint.getText().strip().toLowerCase(java.util.Locale.ROOT));
-        return Optional.of(new Account(UUID.randomUUID().toString(), displayName.getText().strip(),
+        return Optional.of(new Account(existing != null ? existing.id() : UUID.randomUUID().toString(), displayName.getText().strip(),
                 ProviderType.ORACLE, (String) region.getSelectedItem(), props));
     }
 
@@ -289,7 +321,11 @@ public class AddAccountDialog extends JDialog {
         }
         setBusy(true, "저장하는 중…");
         Async.run(() -> {
-                    service.addAccount(account.get(), secrets());
+                    if (existing != null) {
+                        service.updateAccount(account.get(), secrets());
+                    } else {
+                        service.addAccount(account.get(), secrets());
+                    }
                     return account.get();
                 },
                 saved -> {

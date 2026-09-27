@@ -125,11 +125,37 @@ public class InventoryService {
         return providers.computeIfAbsent(account.id(), id -> registry.create(account, secretsOf(id)));
     }
 
-    /** Connects with unsaved settings and lists servers. Returns the server count. */
+    /**
+     * Connects with unsaved settings and lists servers. Returns the server count. Secrets not
+     * given fall back to the ones stored for the account (when editing an existing account).
+     */
     public int testConnection(Account account, Map<String, String> secrets) {
-        try (CloudProvider p = registry.create(account, secrets)) {
+        Map<String, String> merged = new HashMap<>(secretsOf(account.id()));
+        merged.putAll(secrets);
+        try (CloudProvider p = registry.create(account, merged)) {
             return p.listServers().size();
         }
+    }
+
+    /**
+     * Replaces an existing account's settings, keeping its id and position. Only the secrets
+     * given are replaced; others stay as stored.
+     */
+    public void updateAccount(Account account, Map<String, String> newSecrets) {
+        newSecrets.forEach((name, value) -> secretStore.put(SecretStore.accountKey(account.id(), name), value));
+        List<Account> updated = new ArrayList<>(accounts());
+        boolean replaced = false;
+        for (int i = 0; i < updated.size(); i++) {
+            if (updated.get(i).id().equals(account.id())) {
+                updated.set(i, account);
+                replaced = true;
+            }
+        }
+        if (!replaced) {
+            updated.add(account);
+        }
+        accountStore.save(updated);
+        closeProvider(account.id());
     }
 
     public void addAccount(Account account, Map<String, String> secrets) {

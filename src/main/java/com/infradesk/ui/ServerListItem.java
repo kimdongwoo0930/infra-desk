@@ -32,7 +32,7 @@ class ServerListItem extends JPanel {
     private boolean selected;
     private boolean hover;
 
-    ServerListItem(Server server, Double cpuPercent, Runnable onSelect, Runnable onSshSettings) {
+    ServerListItem(Server server, Double cpuPercent, Runnable onSelect, Runnable onSshSettings, Runnable onEditAccount) {
         super(new BorderLayout(10, 0));
         this.server = server;
         setOpaque(false);
@@ -60,6 +60,9 @@ class ServerListItem extends JPanel {
         javax.swing.JMenuItem ssh = new javax.swing.JMenuItem("SSH 설정…");
         ssh.addActionListener(e -> onSshSettings.run());
         menu.add(ssh);
+        javax.swing.JMenuItem account = new javax.swing.JMenuItem("계정 설정…");
+        account.addActionListener(e -> onEditAccount.run());
+        menu.add(account);
         setComponentPopupMenu(menu);
 
         addMouseListener(new MouseAdapter() {

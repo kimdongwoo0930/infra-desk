@@ -82,6 +82,11 @@ public final class UiSnapshot {
                         "add-account.png");
                 dialog.dispose();
 
+                JDialog editAccount = new AddAccountDialog(frame, service, true, service.accounts().getFirst());
+                write(editAccount, editAccount.getContentPane(), editAccount.getWidth(),
+                        editAccount.getContentPane().getPreferredSize().height, "edit-account.png");
+                editAccount.dispose();
+
                 JDialog settings = new SettingsDialog(frame, InfraDeskApp.demoAlertService(), false);
                 write(settings, settings.getContentPane(), settings.getWidth(),
                         settings.getContentPane().getPreferredSize().height, "settings.png");

@@ -151,6 +151,7 @@ public class MainFrame extends JFrame {
         titleBar.refreshButton().addActionListener(e -> refresh());
         sidebar.onAddAccount(this::addAccount);
         sidebar.onRemoveAccount(this::removeAccount);
+        sidebar.onEditAccount(this::editAccount);
         sidebar.onSelect(this::showServer);
         detail.onAction(this::runAction);
         showEmpty();
@@ -559,6 +560,10 @@ public class MainFrame extends JFrame {
 
     private void addAccount() {
         new AddAccountDialog(this, service, demoMode).showDialog().ifPresent(a -> refresh());
+    }
+
+    private void editAccount(Account account) {
+        new AddAccountDialog(this, service, demoMode, account).showDialog().ifPresent(a -> refresh());
     }
 
     private void removeAccount(Account account) {

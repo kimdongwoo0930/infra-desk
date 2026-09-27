@@ -44,6 +44,7 @@ public class Sidebar extends JPanel {
     private Consumer<Server> onSelect = s -> { };
     private Consumer<Account> onRemoveAccount = a -> { };
     private Consumer<Server> onSshSettings = s -> { };
+    private Consumer<Account> onEditAccount = a -> { };
     private boolean loading;
 
     public Sidebar() {
@@ -120,6 +121,10 @@ public class Sidebar extends JPanel {
         this.onSshSettings = listener;
     }
 
+    public void onEditAccount(Consumer<Account> listener) {
+        this.onEditAccount = listener;
+    }
+
     public void onRemoveAccount(Consumer<Account> listener) {
         this.onRemoveAccount = listener;
     }
@@ -181,7 +186,7 @@ public class Sidebar extends JPanel {
                 ServerListItem item = new ServerListItem(s, cpu.get(s.id()), () -> {
                     select(s.id());
                     onSelect.accept(s);
-                }, () -> onSshSettings.accept(s));
+                }, () -> onSshSettings.accept(s), () -> onEditAccount.accept(inv.account()));
                 item.setSelected(s.id().equals(selectedServerId));
                 item.setAlignmentX(Component.LEFT_ALIGNMENT);
                 items.add(item);
@@ -212,11 +217,15 @@ public class Sidebar extends JPanel {
         header.add(right, BorderLayout.EAST);
 
         JPopupMenu menu = new JPopupMenu();
+        JMenuItem edit = new JMenuItem("계정 설정…");
+        edit.addActionListener(e -> onEditAccount.accept(a));
         JMenuItem remove = new JMenuItem("계정 삭제…");
         remove.addActionListener(e -> onRemoveAccount.accept(a));
+        menu.add(edit);
+        menu.addSeparator();
         menu.add(remove);
         header.setComponentPopupMenu(menu);
-        header.setToolTipText("우클릭: 계정 메뉴");
+        header.setToolTipText("우클릭: 계정 설정 · 삭제");
         return header;
     }
 
