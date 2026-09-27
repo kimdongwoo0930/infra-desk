@@ -44,20 +44,20 @@ public final class UiSnapshot {
         MainFrame[] mainFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
-            mainFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), true);
+            mainFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
             mainFrame[0].setInventory(inventory);
         });
         Thread.sleep(800);
         SwingUtilities.invokeAndWait(() -> {
             try {
-                MainFrame empty = new MainFrame(service, InfraDeskApp.demoTerminalService(), true);
+                MainFrame empty = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
                 empty.setInventory(List.of());
                 write(empty, empty.getContentPane(), 1280, 800, "main-empty.png");
 
                 MainFrame frame = mainFrame[0];
                 write(frame, frame.getContentPane(), 1280, 800, "main.png");
 
-                MainFrame stoppingFrame = new MainFrame(stoppingService, InfraDeskApp.demoTerminalService(), true);
+                MainFrame stoppingFrame = new MainFrame(stoppingService, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
                 stoppingFrame.setInventory(stopping);
                 write(stoppingFrame, stoppingFrame.getContentPane(), 1280, 800, "main-stopping.png");
                 stoppingFrame.dispose();
@@ -66,6 +66,11 @@ public final class UiSnapshot {
                 write(dialog, dialog.getContentPane(), dialog.getWidth(), dialog.getContentPane().getPreferredSize().height,
                         "add-account.png");
                 dialog.dispose();
+
+                JDialog settings = new SettingsDialog(frame, InfraDeskApp.demoAlertService(), false);
+                write(settings, settings.getContentPane(), settings.getWidth(),
+                        settings.getContentPane().getPreferredSize().height, "settings.png");
+                settings.dispose();
 
                 JDialog ssh = new com.infradesk.ui.terminal.SshSettingsDialog(frame, InfraDeskApp.demoTerminalService(),
                         inventory.getFirst().servers().getFirst());
@@ -95,7 +100,7 @@ public final class UiSnapshot {
         // Terminal: open a demo session, give the fake shell time to print its banner, then render.
         MainFrame[] terminalFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
-            terminalFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), true);
+            terminalFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
             terminalFrame[0].setInventory(inventory);
             terminalFrame[0].addNotify();
             terminalFrame[0].getContentPane().setSize(1280, 800);

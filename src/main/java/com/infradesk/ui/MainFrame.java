@@ -45,6 +45,7 @@ public class MainFrame extends JFrame {
 
     private final InventoryService service;
     private final TerminalService terminalService;
+    private final com.infradesk.alert.AlertService alerts;
     private final CardLayout screens = new CardLayout();
     private final JPanel screenPanel = new JPanel(screens);
     private final TerminalView terminalView;
@@ -72,10 +73,12 @@ public class MainFrame extends JFrame {
     private String selectedServerId;
     private boolean refreshing;
 
-    public MainFrame(InventoryService service, TerminalService terminalService, boolean demoMode) {
+    public MainFrame(InventoryService service, TerminalService terminalService,
+                     com.infradesk.alert.AlertService alerts, boolean demoMode) {
         super("InfraDesk");
         this.service = service;
         this.terminalService = terminalService;
+        this.alerts = alerts;
         this.terminalView = new TerminalView(terminalService, this::editSshSettings, this::allServers);
         this.live = new com.infradesk.ui.metrics.LiveController(new LiveHooks(), new SwingTimeout());
         this.demoMode = demoMode;
@@ -135,6 +138,10 @@ public class MainFrame extends JFrame {
         terminalView.onEmpty(this::showDashboard);
         detail.onSsh(this::openSsh);
         sidebar.onSshSettings(this::editSshSettings);
+        sidebar.settingsButton().addActionListener(e -> new SettingsDialog(this, alerts, demoMode).setVisible(true));
+        alerts.onDeliveryFailure(message -> javax.swing.SwingUtilities.invokeLater(() ->
+                com.infradesk.ui.components.Toast.show(this, "디스코드 알림 전송 실패", "알림을 보내지 못했어요",
+                        message, Theme.DANGER_TEXT)));
 
         titleBar.refreshButton().addActionListener(e -> refresh());
         sidebar.onAddAccount(this::addAccount);
@@ -169,7 +176,10 @@ public class MainFrame extends JFrame {
 
     private void refreshCpu() {
         List<AccountInventory> snapshot = inventory;
-        Async.run(() -> service.currentCpu(snapshot), sidebar::setCpu, err -> { });
+        Async.run(() -> service.currentCpu(snapshot), cpu -> {
+            sidebar.setCpu(cpu);
+            alerts.onCpu(cpu);
+        }, err -> { });
     }
 
     /** @param showLoading clear the cards first (when switching servers) */
@@ -417,6 +427,7 @@ public class MainFrame extends JFrame {
         if (action.needsConfirmation() && !confirm(action, s, account)) {
             return;
         }
+        alerts.expectChange(s.id());
         detail.setBusy(true, action.label() + " 요청을 보내는 중…");
         Async.run(() -> {
             service.control(account, s.id(), action);
@@ -453,6 +464,7 @@ public class MainFrame extends JFrame {
     public void setInventory(List<AccountInventory> loaded) {
         refreshing = false;
         inventory = List.copyOf(loaded);
+        alerts.onInventory(inventory);
         titleBar.setRefreshing(false);
         titleBar.markRefreshed(LocalTime.now());
         titleBar.setCounts(inventory.stream().mapToInt(i -> i.servers().size()).sum(), inventory.size());

@@ -17,6 +17,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 - **provider/<cloud>**: `CloudProvider`·`CloudProviderFactory` 구현. SDK 타입을 `core` 모델로 변환해서 내보낸다.
 - **storage**: 계정 설정(JSON), 비밀값(OS 키체인).
 - **ssh**: 클라우드와 무관한 SSH 연결·세션. `ShellConnector`(MINA / 데모), `ShellSession`, `known_hosts` 검증.
+- **alert**: 디스코드 알림. `AlertMonitor`(인벤토리·CPU 변화 → 알림, 순수 상태 기계), `DiscordNotifier`(웹훅 전송), `AlertService`(설정·웹훅 비밀값·전송 스레드).
 - **app**: 진입점. 실제 모드와 데모 모드의 구성 요소를 조립한다.
 
 ## 실제 모드 vs 데모 모드
@@ -26,6 +27,8 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | 계정 저장 | `JsonAccountStore` | `InMemoryAccountStore` (가짜 계정 3개로 시작) |
 | SSH 설정 | `JsonSshSettingsStore` | `InMemorySshSettingsStore` (없어도 `ubuntu`로 접속) |
 | SSH 연결 | `MinaShellConnector` + `known_hosts` | `DemoShellConnector` (가짜 셸) |
+| 저장된 명령어 | `JsonSavedCommandStore` | 목업 예시 4개 (메모리) |
+| 알림 | `DiscordNotifier` (웹훅) | 토스트 미리보기 (전송 안 함) |
 | 비밀값 | `KeychainSecretStore` | `InMemorySecretStore` |
 | provider | `OracleProviderFactory` | `DemoProviderFactory` (모든 ProviderType) |
 | 네트워크 | OCI API | 없음 (지연 시간만 흉내) |
@@ -63,6 +66,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `accounts.json` | 계정 설정 (OCID, fingerprint, 리전) |
 | `ssh-settings.json` | 서버별 SSH 사용자 이름·포트 |
 | `commands.json` | 저장된 명령어 (이름, 명령) |
+| `alerts.json` | 알림 켜기/끄기, 종류, CPU 기준 |
 | `known_hosts` | 신뢰한 SSH 호스트 키 (OpenSSH 형식) |
 
 API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서비스 이름 `InfraDesk`)에 저장된다.
@@ -72,6 +76,7 @@ API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서
 | `account.<accountId>.privateKey` | OCI API 개인키 |
 | `server.<serverId>.sshKey` | SSH 개인키 |
 | `server.<serverId>.sshPassphrase` | SSH 키 암호 (있을 때만) |
+| `alerts.discordWebhook` | 디스코드 웹훅 URL |
 
 ## OCI 매핑
 
@@ -115,6 +120,15 @@ API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서
 켠 지 10분 → 자동 꺼짐
 ```
 
+## 알림 흐름
+
+```
+MainFrame.setInventory → AlertService.onInventory → AlertMonitor (상태 변화 비교)
+1분 CPU 조회        → AlertService.onCpu        → AlertMonitor (연속 N회 기준 이상)
+정지·재부팅 요청    → AlertService.expectChange (15분 동안 해당 서버 제외)
+알림 → 전송 스레드 → DiscordNotifier (실제) / Toast 미리보기 (데모) → 실패 시 Toast
+```
+
 ## UI 구성 (`com.infradesk.ui`)
 
 | 클래스 | 역할 |
@@ -126,6 +140,8 @@ API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서
 | `ServerDetailPanel` | 서버 헤더, 시작/정지/재부팅 버튼(상태별 활성화), 요청 결과 한 줄, 정보 그리드 |
 | `AddAccountDialog` | 계정 추가, 연결 테스트 |
 | `Async` | 가상 스레드에서 작업 → 결과는 EDT로 |
+| `SettingsDialog` | 설정 (디스코드 알림) |
+| `components.Toast` | 창 오른쪽 아래 잠깐 뜨는 알림 |
 | `metrics.MetricsPanel` | 모니터링 섹션: 카드 3개, 상태 문구, 실시간 토글 |
 | `metrics.LiveController` | 실시간 모드 상태(OFF/CONNECTING/RUNNING/PAUSED), 일시정지·재개, 10분 자동 꺼짐 |
 | `metrics.MetricCard` | 스탯 타일: 현재값 + XChart 스파크라인(커서 툴팁) + 범례/설명 |

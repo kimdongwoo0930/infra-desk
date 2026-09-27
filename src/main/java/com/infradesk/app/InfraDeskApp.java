@@ -1,6 +1,10 @@
 package com.infradesk.app;
 
 import com.formdev.flatlaf.util.SystemInfo;
+import com.infradesk.alert.Alert;
+import com.infradesk.alert.AlertService;
+import com.infradesk.alert.AlertSettings;
+import com.infradesk.alert.Notifier;
 import com.infradesk.core.ProviderType;
 import com.infradesk.provider.demo.DemoData;
 import com.infradesk.provider.demo.DemoProviderFactory;
@@ -12,17 +16,21 @@ import com.infradesk.ssh.DemoShellConnector;
 import com.infradesk.ssh.MinaShellConnector;
 import com.infradesk.storage.AppPaths;
 import com.infradesk.storage.InMemoryAccountStore;
+import com.infradesk.storage.InMemoryAlertSettingsStore;
 import com.infradesk.storage.InMemorySavedCommandStore;
 import com.infradesk.storage.InMemorySecretStore;
 import com.infradesk.storage.InMemorySshSettingsStore;
 import com.infradesk.storage.JsonAccountStore;
+import com.infradesk.storage.JsonAlertSettingsStore;
 import com.infradesk.storage.JsonSavedCommandStore;
 import com.infradesk.storage.JsonSshSettingsStore;
 import com.infradesk.storage.KeychainSecretStore;
 import com.infradesk.storage.SecretStore;
 import com.infradesk.ui.MainFrame;
 import com.infradesk.ui.Theme;
+import com.infradesk.ui.components.Toast;
 
+import java.time.Clock;
 import java.util.Arrays;
 import javax.swing.SwingUtilities;
 
@@ -46,14 +54,33 @@ public final class InfraDeskApp {
             Theme.install();
             MainFrame frame;
             if (demo) {
-                frame = new MainFrame(demoService(), demoTerminalService(), true);
+                frame = new MainFrame(demoService(), demoTerminalService(), demoAlertService(), true);
             } else {
                 SecretStore secrets = new KeychainSecretStore();
-                frame = new MainFrame(realService(secrets), realTerminalService(secrets), false);
+                AlertService alerts = new AlertService(new JsonAlertSettingsStore(AppPaths.configDir()), secrets, null,
+                        Clock.systemUTC());
+                frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, false);
             }
             frame.setVisible(true);
             frame.refresh();
         });
+    }
+
+    /** Alerts in demo mode never leave the machine: they show as a preview toast instead. */
+    public static AlertService demoAlertService() {
+        Notifier preview = alert -> SwingUtilities.invokeLater(() -> {
+            java.awt.Window w = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+            for (java.awt.Frame f : java.awt.Frame.getFrames()) {
+                if (w == null && f.isShowing()) {
+                    w = f;
+                }
+            }
+            Toast.show(w, "디스코드 알림 미리보기 (데모 · 전송 안 함)", alert.title(), alert.description(),
+                    alert.level() == Alert.Level.PROBLEM ? Theme.DANGER_TEXT
+                            : alert.level() == Alert.Level.RECOVERED ? Theme.RUNNING_DOT : Theme.ACCENT);
+        });
+        return new AlertService(new InMemoryAlertSettingsStore(
+                new AlertSettings(true, true, true, true, 90, 5)), new InMemorySecretStore(), preview, Clock.systemUTC());
     }
 
     public static TerminalService demoTerminalService() {
