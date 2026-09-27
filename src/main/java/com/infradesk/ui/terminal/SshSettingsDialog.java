@@ -51,6 +51,7 @@ public class SshSettingsDialog extends JDialog {
 
     private String keyPem;
     private boolean saved;
+    private String suggestion;
 
     public SshSettingsDialog(Window owner, TerminalService service, Server server) {
         super(owner, "SSH 설정 · " + server.name(), ModalityType.APPLICATION_MODAL);
@@ -59,10 +60,10 @@ public class SshSettingsDialog extends JDialog {
         this.hadKey = service.hasKey(server.id());
 
         username.setEditable(true);
-        service.settings(server.id()).ifPresent(s -> {
+        service.settings(server.id()).ifPresentOrElse(s -> {
             username.setSelectedItem(s.username());
             port.setText(String.valueOf(s.port()));
-        });
+        }, () -> service.suggestFromSshConfig(server).ifPresent(this::applySuggestion));
         styleField(username);
         username.putClientProperty(FlatClientProperties.STYLE,
                 "background: #1E1F22; buttonStyle: button; buttonBackground: #1E1F22; buttonSeparatorWidth: 0;"
@@ -80,12 +81,42 @@ public class SshSettingsDialog extends JDialog {
         root.add(body(), BorderLayout.CENTER);
         root.add(footer(), BorderLayout.SOUTH);
         setContentPane(root);
+        if (suggestion != null) {
+            showStatus(suggestion, false);
+            status.setForeground(Theme.RUNNING_BADGE_TEXT);
+        }
         getRootPane().setDefaultButton(saveButton);
         getRootPane().registerKeyboardAction(e -> dispose(), KeyStroke.getKeyStroke("ESCAPE"), JComponent.WHEN_IN_FOCUSED_WINDOW);
         pack();
         setSize(480, getHeight());
         setResizable(false);
         setLocationRelativeTo(owner);
+    }
+
+    /** Pre-fills from ~/.ssh/config. The key is only read here; it's stored when the user saves. */
+    private void applySuggestion(com.infradesk.ssh.SshConfig.Suggestion s) {
+        if (s.user() != null) {
+            username.setSelectedItem(s.user());
+        }
+        if (s.port() != null) {
+            port.setText(String.valueOf(s.port()));
+        }
+        String source = "~/.ssh/config의 '" + s.alias() + "'에서 가져왔어요";
+        if (s.identityFile() != null && !hadKey) {
+            try {
+                if (Files.size(s.identityFile()) <= MAX_KEY_BYTES) {
+                    String content = Files.readString(s.identityFile(), StandardCharsets.UTF_8);
+                    if (content.contains("PRIVATE KEY")) {
+                        keyPem = content;
+                        keyPath.setText(s.identityFile().getFileName().toString());
+                        source += " (키: " + s.identityFile().getFileName() + ")";
+                    }
+                }
+            } catch (IOException ignored) {
+                // Leave the key for the user to pick.
+            }
+        }
+        suggestion = "<html><div style='width:400px'>" + source + ". 맞는지 확인하고 저장하세요.</div></html>";
     }
 
     /** Shows the dialog; true when settings were saved. */

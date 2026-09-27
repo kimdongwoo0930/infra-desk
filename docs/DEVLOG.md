@@ -11,6 +11,14 @@
 - **OCI 메트릭도 실환경 확인**: CPU 3%, 메모리 18%(OCI 에이전트 수집 정상), 네트워크 수신·송신 약 16 KB/s — `NetworksBytesIn/Out.rate()`가 초당 바이트로 나오는 것 확인. 사이드바 CPU% 정상.
 - 실환경에서 발견: XChart 기본 커서 툴팁이 커서 근처 점을 모두 나열("18%, 18%, 18%")하고 시리즈 이름이 없으며 카드 밖으로 잘림 → `metrics.HoverChartPanel`로 교체 (가장 가까운 시점 하나, 시각 + 시리즈별 이름·값·색 견본, 카드 가장자리에서 반대쪽으로 뒤집힘). 스냅샷 `main-hover.png`.
 - 아직 실환경 미확인: SSH 터미널·실시간 모드·SFTP·일괄 실행, 시작/정지/재부팅, 디스코드 알림.
+
+### `~/.ssh/config`에서 SSH 설정 가져오기
+- 사용자가 이미 `~/.ssh/config`에 서버별 Host(HostName·User·IdentityFile)를 정리해 두고 있어서, SSH 설정 창을 처음 열 때 **서버 공인 IP와 HostName이 같은 Host**를 찾아 사용자 이름·포트·키 파일을 미리 채움. 없으면 서버 이름과 같은 Host 별칭으로 찾음.
+- `ssh.SshConfig`: OpenSSH처럼 블록을 순서대로 보며 **먼저 나온 값이 우선**, `Host *` 기본값, `*`/`?` 와일드카드, `!` 제외, `Key=Value`·따옴표·주석, IdentityFile의 `~`와 `%d %u %h %n %r %%` 확장, 여러 IdentityFile 중 실제로 있는 첫 파일. `Match`·`Include`는 무시.
+- 키는 창에 미리 읽어 두기만 하고, **저장을 눌러야** 키체인에 들어감. 창에 "~/.ssh/config의 'my-server'에서 가져왔어요 (키: …)" 안내.
+- 데모 모드에서는 실제 설정 파일을 읽지 않음.
+- 실제 설정으로 확인: my-server(203.0.113.104) → `my-server`, `ubuntu`, 22, `my-server.key`. 키 내용은 읽지 않고 파일 이름만 확인.
+- 테스트 91개 통과 (SSH config 6개 추가).
 - 과정에서 나온 문제: 붙여넣기가 안 됨 → 우클릭 메뉴 추가, `--debug-input` 진단 모드 추가. 재실행 후 정상 (원인 기록은 못 남김).
 
 ---

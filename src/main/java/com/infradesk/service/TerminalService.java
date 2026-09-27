@@ -3,6 +3,7 @@ package com.infradesk.service;
 import com.infradesk.core.Server;
 import com.infradesk.ssh.HostKeyPrompt;
 import com.infradesk.ssh.ProcStats;
+import com.infradesk.ssh.SshConfig;
 import com.infradesk.ssh.RemoteFiles;
 import com.infradesk.ssh.ShellConnector;
 import com.infradesk.ssh.ShellSession;
@@ -39,6 +40,7 @@ public class TerminalService {
     private final ShellConnector connector;
     private final SavedCommandStore commandStore;
     private final boolean demo;
+    private java.util.function.Supplier<SshConfig> sshConfig = SshConfig::userDefault;
 
     public TerminalService(SshSettingsStore settingsStore, SecretStore secretStore, ShellConnector connector,
                            SavedCommandStore commandStore, boolean demo) {
@@ -49,6 +51,11 @@ public class TerminalService {
         this.demo = demo;
     }
 
+    /** Tests: read a different config. */
+    void setSshConfigSource(java.util.function.Supplier<SshConfig> source) {
+        this.sshConfig = source;
+    }
+
     public Optional<SshSettings> settings(String serverId) {
         return settingsStore.get(serverId);
     }
@@ -56,6 +63,17 @@ public class TerminalService {
     /** Whether the server can be connected to without asking for settings first. */
     public boolean isConfigured(String serverId) {
         return demo || (settingsStore.get(serverId).isPresent() && secretStore.get(serverKey(serverId, SSH_KEY)).isPresent());
+    }
+
+    /**
+     * Settings suggested by {@code ~/.ssh/config} for the server's public IP (or its name as a Host
+     * alias). Always empty in demo mode, which never reads real configuration.
+     */
+    public Optional<SshConfig.Suggestion> suggestFromSshConfig(Server server) {
+        if (demo || server.publicIp() == null) {
+            return Optional.empty();
+        }
+        return sshConfig.get().suggest(server.publicIp(), server.name());
     }
 
     public boolean hasKey(String serverId) {

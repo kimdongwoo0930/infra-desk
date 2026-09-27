@@ -47,6 +47,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `service.TerminalService` | 서버별 SSH 설정·키 저장, 공인 IP로 셸 열기, 명령 실행(`run`: 제한 시간·출력 상한), SFTP 열기, 저장된 명령어 |
 | `ssh.RemoteFiles` / `RemoteFile` | SFTP 목록·업로드·다운로드·삭제 (MINA `sshd-sftp` / 데모 메모리 트리) |
 | `ssh.ShellConnector` / `ShellSession` | 셸 열기 / 입출력 스트림·크기 조정·종료 대기 |
+| `ssh.SshConfig` | `~/.ssh/config` 읽기: 공인 IP → Host → 사용자·포트·키 파일 추천 |
 | `ssh.ProcStats` | 원격 `/proc` 스냅샷 명령, 파싱, 두 스냅샷 사이 사용률 계산 |
 | `service.LiveStats` | exec 세션 출력을 읽어 2초마다 `ProcStats.Sample` 전달 |
 | `ssh.SshException` | 종류(`CONNECT`, `AUTH`, `KEY_FORMAT`, `HOST_KEY_REJECTED`, `HOST_KEY_CHANGED`)와 한국어 메시지 |
