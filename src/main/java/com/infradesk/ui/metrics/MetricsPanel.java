@@ -97,7 +97,7 @@ public class MetricsPanel extends JPanel {
     }
 
     public void setStatus(String text, boolean error) {
-        status.setText(text == null || text.isEmpty() ? " " : text);
+        status.setText(text == null || text.isEmpty() ? " " : com.infradesk.ui.IpPrivacy.mask(text));
         status.setForeground(error ? Theme.WARNING : Theme.TEXT_MUTED);
     }
 

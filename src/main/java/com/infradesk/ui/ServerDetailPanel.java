@@ -45,6 +45,9 @@ public class ServerDetailPanel extends JPanel {
 
     private final JLabel cpuMem = value(false);
     private final JLabel publicIp = value(true);
+    private final JButton revealIp = Buttons.icon("eye", "공인 IP 보기", 22);
+    private final JButton copyIp = Buttons.icon("copy", "공인 IP 복사", 22);
+    private String publicIpValue;
     private final JLabel uptime = value(false);
     private final JLabel os = value(false);
     private final JLabel bootVolume = value(false);
@@ -133,7 +136,8 @@ public class ServerDetailPanel extends JPanel {
         cpuMem.setText(server.cpuCount() > 0
                 ? trim(server.cpuCount()) + " OCPU · " + trim(server.memoryGb()) + " GB"
                 : NONE);
-        publicIp.setText(server.publicIpAddress().orElse(NONE));
+        publicIpValue = server.publicIpAddress().orElse(null);
+        renderPublicIp();
         privateIp.setText(server.privateIpAddress().orElse(NONE));
         created.setText(server.createdAt() == null ? NONE : DATE.format(server.createdAt()));
         if (!sameServer) {
@@ -258,7 +262,7 @@ public class ServerDetailPanel extends JPanel {
         grid.setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
         grid.setAlignmentX(Component.LEFT_ALIGNMENT);
         grid.add(cell("OCPU / 메모리", cpuMem));
-        grid.add(cell("공인 IP", publicIp));
+        grid.add(ipCell());
         grid.add(cell("업타임", uptime));
         grid.add(cell("OS", os));
         grid.add(cell("부트 볼륨", bootVolume));
@@ -267,6 +271,48 @@ public class ServerDetailPanel extends JPanel {
         grid.add(cell("생성일", created));
         grid.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, grid.getPreferredSize().height));
         return grid;
+    }
+
+    /** Public IP cell: masked value, reveal toggle and copy (copies the real address). */
+    private JPanel ipCell() {
+        JPanel cell = cell("공인 IP", publicIp);
+        for (JButton b : new JButton[] {revealIp, copyIp}) {
+            b.setIcon(com.infradesk.ui.Icons.get(b == revealIp ? "eye" : "copy", 14));
+        }
+        revealIp.addActionListener(e -> IpPrivacy.setRevealed(!IpPrivacy.isRevealed()));
+        copyIp.addActionListener(e -> {
+            if (publicIpValue != null) {
+                java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+                        .setContents(new java.awt.datatransfer.StringSelection(publicIpValue), null);
+                copyIp.setToolTipText("복사했어요");
+            }
+        });
+        JPanel row = new JPanel(new BorderLayout(4, 0));
+        row.setOpaque(false);
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        cell.remove(publicIp);
+        row.add(publicIp, BorderLayout.CENTER);
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        buttons.setOpaque(false);
+        buttons.add(revealIp);
+        buttons.add(copyIp);
+        row.add(buttons, BorderLayout.EAST);
+        row.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 24));
+        cell.add(row);
+        IpPrivacy.onChange(this::renderPublicIp);
+        return cell;
+    }
+
+    private void renderPublicIp() {
+        publicIp.setText(publicIpValue == null ? NONE : IpPrivacy.display(publicIpValue));
+        boolean revealed = IpPrivacy.isRevealed();
+        revealIp.setIcon(com.infradesk.ui.Icons.get(revealed ? "eye-off" : "eye", 14));
+        String label = revealed ? "공인 IP 숨기기" : "공인 IP 보기";
+        revealIp.setToolTipText(label);
+        revealIp.getAccessibleContext().setAccessibleName(label);
+        revealIp.setVisible(publicIpValue != null);
+        copyIp.setVisible(publicIpValue != null);
+        copyIp.setToolTipText("공인 IP 복사");
     }
 
     private static JPanel cell(String label, JLabel value) {

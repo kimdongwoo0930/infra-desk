@@ -293,7 +293,7 @@ public final class SftpDialog extends JDialog {
     }
 
     private void showError(String message) {
-        status.setText(message);
+        status.setText(com.infradesk.ui.IpPrivacy.mask(message));
         status.setForeground(Theme.DANGER_TEXT);
     }
 

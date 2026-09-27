@@ -61,6 +61,7 @@ public class TerminalPanel extends JPanel {
         add(center, BorderLayout.CENTER);
         add(statusBar(), BorderLayout.SOUTH);
         reconnect.addActionListener(e -> connect());
+        com.infradesk.ui.IpPrivacy.onChange(() -> statusLeft.setText(com.infradesk.ui.IpPrivacy.mask(statusText)));
         settings.addActionListener(e -> openSettings.accept(server));
     }
 
@@ -159,9 +160,12 @@ public class TerminalPanel extends JPanel {
         }
     }
 
+    private String statusText = "";
+
     private void setState(State newState, String left, String right) {
         state = newState;
-        statusLeft.setText(left);
+        statusText = left;
+        statusLeft.setText(com.infradesk.ui.IpPrivacy.mask(left));
         statusLeft.setIcon(new com.infradesk.ui.components.StatusDot(switch (newState) {
             case CONNECTED -> com.infradesk.core.ServerStatus.RUNNING;
             case CONNECTING -> com.infradesk.core.ServerStatus.STARTING;
@@ -174,7 +178,7 @@ public class TerminalPanel extends JPanel {
     /** @param offerSettings true when fixing SSH settings is the likely fix; the settings button gets focus */
     private void showMessage(String title, String body, boolean offerSettings) {
         messageTitle.setText(title);
-        messageBody.setText("<html><div style='text-align:center'>" + escape(body) + "</div></html>");
+        messageBody.setText("<html><div style='text-align:center'>" + escape(com.infradesk.ui.IpPrivacy.mask(body)) + "</div></html>");
         boolean waiting = state == State.CONNECTING;
         reconnect.setVisible(!waiting);
         settings.setVisible(!waiting);

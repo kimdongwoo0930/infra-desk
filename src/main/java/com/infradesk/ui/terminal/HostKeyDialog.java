@@ -24,7 +24,7 @@ public final class HostKeyDialog implements HostKeyPrompt {
             Object[] options = {"신뢰하고 연결", "취소"};
             int choice = JOptionPane.showOptionDialog(parent,
                     "처음 연결하는 서버예요. 호스트 키 지문이 서버의 것과 같은지 확인하세요.\n\n"
-                            + host + ":" + port + "\n" + keyType + "\n" + fingerprint + "\n\n"
+                            + com.infradesk.ui.IpPrivacy.mask(host) + ":" + port + "\n" + keyType + "\n" + fingerprint + "\n\n"
                             + "신뢰하면 이 키를 기억하고, 다음부터 키가 바뀌면 연결을 막아요.",
                     "호스트 키 확인", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[1]);
             answer.set(choice == 0);

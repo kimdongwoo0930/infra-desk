@@ -487,7 +487,7 @@ public class MainFrame extends JFrame {
         Object[] options = {action.label(), "취소"};
         int choice = JOptionPane.showOptionDialog(this,
                 "'" + server.name() + "' 서버를 " + action.question() + "\n"
-                        + account.displayName() + " · " + server.publicIpAddress().orElse(server.region()) + "\n\n" + detailText,
+                        + account.displayName() + " · " + server.publicIpAddress().map(IpPrivacy::display).orElse(server.region()) + "\n\n" + detailText,
                 "서버 " + action.label(), JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[1]);
         return choice == 0;
     }

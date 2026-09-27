@@ -143,6 +143,7 @@ MainFrame.setInventory → AlertService.onInventory → AlertMonitor (상태 변
 | `AddAccountDialog` | 계정 추가, 연결 테스트 |
 | `Async` | 가상 스레드에서 작업 → 결과는 EDT로 |
 | `SettingsDialog` | 설정 (디스코드 알림) |
+| `IpPrivacy` | 공인 IP 가리기/보이기 (앱 전체, 기본 가림) |
 | `components.Toast` | 창 오른쪽 아래 잠깐 뜨는 알림 |
 | `metrics.MetricsPanel` | 모니터링 섹션: 카드 3개, 상태 문구, 실시간 토글 |
 | `metrics.LiveController` | 실시간 모드 상태(OFF/CONNECTING/RUNNING/PAUSED), 일시정지·재개, 10분 자동 꺼짐 |

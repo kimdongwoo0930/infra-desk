@@ -130,7 +130,7 @@ final class BatchResultDialog extends JDialog {
                 sb.append("\n… (출력이 길어 뒷부분을 생략했어요)");
             }
             if (r.error() != null) {
-                sb.append(sb.isEmpty() ? "" : "\n\n").append("⚠ ").append(r.error());
+                sb.append(sb.isEmpty() ? "" : "\n\n").append("⚠ ").append(com.infradesk.ui.IpPrivacy.mask(r.error()));
             }
             output.setText(sb.isEmpty() ? "(출력 없음)" : sb.toString());
         }
@@ -143,7 +143,7 @@ final class BatchResultDialog extends JDialog {
             Row row = (Row) value;
             ExecResult r = row.result();
             String state = r == null ? "실행 중…"
-                    : r.error() != null ? "실패 · " + r.error()
+                    : r.error() != null ? "실패 · " + com.infradesk.ui.IpPrivacy.mask(r.error())
                     : r.exitCode() == 0 ? "성공" : "종료 코드 " + r.exitCode();
             super.getListCellRendererComponent(l, "<html>" + escape(row.server().name())
                     + "<br><span style='font-size:90%'>" + escape(state) + "</span></html>", i, sel, focus);
