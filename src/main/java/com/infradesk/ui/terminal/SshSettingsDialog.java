@@ -72,6 +72,7 @@ public class SshSettingsDialog extends JDialog {
         styleField(keyPath);
         styleField(passphrase);
         keyPath.setEditable(false);
+        port.enableInputMethods(false);
         keyPath.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT,
                 hadKey ? "등록된 키를 그대로 사용 (바꾸려면 찾아보기)" : "개인키 파일을 선택하세요 (예: ~/.ssh/id_ed25519)");
         passphrase.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "키에 암호가 없으면 비워 두세요");

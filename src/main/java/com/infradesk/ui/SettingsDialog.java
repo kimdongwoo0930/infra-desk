@@ -59,6 +59,7 @@ public class SettingsDialog extends JDialog {
         webhook.putClientProperty(FlatClientProperties.STYLE, "background: #1E1F22; showRevealButton: true");
         webhook.setPreferredSize(new Dimension(0, Theme.BUTTON_HEIGHT));
         webhook.getAccessibleContext().setAccessibleName("디스코드 웹훅 URL");
+        webhook.enableInputMethods(false);
         enabled.addActionListener(e -> updateEnabled());
         cpuHigh.addActionListener(e -> updateEnabled());
         testButton.addActionListener(e -> sendTest());

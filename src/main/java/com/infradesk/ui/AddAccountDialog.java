@@ -359,6 +359,8 @@ public class AddAccountDialog extends JDialog {
         f.setPreferredSize(new Dimension(0, Theme.BUTTON_HEIGHT));
         if (mono) {
             f.setFont(Theme.monoFont(12f));
+            // ASCII-only values: keep the Korean input method out of the way.
+            f.enableInputMethods(false);
         }
         return f;
     }

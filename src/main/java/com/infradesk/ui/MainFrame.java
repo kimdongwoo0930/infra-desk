@@ -132,6 +132,7 @@ public class MainFrame extends JFrame {
         root.add(titleBar, BorderLayout.NORTH);
         root.add(screenPanel, BorderLayout.CENTER);
         setContentPane(root);
+        EditMenu.install(this);
 
         titleBar.backButton().addActionListener(e -> showDashboard());
         terminalView.onCountChange(titleBar::setSessionCount);
