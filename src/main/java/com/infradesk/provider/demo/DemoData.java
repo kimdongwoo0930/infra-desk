@@ -28,8 +28,13 @@ public final class DemoData {
     /** Initial servers for a demo account; unknown accounts (added in demo mode) get one generic server. */
     static List<Server> serversFor(Account account) {
         return switch (account.id()) {
-            case "demo-a" -> List.of(server(account, "discord-bot", ServerStatus.RUNNING,
-                    "VM.Standard.A1.Flex", 4, 24, "203.0.113.24", "10.0.0.12", "2025-11-03T09:12:00Z"));
+            case "demo-a" -> List.of(
+                    server(account, "discord-bot", ServerStatus.RUNNING,
+                            "VM.Standard.A1.Flex", 2, 12, "203.0.113.24", "10.0.0.12", "2025-11-03T09:12:00Z"),
+                    server(account, "api-gateway", ServerStatus.RUNNING,
+                            "VM.Standard.A1.Flex", 1, 6, "203.0.113.31", "10.0.0.15", "2026-01-20T05:30:00Z"),
+                    server(account, "batch-worker", ServerStatus.STOPPED,
+                            "VM.Standard.A1.Flex", 1, 6, "203.0.113.45", "10.0.0.18", "2026-06-11T11:00:00Z"));
             case "demo-b" -> List.of(server(account, "web-server", ServerStatus.RUNNING,
                     "VM.Standard.A1.Flex", 2, 12, "198.51.100.41", "10.0.1.20", "2025-12-18T02:40:00Z"));
             case "demo-c" -> List.of(server(account, "test-box", ServerStatus.STOPPED,

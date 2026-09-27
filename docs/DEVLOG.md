@@ -7,7 +7,7 @@
 ## 2026-09-28 · 2단계: 계정·서버 목록
 
 ### 한 일
-- **데모 모드** (`./gradlew runDemo`, 또는 `--demo` 인자): 목업과 같은 가짜 계정 3개·서버 3대. 설정 파일·키체인·네트워크를 쓰지 않음. 타이틀바에 "데모 모드" 배지.
+- **데모 모드** (`./gradlew runDemo`, 또는 `--demo` 인자): 가짜 계정 3개·서버 5대 (계정 A는 한 계정에 서버 여러 대인 경우를 보여주려고 3대: discord-bot, api-gateway, batch-worker). 설정 파일·키체인·네트워크를 쓰지 않음. 타이틀바에 "데모 모드" 배지.
 - **storage**: `JsonAccountStore`(계정 설정 JSON, 원자적 저장, POSIX에서 `rw-------`), `KeychainSecretStore`(OS 키체인), 데모·테스트용 인메모리 구현.
 - **provider/oracle**: `OracleProvider` — 인스턴스 목록(페이지 처리), VNIC로 공인/사설 IP, 시작(START)/정지(SOFTSTOP)/재부팅(SOFTRESET) 호출, OCI 오류를 한국어 메시지로 변환. 메트릭은 5단계.
 - **provider/demo**: `DemoProvider` — 지연 시간 흉내, 시작/정지/재부팅 시 8초간 전이 상태(정지 중 등)를 거쳐 안정.
