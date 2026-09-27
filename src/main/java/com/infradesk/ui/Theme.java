@@ -70,6 +70,7 @@ public final class Theme {
             FlatDarculaLaf.setup();
         }
         warmUpGlyphCache();
+        com.infradesk.ui.components.TextContextMenu.install();
     }
 
     /**
