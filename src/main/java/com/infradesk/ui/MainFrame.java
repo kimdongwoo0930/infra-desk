@@ -62,6 +62,8 @@ public class MainFrame extends JFrame {
     /** OCI aggregates metrics per minute, so polling faster gains nothing. */
     private final Timer metricsTimer;
     private LiveStats liveStats;
+    private final com.infradesk.ui.metrics.LiveController live;
+    private boolean dashboardVisible = true;
     private String metricsServerId;
     private com.infradesk.core.ServerStatus metricsServerStatus;
     private boolean cpuLoadedOnce;
@@ -75,14 +77,27 @@ public class MainFrame extends JFrame {
         this.service = service;
         this.terminalService = terminalService;
         this.terminalView = new TerminalView(terminalService, this::editSshSettings, this::allServers);
+        this.live = new com.infradesk.ui.metrics.LiveController(new LiveHooks(), new SwingTimeout());
         this.demoMode = demoMode;
         this.titleBar = new TitleBar(demoMode);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
-                stopLive(null);
+                live.stop();
                 terminalView.closeAll();
+            }
+
+            @Override
+            public void windowIconified(java.awt.event.WindowEvent e) {
+                live.pause();
+            }
+
+            @Override
+            public void windowDeiconified(java.awt.event.WindowEvent e) {
+                if (dashboardVisible) {
+                    live.resume();
+                }
             }
         });
         setMinimumSize(new Dimension(960, 600));
@@ -145,7 +160,7 @@ public class MainFrame extends JFrame {
             return;
         }
         findServer(selectedServerId).ifPresent(s -> {
-            if (liveStats == null) {
+            if (!liveActive()) {
                 loadMetrics(s, false);
             }
         });
@@ -166,7 +181,7 @@ public class MainFrame extends JFrame {
                 ? "서버 상세를 보는 동안 SSH로 /proc을 2초마다 읽어요"
                 : "서버가 실행 중일 때 쓸 수 있어요");
         if (!running) {
-            stopLive(null);
+            live.stop();
             metrics().showMessage("서버가 실행 중일 때 표시돼요");
             metrics().setStatus(" ", false);
             return;
@@ -181,69 +196,111 @@ public class MainFrame extends JFrame {
         }
         String id = server.id();
         Async.run(() -> service.metrics(account.get(), id), m -> {
-            if (id.equals(metricsServerId) && liveStats == null) {
+            if (id.equals(metricsServerId) && !liveActive()) {
                 metrics().showHistory(m);
             }
         }, err -> {
-            if (id.equals(metricsServerId) && liveStats == null) {
+            if (id.equals(metricsServerId) && !liveActive()) {
                 metrics().showMessage("메트릭을 불러오지 못했어요");
                 metrics().setStatus(Async.message(err), true);
             }
         });
     }
 
+    private boolean liveActive() {
+        return live.state() != com.infradesk.ui.metrics.LiveController.State.OFF;
+    }
+
+    /** The user flipped the live toggle. Asks for SSH settings first if the server has none. */
     private void toggleLive(boolean on) {
         if (!on) {
-            stopLive(null);
+            live.userToggle(false);
             findServer(selectedServerId).ifPresent(s -> loadMetrics(s, true));
             return;
         }
         Optional<Server> selected = findServer(selectedServerId);
-        if (selected.isEmpty()) {
+        if (selected.isEmpty()
+                || (!terminalService.isConfigured(selected.get().id())
+                    && !new SshSettingsDialog(this, terminalService, selected.get()).showDialog())) {
             metrics().setLiveSelected(false);
             return;
         }
-        Server server = selected.get();
-        if (!terminalService.isConfigured(server.id())
-                && !new SshSettingsDialog(this, terminalService, server).showDialog()) {
-            metrics().setLiveSelected(false);
-            return;
-        }
-        metrics().setStatus("SSH 연결 중…", false);
-        String id = server.id();
-        Async.run(() -> terminalService.openStats(server, new HostKeyDialog(this)), session -> {
-            if (!id.equals(selectedServerId) || liveStats != null) {
-                session.close();
-                return;
-            }
-            metrics().clearLive();
-            metrics().setStatus("SSH 실시간 · 첫 값을 기다리는 중…", false);
-            liveStats = LiveStats.start(session, Clock.systemUTC(),
-                    sample -> javax.swing.SwingUtilities.invokeLater(() -> {
-                        if (id.equals(selectedServerId) && liveStats != null) {
-                            metrics().addLive(sample);
-                        }
-                    }),
-                    reason -> javax.swing.SwingUtilities.invokeLater(() -> {
-                        if (id.equals(selectedServerId)) {
-                            stopLive(reason);
-                        }
-                    }));
-        }, err -> {
-            metrics().setLiveSelected(false);
-            metrics().setStatus(Async.message(err), true);
-        });
+        live.userToggle(true);
     }
 
-    /** Stops live mode; {@code reason} non-null shows why it ended. */
-    private void stopLive(String reason) {
-        if (liveStats != null) {
-            liveStats.close();
-            liveStats = null;
+    /** Connects the live controller to SSH and the metrics panel. */
+    private final class LiveHooks implements com.infradesk.ui.metrics.LiveController.Hooks {
+
+        @Override
+        public void open() {
+            Optional<Server> selected = findServer(selectedServerId);
+            if (selected.isEmpty()) {
+                live.failed("서버를 찾을 수 없어요");
+                return;
+            }
+            Server server = selected.get();
+            String id = server.id();
+            Async.run(() -> terminalService.openStats(server, new HostKeyDialog(MainFrame.this)), session -> {
+                if (!id.equals(selectedServerId) || !live.opened()) {
+                    session.close();
+                    return;
+                }
+                metrics().clearLive();
+                metrics().setStatus("SSH 실시간 · 첫 값을 기다리는 중…", false);
+                LiveStats[] self = new LiveStats[1];
+                self[0] = LiveStats.start(session, Clock.systemUTC(),
+                        sample -> javax.swing.SwingUtilities.invokeLater(() -> {
+                            if (liveStats == self[0] && liveStats != null) {
+                                metrics().addLive(sample);
+                            }
+                        }),
+                        reason -> javax.swing.SwingUtilities.invokeLater(() -> {
+                            if (liveStats == self[0] && liveStats != null) {
+                                liveStats = null;
+                                live.failed(reason);
+                            }
+                        }));
+                liveStats = self[0];
+            }, err -> live.failed(Async.message(err)));
         }
-        metrics().setLiveSelected(false);
-        if (reason != null) {
-            metrics().setStatus(reason, true);
+
+        @Override
+        public void close() {
+            if (liveStats != null) {
+                liveStats.close();
+                liveStats = null;
+            }
+        }
+
+        @Override
+        public void showToggle(boolean on) {
+            metrics().setLiveSelected(on);
+        }
+
+        @Override
+        public void showStatus(String text, boolean error) {
+            metrics().setStatus(text, error);
+        }
+    }
+
+    /** Auto-off timer on the EDT. */
+    private static final class SwingTimeout implements com.infradesk.ui.metrics.LiveController.Timeout {
+        private Timer timer;
+
+        @Override
+        public void start(java.time.Duration delay, Runnable onExpire) {
+            cancel();
+            timer = new Timer((int) delay.toMillis(), e -> onExpire.run());
+            timer.setRepeats(false);
+            timer.start();
+        }
+
+        @Override
+        public void cancel() {
+            if (timer != null) {
+                timer.stop();
+                timer = null;
+            }
         }
     }
 
@@ -328,6 +385,8 @@ public class MainFrame extends JFrame {
 
     /** Public so the snapshot tool can render the terminal screen. */
     public void showTerminal() {
+        dashboardVisible = false;
+        live.pause();
         screens.show(screenPanel, TERMINAL);
         titleBar.setTerminalMode(true);
         titleBar.setSessionCount(terminalView.sessionCount());
@@ -335,8 +394,10 @@ public class MainFrame extends JFrame {
     }
 
     private void showDashboard() {
+        dashboardVisible = true;
         screens.show(screenPanel, DASHBOARD);
         titleBar.setTerminalMode(false);
+        live.resume();
     }
 
     /** Opens a terminal tab for the server without the settings check; for the snapshot tool. */
@@ -424,7 +485,7 @@ public class MainFrame extends JFrame {
         detail.show(server, account.get());
         cards.show(content, DETAIL);
         if (switched) {
-            stopLive(null);
+            live.stop();
             loadMetrics(server, true);
         } else if (server.status() != metricsServerStatus) {
             loadMetrics(server, server.status() == com.infradesk.core.ServerStatus.RUNNING);
@@ -432,7 +493,7 @@ public class MainFrame extends JFrame {
     }
 
     private void showEmpty() {
-        stopLive(null);
+        live.stop();
         metricsServerId = null;
         boolean noAccounts = inventory.isEmpty();
         emptyTitle.setText(noAccounts ? "계정을 추가하세요" : "서버를 선택하세요");

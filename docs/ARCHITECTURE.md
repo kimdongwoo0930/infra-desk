@@ -107,8 +107,10 @@ API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서
 ```
 서버 선택 → Async: service.metrics(account, id) → MetricsPanel.showHistory (1시간, 1분 점)
 1분 타이머 → 선택 서버 메트릭 + service.currentCpu(inventory) → 사이드바 CPU%
-[실시간 (SSH)] → TerminalService.openStats (exec: ProcStats.COMMAND)
+[실시간 (SSH)] → LiveController → TerminalService.openStats (exec: ProcStats.COMMAND, 최대 310회)
              → LiveStats: '---' 블록마다 파싱 → 이전 스냅샷과 차이 → MetricsPanel.addLive (최근 5분)
+터미널 화면 / 최소화 → LiveController.pause (연결 닫음) → 대시보드 복귀 → resume (다시 연결)
+켠 지 10분 → 자동 꺼짐
 ```
 
 ## UI 구성 (`com.infradesk.ui`)
@@ -123,6 +125,7 @@ API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서
 | `AddAccountDialog` | 계정 추가, 연결 테스트 |
 | `Async` | 가상 스레드에서 작업 → 결과는 EDT로 |
 | `metrics.MetricsPanel` | 모니터링 섹션: 카드 3개, 상태 문구, 실시간 토글 |
+| `metrics.LiveController` | 실시간 모드 상태(OFF/CONNECTING/RUNNING/PAUSED), 일시정지·재개, 10분 자동 꺼짐 |
 | `metrics.MetricCard` | 스탯 타일: 현재값 + XChart 스파크라인(커서 툴팁) + 범례/설명 |
 | `terminal.TerminalView` | 세션 탭 모음, 새 세션 메뉴 |
 | `terminal.TerminalPanel` | 탭 하나: 연결, JediTerm 위젯, 상태바, 실패 안내 |

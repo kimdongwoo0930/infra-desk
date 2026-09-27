@@ -14,10 +14,17 @@ public final class ProcStats {
     /** Seconds between snapshots on the server. */
     public static final int INTERVAL_SECONDS = 2;
 
+    /**
+     * Upper bound on snapshots per session. The client turns live mode off after ten minutes; this
+     * cap makes the remote loop end on its own shortly after, even if the connection died without
+     * the server noticing (e.g. the laptop went to sleep).
+     */
+    public static final int MAX_SNAPSHOTS = 10 * 60 / INTERVAL_SECONDS + 10;
+
     /** Remote loop printing one snapshot block every {@link #INTERVAL_SECONDS}. POSIX sh. */
-    public static final String COMMAND = "while :; do head -n 1 /proc/stat; "
+    public static final String COMMAND = "i=0; while [ $i -lt " + MAX_SNAPSHOTS + " ]; do head -n 1 /proc/stat; "
             + "grep -E '^(MemTotal|MemAvailable):' /proc/meminfo; tail -n +3 /proc/net/dev; "
-            + "echo ---; sleep " + INTERVAL_SECONDS + "; done";
+            + "echo ---; i=$((i+1)); sleep " + INTERVAL_SECONDS + "; done";
 
     /** One parsed snapshot. Counters are cumulative since boot. */
     public record Snapshot(Instant time, long cpuBusy, long cpuTotal, long memTotalKb, long memAvailableKb,

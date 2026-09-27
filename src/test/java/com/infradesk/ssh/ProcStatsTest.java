@@ -35,6 +35,13 @@ class ProcStatsTest {
     }
 
     @Test
+    void remoteLoopIsBoundedToJustOverTenMinutes() {
+        assertTrue(ProcStats.COMMAND.contains("-lt " + ProcStats.MAX_SNAPSHOTS));
+        long seconds = (long) ProcStats.MAX_SNAPSHOTS * ProcStats.INTERVAL_SECONDS;
+        assertTrue(seconds > 600 && seconds <= 660, "remote loop runs " + seconds + "s");
+    }
+
+    @Test
     void incompleteBlockIsRejected() {
         assertTrue(ProcStats.parse(List.of("MemTotal: 1 kB"), Instant.EPOCH).isEmpty());
     }
