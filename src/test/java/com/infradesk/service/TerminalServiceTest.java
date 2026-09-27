@@ -27,9 +27,18 @@ class TerminalServiceTest {
     private static final String KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END OPENSSH PRIVATE KEY-----";
 
     private final AtomicReference<SshTarget> lastTarget = new AtomicReference<>();
-    private final ShellConnector capturing = (target, prompt, cols, rows) -> {
-        lastTarget.set(target);
-        return null;
+    private final ShellConnector capturing = new ShellConnector() {
+        @Override
+        public com.infradesk.ssh.ShellSession open(SshTarget target, com.infradesk.ssh.HostKeyPrompt prompt, int cols, int rows) {
+            lastTarget.set(target);
+            return null;
+        }
+
+        @Override
+        public com.infradesk.ssh.ShellSession exec(SshTarget target, com.infradesk.ssh.HostKeyPrompt prompt, String command) {
+            lastTarget.set(target);
+            return null;
+        }
     };
 
     @Test

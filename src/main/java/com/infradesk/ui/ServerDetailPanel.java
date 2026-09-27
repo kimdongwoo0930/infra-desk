@@ -37,6 +37,7 @@ public class ServerDetailPanel extends JPanel {
     private final JButton stopButton = Buttons.danger("정지", "stop");
     private final JButton startButton = Buttons.secondary("시작", "play");
     private final JLabel actionStatus = new JLabel(" ");
+    private final com.infradesk.ui.metrics.MetricsPanel metrics = new com.infradesk.ui.metrics.MetricsPanel();
     private Consumer<ServerAction> onAction = a -> { };
     private Runnable onSsh = () -> { };
     private Server server;
@@ -59,12 +60,20 @@ public class ServerDetailPanel extends JPanel {
         add(header());
         add(Box.createVerticalStrut(16));
         add(infoGrid());
+        add(Box.createVerticalStrut(20));
+        metrics.setAlignmentX(Component.LEFT_ALIGNMENT);
+        metrics.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, metrics.getPreferredSize().height));
+        add(metrics);
         add(Box.createVerticalGlue());
 
         sshButton.addActionListener(e -> onSsh.run());
         startButton.addActionListener(e -> onAction.accept(ServerAction.START));
         stopButton.addActionListener(e -> onAction.accept(ServerAction.STOP));
         rebootButton.addActionListener(e -> onAction.accept(ServerAction.REBOOT));
+    }
+
+    public com.infradesk.ui.metrics.MetricsPanel metrics() {
+        return metrics;
     }
 
     public void onSsh(Runnable listener) {

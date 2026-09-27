@@ -30,7 +30,7 @@ class DemoShellConnectorTest {
 
     @Test
     void answersCommandsAndExits() throws Exception {
-        ShellSession shell = new DemoShellConnector(Duration.ZERO)
+        ShellSession shell = new DemoShellConnector(Duration.ZERO, Duration.ofMillis(50))
                 .open(new SshTarget("demo:bot", 22, "ubuntu", "demo", null), (h, p, t, f) -> true, 80, 24);
         assertTrue(readUntil(shell.output(), "$ ").contains("ubuntu@bot"));
 

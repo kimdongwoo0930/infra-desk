@@ -4,6 +4,46 @@
 
 ---
 
+## 2026-09-28 · 5단계: 모니터링
+
+### 한 일
+- **OCI Monitoring** (`provider/oracle/OracleMetrics`): `oci_computeagent` 네임스페이스에서 최근 1시간, 1분 해상도.
+  - CPU `CpuUtilization.mean()`, 메모리 `MemoryUtilization.mean()`, 네트워크 `NetworksBytesIn/Out.rate()` (초당 바이트).
+  - 사이드바용 CPU는 계정당 **한 번의 묶음 쿼리** `CpuUtilization[1m].groupBy(resourceId).mean()`.
+- `CloudProvider.currentCpu(servers)` 추가 (기본 구현은 서버별 `getMetrics`, OCI는 묶음 쿼리로 재정의).
+- **SSH 실시간 모드** (`ssh/ProcStats`, `service/LiveStats`): 서버 상세에서 [실시간 (SSH)]를 켜면 exec 채널로 `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`를 2초마다 읽어 차이로 계산. 서버를 바꾸거나 정지되면 자동으로 끔.
+  - CPU: busy/total jiffies 차이 (idle + iowait는 idle로 계산)
+  - 메모리: (MemTotal − MemAvailable) / MemTotal
+  - 네트워크: `lo` 제외 모든 인터페이스의 rx/tx 바이트 차이 ÷ 경과 시간 (카운터가 줄면 0)
+- **UI**: 서버 상세 아래 "모니터링" 섹션 — CPU / 메모리 / 네트워크 스탯 타일 (현재값 + XChart 스파크라인 + 마우스 커서 십자선·툴팁). 사이드바 실행 중 서버 옆에 CPU%.
+- 주기: 선택한 서버 메트릭과 사이드바 CPU는 1분마다 (OCI가 1분 단위로 집계). 실시간 모드는 2초.
+- **데모**: 서버 id로 고정된 파형의 가짜 1시간 데이터, 실시간은 `/proc` 형식 가짜 출력 (실제와 같은 파서를 거침).
+- 스냅샷 `main.png`(1시간 그래프), `main-live.png`(실시간).
+- 테스트 48개 통과 (`/proc` 계산, 데모 실시간 스트림, MQL 생성·데이터 정리, 데모 메트릭, 계정별 CPU 실패 격리).
+
+### 결정한 것
+| 항목 | 결정 | 이유 |
+|---|---|---|
+| 차트 형태 | 스탯 타일 (현재값 + 스파크라인), 축·격자 없음 | 목업 그대로. 한 숫자 + 추세를 보여주는 용도 (dataviz 스킬 형태 선택) |
+| 색 | CPU·메모리: 포인트 색 `#3B73E0` 한 가지. 네트워크: 수신 `#3B73E0`, 송신 `#D95926` | 카드 배경(`#2B2D30`) 기준 검증 통과: 색각 이상 ΔE 27.2, 일반 ΔE 32.9, 대비 3:1 이상 |
+| 범례 | 네트워크만 (시리즈 2개). 범례 항목에 현재값을 함께 표시 | 시리즈 2개 이상이면 범례 필수, 색만으로 구분하지 않기. 글자는 텍스트 색, 색은 선 견본에만 |
+| y축 | CPU·메모리는 0~100 고정, 네트워크는 0부터 자동 | 퍼센트는 높이 자체가 의미가 있어서 고정. 네트워크는 범위가 서버마다 다름 |
+| 네트워크 큰 숫자 | 수신 + 송신 합계 | 목업 문구 "수신 · 송신 합계" |
+| 실시간 방식 | PTY 없는 exec 채널에서 `while … sleep 2` 루프 한 번 | 2초마다 새 SSH 명령을 여는 것보다 연결·인증 비용이 한 번뿐 |
+| 메모리 메트릭 없음 | "메모리 메트릭이 없어요 (OCI 에이전트 확인)" 안내 | OCI 메모리는 Compute Instance Monitoring 플러그인이 켜져 있어야 수집됨 |
+
+### 추가한 라이브러리
+- `oci-java-sdk-monitoring` 3.97.0 — OCI Monitoring API
+- `xchart` 4.0.4 — 스파크라인 (CLAUDE.md 스택)
+
+### 남은 일 / TODO
+- 실제 OCI 메트릭 확인 (API 키 필요). 특히 `NetworksBytesIn.rate()` 단위가 초당 바이트인지 실데이터로 확인.
+- 실시간 모드 켠 동안 사이드바 CPU%는 여전히 OCI 값 (1분 단위)이라 카드 값과 다를 수 있음.
+- 업타임·OS·부트 볼륨·열린 포트는 SSH로 한 번 읽어서 채울 수 있음 (다음 후보).
+- 창이 최소화돼도 1분 메트릭 갱신은 `isShowing()`으로 건너뜀. 백그라운드 알림(6단계 디스코드 웹훅)과 함께 다시 볼 것.
+
+---
+
 ## 2026-09-28 · 4단계: SSH 터미널
 
 ### 한 일

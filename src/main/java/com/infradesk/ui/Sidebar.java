@@ -39,6 +39,7 @@ public class Sidebar extends JPanel {
     private final List<ServerListItem> items = new ArrayList<>();
 
     private List<AccountInventory> inventory = List.of();
+    private java.util.Map<String, Double> cpu = java.util.Map.of();
     private String selectedServerId;
     private Consumer<Server> onSelect = s -> { };
     private Consumer<Account> onRemoveAccount = a -> { };
@@ -139,6 +140,12 @@ public class Sidebar extends JPanel {
         rebuild();
     }
 
+    /** Latest CPU per server id, shown next to running servers. */
+    public void setCpu(java.util.Map<String, Double> cpu) {
+        this.cpu = java.util.Map.copyOf(cpu);
+        rebuild();
+    }
+
     public void select(String serverId) {
         selectedServerId = serverId;
         for (ServerListItem item : items) {
@@ -171,7 +178,7 @@ public class Sidebar extends JPanel {
                 groups.add(mutedLine("서버가 없어요"));
             }
             for (Server s : servers) {
-                ServerListItem item = new ServerListItem(s, () -> {
+                ServerListItem item = new ServerListItem(s, cpu.get(s.id()), () -> {
                     select(s.id());
                     onSelect.accept(s);
                 }, () -> onSshSettings.accept(s));

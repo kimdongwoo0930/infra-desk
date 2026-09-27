@@ -66,7 +66,27 @@ public class DemoProvider implements CloudProvider {
     @Override
     public Metrics getMetrics(String serverId) {
         simulateLatency();
-        return Metrics.EMPTY;
+        synchronized (this) {
+            if (current(serverId).status() != ServerStatus.RUNNING) {
+                return Metrics.EMPTY;
+            }
+        }
+        return DemoMetrics.forServer(serverId, clock.instant());
+    }
+
+    @Override
+    public java.util.Map<String, Double> currentCpu(List<Server> servers) {
+        simulateLatency();
+        java.util.Map<String, Double> result = new java.util.HashMap<>();
+        for (Server s : servers) {
+            synchronized (this) {
+                if (!states.containsKey(s.id()) || current(s.id()).status() != ServerStatus.RUNNING) {
+                    continue;
+                }
+            }
+            DemoMetrics.forServer(s.id(), clock.instant()).latestCpu().ifPresent(v -> result.put(s.id(), v));
+        }
+        return result;
     }
 
     private void transition(String serverId, ServerStatus required, ServerStatus via, ServerStatus target) {

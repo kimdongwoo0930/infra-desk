@@ -16,13 +16,15 @@ import java.util.concurrent.CountDownLatch;
 public class DemoShellConnector implements ShellConnector {
 
     private final Duration latency;
+    private final Duration statsInterval;
 
-    public DemoShellConnector(Duration latency) {
+    public DemoShellConnector(Duration latency, Duration statsInterval) {
         this.latency = latency;
+        this.statsInterval = statsInterval;
     }
 
     public DemoShellConnector() {
-        this(Duration.ofMillis(600));
+        this(Duration.ofMillis(600), Duration.ofSeconds(ProcStats.INTERVAL_SECONDS));
     }
 
     @Override
@@ -33,6 +35,15 @@ public class DemoShellConnector implements ShellConnector {
             Thread.currentThread().interrupt();
         }
         return new DemoShellSession(target, hostnameOf(target));
+    }
+
+    /** Only {@link ProcStats#COMMAND} is supported: emits fake /proc snapshots every interval. */
+    @Override
+    public ShellSession exec(SshTarget target, HostKeyPrompt prompt, String command) {
+        if (!command.equals(ProcStats.COMMAND)) {
+            throw new SshException(SshException.Kind.CHANNEL, "데모 셸은 이 명령을 실행할 수 없어요: " + command);
+        }
+        return new DemoStatsSession(target, hostnameOf(target), statsInterval);
     }
 
     private static String hostnameOf(SshTarget target) {
@@ -189,6 +200,109 @@ public class DemoShellConnector implements ShellConnector {
             try {
                 shellOut.close();
                 terminalIn.close();
+            } catch (IOException ignored) {
+            }
+            closed.countDown();
+        }
+    }
+
+    /** Emits /proc-shaped snapshots with plausible, slowly wandering counters. */
+    static final class DemoStatsSession implements ShellSession {
+
+        private final SshTarget target;
+        private final PipedInputStream output;
+        private final PipedOutputStream writer;
+        private final CountDownLatch closed = new CountDownLatch(1);
+        private volatile boolean open = true;
+
+        DemoStatsSession(SshTarget target, String hostname, Duration interval) {
+            this.target = target;
+            try {
+                output = new PipedInputStream(64 * 1024);
+                writer = new PipedOutputStream(output);
+            } catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+            int seed = hostname.hashCode();
+            Thread.ofVirtual().name("demo-stats-" + hostname).start(() -> loop(seed, interval));
+        }
+
+        private void loop(int seed, Duration interval) {
+            java.util.Random random = new java.util.Random(seed);
+            long busy = 1_000_000;
+            long idle = 9_000_000;
+            long rx = 5_000_000_000L;
+            long tx = 1_500_000_000L;
+            long memTotal = 24_000_000;
+            double cpuLevel = 0.15 + random.nextDouble() * 0.25;
+            double memLevel = 0.35 + random.nextDouble() * 0.25;
+            long ticks = Math.max(1, interval.toMillis() / 10); // 100 jiffies per second
+            try {
+                while (open) {
+                    cpuLevel = Math.max(0.02, Math.min(0.95, cpuLevel + (random.nextDouble() - 0.5) * 0.12));
+                    memLevel = Math.max(0.1, Math.min(0.9, memLevel + (random.nextDouble() - 0.5) * 0.02));
+                    long dBusy = Math.round(ticks * 4 * cpuLevel);
+                    busy += dBusy;
+                    idle += ticks * 4 - dBusy;
+                    rx += interval.toMillis() * (40 + random.nextInt(120));
+                    tx += interval.toMillis() * (10 + random.nextInt(40));
+                    long user = busy * 7 / 10;
+                    long system = busy - user;
+                    String block = "cpu  " + user + " 0 " + system + " " + idle + " 0 0 0 0 0 0\n"
+                            + "MemTotal:       " + memTotal + " kB\n"
+                            + "MemAvailable:   " + Math.round(memTotal * (1 - memLevel)) + " kB\n"
+                            + "    lo: 1000 10 0 0 0 0 0 0 1000 10 0 0 0 0 0 0\n"
+                            + "  ens3: " + rx + " 1 0 0 0 0 0 0 " + tx + " 1 0 0 0 0 0 0\n"
+                            + "---\n";
+                    writer.write(block.getBytes(StandardCharsets.UTF_8));
+                    writer.flush();
+                    Thread.sleep(interval);
+                }
+            } catch (IOException | InterruptedException ignored) {
+                // Closed.
+            } finally {
+                close();
+            }
+        }
+
+        @Override
+        public InputStream output() {
+            return output;
+        }
+
+        @Override
+        public OutputStream input() {
+            return OutputStream.nullOutputStream();
+        }
+
+        @Override
+        public void resize(int columns, int rows) {
+        }
+
+        @Override
+        public boolean isOpen() {
+            return open;
+        }
+
+        @Override
+        public int waitFor() throws InterruptedException {
+            closed.await();
+            return 0;
+        }
+
+        @Override
+        public String address() {
+            return target.address();
+        }
+
+        @Override
+        public void close() {
+            if (!open) {
+                return;
+            }
+            open = false;
+            try {
+                writer.close();
             } catch (IOException ignored) {
             }
             closed.countDown();

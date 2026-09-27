@@ -32,7 +32,7 @@ class ServerListItem extends JPanel {
     private boolean selected;
     private boolean hover;
 
-    ServerListItem(Server server, Runnable onSelect, Runnable onSshSettings) {
+    ServerListItem(Server server, Double cpuPercent, Runnable onSelect, Runnable onSshSettings) {
         super(new BorderLayout(10, 0));
         this.server = server;
         setOpaque(false);
@@ -46,7 +46,11 @@ class ServerListItem extends JPanel {
         name.setText(server.name());
         name.setIcon(new StatusDot(server.status()));
         name.setIconTextGap(10);
-        detail.setText(server.status() == ServerStatus.RUNNING ? "" : server.status().label());
+        detail.setText(server.status() != ServerStatus.RUNNING ? server.status().label()
+                : cpuPercent == null ? "" : Math.round(cpuPercent) + "%");
+        if (cpuPercent != null && server.status() == ServerStatus.RUNNING) {
+            detail.setToolTipText("CPU 사용률");
+        }
         detail.putClientProperty("FlatLaf.style", "font: -2");
         add(name, BorderLayout.CENTER);
         add(detail, BorderLayout.EAST);

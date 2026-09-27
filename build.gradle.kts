@@ -23,6 +23,7 @@ dependencies {
     implementation(libs.flatlaf)
     implementation(libs.flatlaf.extras)
     implementation(libs.oci.core)
+    implementation(libs.oci.monitoring)
     implementation(libs.oci.httpclient)
     implementation(libs.jackson.databind)
     implementation(libs.jackson.jsr310)
@@ -31,6 +32,7 @@ dependencies {
     runtimeOnly(libs.eddsa) // lets MINA SSHD read ed25519 keys
     implementation(libs.jediterm.core)
     implementation(libs.jediterm.ui)
+    implementation(libs.xchart)
     runtimeOnly(libs.slf4j.nop)
 
     testImplementation(platform(libs.junit.bom))

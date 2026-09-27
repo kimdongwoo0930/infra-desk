@@ -2,6 +2,7 @@ package com.infradesk.service;
 
 import com.infradesk.core.Server;
 import com.infradesk.ssh.HostKeyPrompt;
+import com.infradesk.ssh.ProcStats;
 import com.infradesk.ssh.ShellConnector;
 import com.infradesk.ssh.ShellSession;
 import com.infradesk.ssh.SshException;
@@ -71,10 +72,18 @@ public class TerminalService {
 
     /** Opens a shell to the server's public IP with its saved settings. */
     public ShellSession open(Server server, HostKeyPrompt prompt, int columns, int rows) {
+        return connector.open(target(server), prompt, columns, rows);
+    }
+
+    /** Starts streaming /proc snapshots from the server (see {@link ProcStats#COMMAND}). */
+    public ShellSession openStats(Server server, HostKeyPrompt prompt) {
+        return connector.exec(target(server), prompt, ProcStats.COMMAND);
+    }
+
+    private SshTarget target(Server server) {
         if (demo) {
             SshSettings s = settingsStore.get(server.id()).orElse(new SshSettings(server.id(), "ubuntu", 22));
-            return connector.open(new SshTarget("demo:" + server.name(), s.port(), s.username(), "demo", null),
-                    prompt, columns, rows);
+            return new SshTarget("demo:" + server.name(), s.port(), s.username(), "demo", null);
         }
         String host = server.publicIpAddress().orElseThrow(() -> new SshException(SshException.Kind.CONNECT,
                 server.name() + "에 공인 IP가 없어요. 공인 IP를 붙이거나 사설망(VPN)으로 접속하세요."));
@@ -83,7 +92,7 @@ public class TerminalService {
         String key = secretStore.get(serverKey(server.id(), SSH_KEY)).orElseThrow(() -> new SshException(SshException.Kind.AUTH,
                 server.name() + "의 SSH 키가 없어요. SSH 키를 먼저 등록하세요."));
         String passphrase = secretStore.get(serverKey(server.id(), SSH_PASSPHRASE)).orElse(null);
-        return connector.open(new SshTarget(host, s.port(), s.username(), key, passphrase), prompt, columns, rows);
+        return new SshTarget(host, s.port(), s.username(), key, passphrase);
     }
 
     private static String serverKey(String serverId, String name) {

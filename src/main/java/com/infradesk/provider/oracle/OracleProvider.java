@@ -19,6 +19,7 @@ import com.oracle.bmc.core.requests.ListInstancesRequest;
 import com.oracle.bmc.core.requests.ListVnicAttachmentsRequest;
 import com.oracle.bmc.core.responses.ListInstancesResponse;
 import com.oracle.bmc.core.responses.ListVnicAttachmentsResponse;
+import com.oracle.bmc.monitoring.MonitoringClient;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -35,6 +36,8 @@ public class OracleProvider implements CloudProvider {
     private final String compartmentId;
     private final ComputeClient compute;
     private final VirtualNetworkClient network;
+    private final MonitoringClient monitoring;
+    private final OracleMetrics metrics;
 
     public OracleProvider(Account account, Map<String, String> secrets) {
         this.account = account;
@@ -60,6 +63,8 @@ public class OracleProvider implements CloudProvider {
         this.compartmentId = Objects.requireNonNullElse(account.property(OracleProperties.COMPARTMENT_OCID), tenancy);
         this.compute = ComputeClient.builder().build(auth);
         this.network = VirtualNetworkClient.builder().build(auth);
+        this.monitoring = MonitoringClient.builder().build(auth);
+        this.metrics = new OracleMetrics(monitoring, compartmentId, java.time.Clock.systemUTC());
     }
 
     @Override
@@ -126,14 +131,27 @@ public class OracleProvider implements CloudProvider {
 
     @Override
     public Metrics getMetrics(String serverId) {
-        // Implemented in stage 5 with the OCI Monitoring API.
-        return Metrics.EMPTY;
+        try {
+            return metrics.forInstance(serverId);
+        } catch (RuntimeException e) {
+            throw OracleMapper.error("메트릭 조회", e);
+        }
+    }
+
+    @Override
+    public Map<String, Double> currentCpu(List<Server> servers) {
+        try {
+            return metrics.latestCpu(servers.stream().map(Server::id).toList());
+        } catch (RuntimeException e) {
+            throw OracleMapper.error("CPU 사용률 조회", e);
+        }
     }
 
     @Override
     public void close() {
         compute.close();
         network.close();
+        monitoring.close();
     }
 
     private void action(String serverId, String action, String label) {

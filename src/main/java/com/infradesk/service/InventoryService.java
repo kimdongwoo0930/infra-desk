@@ -92,6 +92,34 @@ public class InventoryService {
         }
     }
 
+    /** Last hour of metrics for one server. */
+    public com.infradesk.core.Metrics metrics(Account account, String serverId) {
+        return provider(account).getMetrics(serverId);
+    }
+
+    /**
+     * Latest CPU per server across all loaded accounts, fetched in parallel. Accounts that fail
+     * are skipped (the sidebar just shows no percentage for them).
+     */
+    public Map<String, Double> currentCpu(List<AccountInventory> inventory) {
+        Map<String, Double> result = new ConcurrentHashMap<>();
+        try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (AccountInventory inv : inventory) {
+                if (inv.failed() || inv.servers().isEmpty()) {
+                    continue;
+                }
+                pool.submit(() -> {
+                    try {
+                        result.putAll(provider(inv.account()).currentCpu(inv.servers()));
+                    } catch (RuntimeException e) {
+                        LOG.log(Level.FINE, "CPU lookup failed for account " + inv.account().id() + ": " + e.getMessage());
+                    }
+                });
+            }
+        }
+        return result;
+    }
+
     /** Cached provider for a saved account. */
     public CloudProvider provider(Account account) {
         return providers.computeIfAbsent(account.id(), id -> registry.create(account, secretsOf(id)));

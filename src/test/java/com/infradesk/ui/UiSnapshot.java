@@ -34,23 +34,30 @@ public final class UiSnapshot {
         DIR.mkdirs();
         InventoryService service = InfraDeskApp.demoService(new DemoProviderFactory(Clock.systemUTC(), Duration.ZERO));
         List<AccountInventory> inventory = service.loadAll();
-        // Stop discord-bot so the "stopping" state can be rendered too.
-        var accountA = service.accounts().getFirst();
-        service.control(accountA, inventory.getFirst().servers().getFirst().id(), com.infradesk.service.ServerAction.STOP);
-        List<AccountInventory> stopping = service.loadAll();
+        // Separate demo world where discord-bot was just stopped, for the "stopping" screen.
+        InventoryService stoppingService = InfraDeskApp.demoService(new DemoProviderFactory(Clock.systemUTC(), Duration.ZERO));
+        var stoppingInventory = stoppingService.loadAll();
+        stoppingService.control(stoppingService.accounts().getFirst(),
+                stoppingInventory.getFirst().servers().getFirst().id(), com.infradesk.service.ServerAction.STOP);
+        List<AccountInventory> stopping = stoppingService.loadAll();
 
+        MainFrame[] mainFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
+            mainFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), true);
+            mainFrame[0].setInventory(inventory);
+        });
+        Thread.sleep(800);
+        SwingUtilities.invokeAndWait(() -> {
             try {
                 MainFrame empty = new MainFrame(service, InfraDeskApp.demoTerminalService(), true);
                 empty.setInventory(List.of());
                 write(empty, empty.getContentPane(), 1280, 800, "main-empty.png");
 
-                MainFrame frame = new MainFrame(service, InfraDeskApp.demoTerminalService(), true);
-                frame.setInventory(inventory);
+                MainFrame frame = mainFrame[0];
                 write(frame, frame.getContentPane(), 1280, 800, "main.png");
 
-                MainFrame stoppingFrame = new MainFrame(service, InfraDeskApp.demoTerminalService(), true);
+                MainFrame stoppingFrame = new MainFrame(stoppingService, InfraDeskApp.demoTerminalService(), true);
                 stoppingFrame.setInventory(stopping);
                 write(stoppingFrame, stoppingFrame.getContentPane(), 1280, 800, "main-stopping.png");
                 stoppingFrame.dispose();
@@ -65,12 +72,26 @@ public final class UiSnapshot {
                 write(ssh, ssh.getContentPane(), ssh.getWidth(), ssh.getContentPane().getPreferredSize().height,
                         "ssh-settings.png");
                 ssh.dispose();
-                frame.dispose();
                 empty.dispose();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
+        // Live mode: flip the toggle on the main frame and let the demo /proc stream produce samples.
+        SwingUtilities.invokeAndWait(() -> {
+            MainFrame live = mainFrame[0];
+            live.addNotify();
+            find(live.getContentPane(), javax.swing.JToggleButton.class).doClick();
+        });
+        Thread.sleep(9000);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "main-live.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
         // Terminal: open a demo session, give the fake shell time to print its banner, then render.
         MainFrame[] terminalFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {

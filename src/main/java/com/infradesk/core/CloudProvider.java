@@ -1,6 +1,8 @@
 package com.infradesk.core;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The only entry point UI and service code use to talk to a cloud. One instance serves one
@@ -17,8 +19,23 @@ public interface CloudProvider extends AutoCloseable {
 
     void reboot(String serverId);
 
-    /** Returns recent utilization, roughly the last hour. */
+    /** Returns recent utilization at one-minute resolution, roughly the last hour. */
     Metrics getMetrics(String serverId);
+
+    /**
+     * Latest CPU utilization (0–100) per server id, for the sidebar. Servers without data are
+     * absent. The default asks {@link #getMetrics} per server; providers that can fetch all
+     * servers in one call should override it.
+     */
+    default Map<String, Double> currentCpu(List<Server> servers) {
+        Map<String, Double> result = new HashMap<>();
+        for (Server s : servers) {
+            if (s.status() == ServerStatus.RUNNING) {
+                getMetrics(s.id()).latestCpu().ifPresent(v -> result.put(s.id(), v));
+            }
+        }
+        return result;
+    }
 
     /** Releases SDK clients. */
     @Override

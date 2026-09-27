@@ -34,7 +34,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 
 | 타입 | 역할 |
 |---|---|
-| `core.CloudProvider` | `listServers`, `start`, `stop`, `reboot`, `getMetrics`, `close`. 계정 1개당 1개. 모든 메서드는 블로킹 |
+| `core.CloudProvider` | `listServers`, `start`, `stop`, `reboot`, `getMetrics`(최근 1시간, 1분 단위), `currentCpu`(사이드바용), `close`. 계정 1개당 1개. 모든 메서드는 블로킹 |
 | `core.CloudProviderFactory` | `create(Account, secrets)`, `regions()` |
 | `core.Account` | id, 표시 이름, `ProviderType`, 리전, `properties`(비밀 아닌 설정). 비밀값 없음 |
 | `core.Server` / `ServerStatus` / `Metrics` | 공통 모델. 상태는 정규화된 enum |
@@ -43,6 +43,8 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `service.ServerAction` | `START`, `STOP`, `REBOOT`. 확인 창이 필요한지(`needsConfirmation`) 포함 |
 | `service.TerminalService` | 서버별 SSH 설정·키 저장, 공인 IP로 셸 열기 |
 | `ssh.ShellConnector` / `ShellSession` | 셸 열기 / 입출력 스트림·크기 조정·종료 대기 |
+| `ssh.ProcStats` | 원격 `/proc` 스냅샷 명령, 파싱, 두 스냅샷 사이 사용률 계산 |
+| `service.LiveStats` | exec 세션 출력을 읽어 2초마다 `ProcStats.Sample` 전달 |
 | `ssh.SshException` | 종류(`CONNECT`, `AUTH`, `KEY_FORMAT`, `HOST_KEY_REJECTED`, `HOST_KEY_CHANGED`)와 한국어 메시지 |
 | `service.RefreshPolicy` | 다음 조회 시점과 대상 계정 결정 (평소 45초 전체, 전이·요청 직후 5초 해당 계정만) |
 | `storage.SecretStore` | 키: `account.<accountId>.<secretName>` (예: `privateKey`) |
@@ -76,6 +78,9 @@ API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서
 | Instance `Provisioning/Starting/Running/Stopping/Stopped/Terminating/Terminated` | 같은 이름의 `ServerStatus` |
 | `Moving`, `CreatingImage` | `RUNNING` |
 | 정지 / 재부팅 | `SOFTSTOP` / `SOFTRESET` |
+| CPU / 메모리 | `oci_computeagent` `CpuUtilization` / `MemoryUtilization` `[1m].mean()` |
+| 네트워크 | `NetworksBytesIn` / `NetworksBytesOut` `[1m].rate()` |
+| 사이드바 CPU | `CpuUtilization[1m].groupBy(resourceId).mean()` 계정당 1회 |
 | 401 / 403·404 / 409 / 429 | 인증 실패 / 권한·OCID 확인 / 다른 작업 중 / 요청 한도 |
 
 ## 제어 흐름
@@ -97,6 +102,15 @@ API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서
           → ShellTtyConnector로 JediTerm에 연결 → 창 크기 변경 시 window-change
 ```
 
+## 모니터링 흐름
+
+```
+서버 선택 → Async: service.metrics(account, id) → MetricsPanel.showHistory (1시간, 1분 점)
+1분 타이머 → 선택 서버 메트릭 + service.currentCpu(inventory) → 사이드바 CPU%
+[실시간 (SSH)] → TerminalService.openStats (exec: ProcStats.COMMAND)
+             → LiveStats: '---' 블록마다 파싱 → 이전 스냅샷과 차이 → MetricsPanel.addLive (최근 5분)
+```
+
 ## UI 구성 (`com.infradesk.ui`)
 
 | 클래스 | 역할 |
@@ -108,6 +122,8 @@ API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서
 | `ServerDetailPanel` | 서버 헤더, 시작/정지/재부팅 버튼(상태별 활성화), 요청 결과 한 줄, 정보 그리드 |
 | `AddAccountDialog` | 계정 추가, 연결 테스트 |
 | `Async` | 가상 스레드에서 작업 → 결과는 EDT로 |
+| `metrics.MetricsPanel` | 모니터링 섹션: 카드 3개, 상태 문구, 실시간 토글 |
+| `metrics.MetricCard` | 스탯 타일: 현재값 + XChart 스파크라인(커서 툴팁) + 범례/설명 |
 | `terminal.TerminalView` | 세션 탭 모음, 새 세션 메뉴 |
 | `terminal.TerminalPanel` | 탭 하나: 연결, JediTerm 위젯, 상태바, 실패 안내 |
 | `terminal.SshSettingsDialog` | 서버별 사용자 이름·포트·SSH 키 등록 |

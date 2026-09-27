@@ -1,7 +1,10 @@
 package com.infradesk.ssh;
 
 import org.apache.sshd.client.SshClient;
+import org.apache.sshd.client.channel.ChannelExec;
 import org.apache.sshd.client.channel.ChannelShell;
+import org.apache.sshd.client.channel.ClientChannel;
+import org.apache.sshd.client.channel.PtyCapableChannelSession;
 import org.apache.sshd.client.channel.ClientChannelEvent;
 import org.apache.sshd.client.keyverifier.KnownHostsServerKeyVerifier;
 import org.apache.sshd.client.session.ClientSession;
@@ -85,6 +88,34 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
 
     @Override
     public ShellSession open(SshTarget target, HostKeyPrompt prompt, int columns, int rows) {
+        return withSession(target, prompt, session -> {
+            ChannelShell channel = session.createShellChannel();
+            channel.setPtyType("xterm-256color");
+            channel.setPtyColumns(columns);
+            channel.setPtyLines(rows);
+            channel.setEnv("LANG", "en_US.UTF-8");
+            channel.setRedirectErrorStream(true);
+            channel.open().verify(CONNECT_TIMEOUT);
+            return new MinaShellSession(session, channel, target.address());
+        });
+    }
+
+    @Override
+    public ShellSession exec(SshTarget target, HostKeyPrompt prompt, String command) {
+        return withSession(target, prompt, session -> {
+            ChannelExec channel = session.createExecChannel(command);
+            channel.setRedirectErrorStream(true);
+            channel.open().verify(CONNECT_TIMEOUT);
+            return new MinaShellSession(session, channel, target.address());
+        });
+    }
+
+    private interface SessionTask {
+        ShellSession run(ClientSession session) throws IOException;
+    }
+
+    /** Connects and authenticates, then hands the session to {@code task}; cleans up on failure. */
+    private ShellSession withSession(SshTarget target, HostKeyPrompt prompt, SessionTask task) {
         KeyPair identity = loadKey(target);
         Attempt attempt = new Attempt(prompt);
         ClientSession session = null;
@@ -94,15 +125,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
                     .verify(CONNECT_TIMEOUT).getSession();
             session.addPublicKeyIdentity(identity);
             session.auth().verify(AUTH_TIMEOUT);
-
-            ChannelShell channel = session.createShellChannel();
-            channel.setPtyType("xterm-256color");
-            channel.setPtyColumns(columns);
-            channel.setPtyLines(rows);
-            channel.setEnv("LANG", "en_US.UTF-8");
-            channel.setRedirectErrorStream(true);
-            channel.open().verify(CONNECT_TIMEOUT);
-            return new MinaShellSession(session, channel, target.address());
+            return task.run(session);
         } catch (IOException | RuntimeException e) {
             if (session != null) {
                 session.close(true);
@@ -162,10 +185,10 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
     private static final class MinaShellSession implements ShellSession {
 
         private final ClientSession session;
-        private final ChannelShell channel;
+        private final ClientChannel channel;
         private final String address;
 
-        MinaShellSession(ClientSession session, ChannelShell channel, String address) {
+        MinaShellSession(ClientSession session, ClientChannel channel, String address) {
             this.session = session;
             this.channel = channel;
             this.address = address;
@@ -183,8 +206,11 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
 
         @Override
         public void resize(int columns, int rows) {
+            if (!(channel instanceof PtyCapableChannelSession pty)) {
+                return;
+            }
             try {
-                channel.sendWindowChange(columns, rows);
+                pty.sendWindowChange(columns, rows);
             } catch (IOException e) {
                 // Channel closing; nothing to resize.
             }

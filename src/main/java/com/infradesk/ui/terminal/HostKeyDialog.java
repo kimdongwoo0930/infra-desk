@@ -9,11 +9,11 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 /** Asks on the EDT whether to trust a new host key; callable from any thread. */
-final class HostKeyDialog implements HostKeyPrompt {
+public final class HostKeyDialog implements HostKeyPrompt {
 
     private final Component parent;
 
-    HostKeyDialog(Component parent) {
+    public HostKeyDialog(Component parent) {
         this.parent = parent;
     }
 

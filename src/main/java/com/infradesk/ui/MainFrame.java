@@ -6,9 +6,12 @@ import com.infradesk.core.Account;
 import com.infradesk.core.Server;
 import com.infradesk.service.AccountInventory;
 import com.infradesk.service.InventoryService;
+import com.infradesk.service.LiveStats;
 import com.infradesk.service.RefreshPolicy;
 import com.infradesk.service.ServerAction;
 import com.infradesk.service.TerminalService;
+import com.infradesk.ui.metrics.MetricsPanel;
+import com.infradesk.ui.terminal.HostKeyDialog;
 import com.infradesk.ui.terminal.SshSettingsDialog;
 import com.infradesk.ui.terminal.TerminalView;
 
@@ -56,6 +59,12 @@ public class MainFrame extends JFrame {
 
     private final RefreshPolicy policy = new RefreshPolicy(Clock.systemUTC());
     private final Timer pollTimer;
+    /** OCI aggregates metrics per minute, so polling faster gains nothing. */
+    private final Timer metricsTimer;
+    private LiveStats liveStats;
+    private String metricsServerId;
+    private com.infradesk.core.ServerStatus metricsServerStatus;
+    private boolean cpuLoadedOnce;
 
     private List<AccountInventory> inventory = List.of();
     private String selectedServerId;
@@ -72,6 +81,7 @@ public class MainFrame extends JFrame {
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
+                stopLive(null);
                 terminalView.closeAll();
             }
         });
@@ -120,6 +130,121 @@ public class MainFrame extends JFrame {
 
         pollTimer = new Timer((int) RefreshPolicy.NORMAL_INTERVAL.toMillis(), e -> poll());
         pollTimer.setRepeats(false);
+        metricsTimer = new Timer(60_000, e -> metricsTick());
+        metricsTimer.start();
+        detail.metrics().onLiveToggle(this::toggleLive);
+    }
+
+    private MetricsPanel metrics() {
+        return detail.metrics();
+    }
+
+    /** Every minute: refresh the selected server's history (unless live) and sidebar CPU. */
+    private void metricsTick() {
+        if (!isShowing()) {
+            return;
+        }
+        findServer(selectedServerId).ifPresent(s -> {
+            if (liveStats == null) {
+                loadMetrics(s, false);
+            }
+        });
+        refreshCpu();
+    }
+
+    private void refreshCpu() {
+        List<AccountInventory> snapshot = inventory;
+        Async.run(() -> service.currentCpu(snapshot), sidebar::setCpu, err -> { });
+    }
+
+    /** @param showLoading clear the cards first (when switching servers) */
+    private void loadMetrics(Server server, boolean showLoading) {
+        metricsServerId = server.id();
+        metricsServerStatus = server.status();
+        boolean running = server.status() == com.infradesk.core.ServerStatus.RUNNING;
+        metrics().setLiveEnabled(running, running
+                ? "서버 상세를 보는 동안 SSH로 /proc을 2초마다 읽어요"
+                : "서버가 실행 중일 때 쓸 수 있어요");
+        if (!running) {
+            stopLive(null);
+            metrics().showMessage("서버가 실행 중일 때 표시돼요");
+            metrics().setStatus(" ", false);
+            return;
+        }
+        Optional<Account> account = accountOf(server);
+        if (account.isEmpty()) {
+            return;
+        }
+        if (showLoading) {
+            metrics().showLoading();
+            metrics().setStatus("불러오는 중…", false);
+        }
+        String id = server.id();
+        Async.run(() -> service.metrics(account.get(), id), m -> {
+            if (id.equals(metricsServerId) && liveStats == null) {
+                metrics().showHistory(m);
+            }
+        }, err -> {
+            if (id.equals(metricsServerId) && liveStats == null) {
+                metrics().showMessage("메트릭을 불러오지 못했어요");
+                metrics().setStatus(Async.message(err), true);
+            }
+        });
+    }
+
+    private void toggleLive(boolean on) {
+        if (!on) {
+            stopLive(null);
+            findServer(selectedServerId).ifPresent(s -> loadMetrics(s, true));
+            return;
+        }
+        Optional<Server> selected = findServer(selectedServerId);
+        if (selected.isEmpty()) {
+            metrics().setLiveSelected(false);
+            return;
+        }
+        Server server = selected.get();
+        if (!terminalService.isConfigured(server.id())
+                && !new SshSettingsDialog(this, terminalService, server).showDialog()) {
+            metrics().setLiveSelected(false);
+            return;
+        }
+        metrics().setStatus("SSH 연결 중…", false);
+        String id = server.id();
+        Async.run(() -> terminalService.openStats(server, new HostKeyDialog(this)), session -> {
+            if (!id.equals(selectedServerId) || liveStats != null) {
+                session.close();
+                return;
+            }
+            metrics().clearLive();
+            metrics().setStatus("SSH 실시간 · 첫 값을 기다리는 중…", false);
+            liveStats = LiveStats.start(session, Clock.systemUTC(),
+                    sample -> javax.swing.SwingUtilities.invokeLater(() -> {
+                        if (id.equals(selectedServerId) && liveStats != null) {
+                            metrics().addLive(sample);
+                        }
+                    }),
+                    reason -> javax.swing.SwingUtilities.invokeLater(() -> {
+                        if (id.equals(selectedServerId)) {
+                            stopLive(reason);
+                        }
+                    }));
+        }, err -> {
+            metrics().setLiveSelected(false);
+            metrics().setStatus(Async.message(err), true);
+        });
+    }
+
+    /** Stops live mode; {@code reason} non-null shows why it ended. */
+    private void stopLive(String reason) {
+        if (liveStats != null) {
+            liveStats.close();
+            liveStats = null;
+        }
+        metrics().setLiveSelected(false);
+        if (reason != null) {
+            metrics().setStatus(reason, true);
+        }
     }
 
     /** Reloads every account's servers in the background. */
@@ -282,6 +407,10 @@ public class MainFrame extends JFrame {
             showEmpty();
         }
         scheduleNext();
+        if (!cpuLoadedOnce && !inventory.isEmpty()) {
+            cpuLoadedOnce = true;
+            refreshCpu();
+        }
     }
 
     private void showServer(Server server) {
@@ -289,13 +418,22 @@ public class MainFrame extends JFrame {
         if (account.isEmpty()) {
             return;
         }
+        boolean switched = !server.id().equals(metricsServerId);
         selectedServerId = server.id();
         sidebar.select(server.id());
         detail.show(server, account.get());
         cards.show(content, DETAIL);
+        if (switched) {
+            stopLive(null);
+            loadMetrics(server, true);
+        } else if (server.status() != metricsServerStatus) {
+            loadMetrics(server, server.status() == com.infradesk.core.ServerStatus.RUNNING);
+        }
     }
 
     private void showEmpty() {
+        stopLive(null);
+        metricsServerId = null;
         boolean noAccounts = inventory.isEmpty();
         emptyTitle.setText(noAccounts ? "계정을 추가하세요" : "서버를 선택하세요");
         emptyHint.setText(noAccounts

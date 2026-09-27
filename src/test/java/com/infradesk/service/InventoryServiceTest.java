@@ -26,7 +26,7 @@ class InventoryServiceTest {
     private static final Account BAD = new Account("bad", "BAD", ProviderType.ORACLE, "r", Map.of());
 
     /** Fails for the "bad" account, returns one server otherwise; records the actions it got. */
-    private static final class FakeProvider implements CloudProvider {
+    private static class FakeProvider implements CloudProvider {
         private final Account account;
         final List<String> calls = new java.util.ArrayList<>();
 
@@ -116,6 +116,25 @@ class InventoryServiceTest {
 
         assertEquals(1, created.size(), "provider is cached per account");
         assertEquals(List.of("stop srv-1", "start srv-1", "reboot srv-1"), created.getFirst().calls);
+    }
+
+    @Test
+    void currentCpuSkipsFailingAccounts() {
+        ProviderRegistry registry = new ProviderRegistry().register(ProviderType.ORACLE, (account, s) -> new FakeProvider(account) {
+            @Override
+            public Map<String, Double> currentCpu(List<Server> servers) {
+                if (account.id().equals("bad")) {
+                    throw new CloudProviderException("boom");
+                }
+                return Map.of(servers.getFirst().id(), 42.0);
+            }
+        });
+        InventoryService svc = new InventoryService(new InMemoryAccountStore(List.of(OK, BAD)), new InMemorySecretStore(), registry);
+        var okInv = new AccountInventory(OK, List.of(new Server("s-ok", "ok", "srv", ServerStatus.RUNNING,
+                "r", "shape", 1, 1, null, null, null)), null);
+        var badInv = new AccountInventory(BAD, List.of(new Server("s-bad", "bad", "srv", ServerStatus.RUNNING,
+                "r", "shape", 1, 1, null, null, null)), null);
+        assertEquals(Map.of("s-ok", 42.0), svc.currentCpu(List.of(okInv, badInv)));
     }
 
     @Test
