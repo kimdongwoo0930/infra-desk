@@ -45,6 +45,7 @@ public final class InfraDeskApp {
 
     public static void main(String[] args) {
         boolean demo = Arrays.asList(args).contains("--demo") || Boolean.getBoolean("infradesk.demo");
+        boolean debugInput = Arrays.asList(args).contains("--debug-input");
         if (SystemInfo.isMacOS) {
             System.setProperty("apple.awt.application.name", "InfraDesk");
             System.setProperty("apple.awt.application.appearance", "NSAppearanceNameDarkAqua");
@@ -52,6 +53,9 @@ public final class InfraDeskApp {
         }
         SwingUtilities.invokeLater(() -> {
             Theme.install();
+            if (debugInput) {
+                InputDiagnostics.install();
+            }
             MainFrame frame;
             if (demo) {
                 frame = new MainFrame(demoService(), demoTerminalService(), demoAlertService(), true);
