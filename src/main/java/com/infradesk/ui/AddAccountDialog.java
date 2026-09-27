@@ -7,6 +7,7 @@ import com.infradesk.core.ProviderType;
 import com.infradesk.service.AccountValidation;
 import com.infradesk.service.InventoryService;
 import com.infradesk.ui.components.Buttons;
+import com.infradesk.ui.components.WrappingLabel;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -37,11 +38,9 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
-import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 /** Modal dialog for registering a cloud account (docs/design/add-account.html). */
@@ -58,7 +57,7 @@ public class AddAccountDialog extends JDialog {
     private final JTextField fingerprint = field(true, "12:34:56:78:9a:bc…");
     private final JComboBox<String> region;
     private final JTextField keyPath = field(false, "파일을 선택하세요");
-    private final JLabel status = new JLabel(" ");
+    private final WrappingLabel status = new WrappingLabel(" ", 516, -1, Theme.TEXT_SECONDARY);
     private final JButton testButton = Buttons.secondary("연결 테스트", null);
     private final JButton saveButton = Buttons.primary("저장하고 서버 불러오기", null);
 
@@ -134,8 +133,6 @@ public class AddAccountDialog extends JDialog {
         body.add(Box.createVerticalStrut(16));
         body.add(notice());
         body.add(Box.createVerticalStrut(10));
-        status.putClientProperty(FlatClientProperties.STYLE, "font: -1");
-        status.setAlignmentX(Component.LEFT_ALIGNMENT);
         body.add(status);
         return body;
     }
@@ -194,17 +191,7 @@ public class AddAccountDialog extends JDialog {
                 ? "데모 모드예요. 입력값과 키는 저장되지 않고, 가짜 서버가 표시돼요."
                 : "API 개인키는 OS 키체인(macOS 키체인 / Windows 자격 증명 관리자)에 저장돼요. "
                         + "서버 SSH 키는 서버를 불러온 뒤 서버별로 등록해요.";
-        JTextArea label = new JTextArea(text);
-        label.setLineWrap(true);
-        label.setWrapStyleWord(false);
-        label.setEditable(false);
-        label.setFocusable(false);
-        label.setOpaque(false);
-        label.setBorder(BorderFactory.createEmptyBorder());
-        label.setForeground(Theme.TEXT_SECONDARY);
-        label.setFont(UIManager.getFont("Label.font").deriveFont(UIManager.getFont("Label.font").getSize2D() - 1));
-        // Give the wrapping text area its real width up front so its preferred height is right.
-        label.setSize(new Dimension(560 - 44 - 24 - 16 - 10, Short.MAX_VALUE));
+        WrappingLabel label = new WrappingLabel(text, 560 - 44 - 24 - 16 - 10, -1, Theme.TEXT_SECONDARY);
         box.add(icon, BorderLayout.WEST);
         box.add(label, BorderLayout.CENTER);
         box.setAlignmentX(Component.LEFT_ALIGNMENT);

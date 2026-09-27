@@ -5,6 +5,7 @@ import com.infradesk.alert.AlertService;
 import com.infradesk.alert.AlertSettings;
 import com.infradesk.alert.DiscordNotifier;
 import com.infradesk.ui.components.Buttons;
+import com.infradesk.ui.components.WrappingLabel;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -38,7 +39,7 @@ public class SettingsDialog extends JDialog {
     private final JCheckBox cpuHigh = new JCheckBox("CPU 사용률이 높게 유지될 때");
     private final JSpinner cpuThreshold = new JSpinner(new SpinnerNumberModel(90, 10, 100, 5));
     private final JSpinner cpuMinutes = new JSpinner(new SpinnerNumberModel(5, 1, 60, 1));
-    private final JLabel status = new JLabel(" ");
+    private final WrappingLabel status = new WrappingLabel(" ", 476, -1, Theme.TEXT_SECONDARY);
     private final JButton testButton = Buttons.secondary("테스트 메시지 보내기", null);
     private final JButton saveButton = Buttons.primary("저장", null);
 
@@ -120,7 +121,6 @@ public class SettingsDialog extends JDialog {
         cpuMinutes.getAccessibleContext().setAccessibleName("지속 시간(분)");
         add(body, cpuRow);
         body.add(Box.createVerticalStrut(12));
-        status.putClientProperty(FlatClientProperties.STYLE, "font: -1");
         add(body, status);
         return body;
     }

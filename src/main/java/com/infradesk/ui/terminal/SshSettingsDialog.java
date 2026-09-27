@@ -7,6 +7,7 @@ import com.infradesk.ssh.SshSettings;
 import com.infradesk.ui.Async;
 import com.infradesk.ui.Theme;
 import com.infradesk.ui.components.Buttons;
+import com.infradesk.ui.components.WrappingLabel;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -29,10 +30,8 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
-import javax.swing.UIManager;
 
 /** Registers the SSH user, port and private key for one server. */
 public class SshSettingsDialog extends JDialog {
@@ -45,7 +44,7 @@ public class SshSettingsDialog extends JDialog {
     private final JTextField port = new JTextField("22");
     private final JTextField keyPath = new JTextField();
     private final JPasswordField passphrase = new JPasswordField();
-    private final JLabel status = new JLabel(" ");
+    private final WrappingLabel status = new WrappingLabel(" ", 436, -1, Theme.TEXT_SECONDARY);
     private final JButton saveButton = Buttons.primary("저장", null);
     private final boolean hadKey;
 
@@ -117,7 +116,7 @@ public class SshSettingsDialog extends JDialog {
                 // Leave the key for the user to pick.
             }
         }
-        suggestion = "<html><div style='width:400px'>" + source + ". 맞는지 확인하고 저장하세요.</div></html>";
+        suggestion = source + ". 맞는지 확인하고 저장하세요.";
     }
 
     /** Shows the dialog; true when settings were saved. */
@@ -151,21 +150,10 @@ public class SshSettingsDialog extends JDialog {
         body.add(labeled("키 암호 (선택)", passphrase));
         body.add(Box.createVerticalStrut(14));
 
-        JTextArea hint = new JTextArea("Ubuntu 이미지는 보통 'ubuntu', Oracle Linux는 'opc'예요. "
-                + "키는 OS 키체인에 저장되고, 서버에 등록한 공개키와 짝이 맞아야 해요.");
-        hint.setLineWrap(true);
-        hint.setWrapStyleWord(false);
-        hint.setEditable(false);
-        hint.setFocusable(false);
-        hint.setOpaque(false);
-        hint.setForeground(Theme.TEXT_MUTED);
-        hint.setFont(UIManager.getFont("Label.font").deriveFont(UIManager.getFont("Label.font").getSize2D() - 1));
-        hint.setSize(new Dimension(436, Short.MAX_VALUE));
-        hint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        WrappingLabel hint = new WrappingLabel("Ubuntu 이미지는 보통 'ubuntu', Oracle Linux는 'opc'예요. "
+                + "키는 OS 키체인에 저장되고, 서버에 등록한 공개키와 짝이 맞아야 해요.", 436, -1, Theme.TEXT_MUTED);
         body.add(hint);
         body.add(Box.createVerticalStrut(8));
-        status.setAlignmentX(Component.LEFT_ALIGNMENT);
-        status.putClientProperty(FlatClientProperties.STYLE, "font: -1");
         body.add(status);
         return body;
     }

@@ -26,6 +26,11 @@
   - 입력칸 우클릭 메뉴는 한때 제거했다가, 사용자가 필요로 해서 **다시 추가**. 원인(네이티브 팝업 창)을 끈 상태에서, 팝업이 창 밖으로 나가면 Swing이 여전히 네이티브 창을 쓰므로 메뉴 위치를 항상 창 안으로 조정. 확인: 입력칸 왼쪽·오른쪽 끝을 눌러도 팝업이 같은 대화 상자 안(lightweight)에 그려짐.
 - 사용자가 ⌘Z를 눌렀는데 Swing 입력칸엔 실행 취소가 없음 → `components.TextUndo`: 모든 입력칸에 실행 취소/다시 실행(⌘Z, ⇧⌘Z), 편집 메뉴에도 추가.
 
+### 대화 상자 문구 잘림
+- 두 번째 계정(서버 second-server)을 추가하며 확인: `~/.ssh/config` 자동 채우기 동작, 하지만 안내 문구가 창 밖으로 잘림.
+- 원인: JLabel에 HTML `width`를 줬는데 macOS에서 실제보다 넓게 계산됨. JTextArea 단어 줄바꿈은 한글 단어 중간("서/버")에서 끊음.
+- `components.WrappingLabel`: 폭을 고정하고 **띄어쓰기에서만** 줄바꿈을 직접 계산 (한 단어가 줄보다 길면 글자 단위). SSH 설정·계정 추가·설정 창의 상태/안내 문구에 적용 → 긴 오류 메시지도 잘리지 않음.
+
 ### `~/.ssh/config`에서 SSH 설정 가져오기
 - 사용자가 이미 `~/.ssh/config`에 서버별 Host(HostName·User·IdentityFile)를 정리해 두고 있어서, SSH 설정 창을 처음 열 때 **서버 공인 IP와 HostName이 같은 Host**를 찾아 사용자 이름·포트·키 파일을 미리 채움. 없으면 서버 이름과 같은 Host 별칭으로 찾음.
 - `ssh.SshConfig`: OpenSSH처럼 블록을 순서대로 보며 **먼저 나온 값이 우선**, `Host *` 기본값, `*`/`?` 와일드카드, `!` 제외, `Key=Value`·따옴표·주석, IdentityFile의 `~`와 `%d %u %h %n %r %%` 확장, 여러 IdentityFile 중 실제로 있는 첫 파일. `Match`·`Include`는 무시.
