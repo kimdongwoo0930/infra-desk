@@ -56,6 +56,16 @@ public class DemoShellConnector implements ShellConnector {
         return new FinishedSession(target.address(), output, exit);
     }
 
+    @Override
+    public RemoteFiles sftp(SshTarget target, HostKeyPrompt prompt) {
+        try {
+            Thread.sleep(latency);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return new DemoRemoteFiles(target.username(), hostnameOf(target));
+    }
+
     /** A command that already ran: its output, then EOF. */
     private record FinishedSession(String address, String text, int exit) implements ShellSession {
         @Override

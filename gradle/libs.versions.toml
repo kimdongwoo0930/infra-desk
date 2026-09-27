@@ -20,6 +20,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
 java-keyring = { module = "com.github.javakeyring:java-keyring", version.ref = "keyring" }
 sshd-core = { module = "org.apache.sshd:sshd-core", version.ref = "sshd" }
+sshd-sftp = { module = "org.apache.sshd:sshd-sftp", version.ref = "sshd" }
 xchart = { module = "org.knowm.xchart:xchart", version.ref = "xchart" }
 eddsa = { module = "net.i2p.crypto:eddsa", version.ref = "eddsa" }
 jediterm-core = { module = "org.jetbrains.jediterm:jediterm-core", version.ref = "jediterm" }

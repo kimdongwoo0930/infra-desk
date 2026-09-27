@@ -69,6 +69,50 @@ public final class Theme {
         } else {
             FlatDarculaLaf.setup();
         }
+        warmUpGlyphCache();
+    }
+
+    /**
+     * Works around a macOS JDK glyph-cache bug: if the first string drawn at a font size has a
+     * '.' or quote right after Hangul, that punctuation is cached as an empty glyph and every later
+     * '.' at that size renders as a space ("README.md" shows as "README md"). Drawing ASCII
+     * punctuation first, for each size, style, scale and antialiasing mode the UI uses, fills the
+     * cache with the correct glyphs.
+     */
+    private static void warmUpGlyphCache() {
+        if (!SystemInfo.isMacOS) {
+            return;
+        }
+        java.awt.Font base = javax.swing.UIManager.getFont("Label.font");
+        if (base == null) {
+            return;
+        }
+        String sample = "README.md v1.2 'a' \"b\" : ; , ! ? ( ) [ ] - _ / @ # % & * + = ~ ...";
+        Object[] aaModes = {
+                java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON,
+                java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB,
+                java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_GASP,
+                java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_DEFAULT};
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(8, 8, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = img.createGraphics();
+        try {
+            for (double scale : new double[] {1, 2}) {
+                for (Object aa : aaModes) {
+                    for (int size = 9; size <= 24; size++) {
+                        for (int style : new int[] {java.awt.Font.PLAIN, java.awt.Font.BOLD}) {
+                            java.awt.Graphics2D gg = (java.awt.Graphics2D) g.create();
+                            gg.scale(scale, scale);
+                            gg.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, aa);
+                            gg.setFont(base.deriveFont(style, (float) size));
+                            gg.drawString(sample, 0, 0);
+                            gg.dispose();
+                        }
+                    }
+                }
+            }
+        } finally {
+            g.dispose();
+        }
     }
 
     /** Monospaced font for IPs, commands and terminal text. */

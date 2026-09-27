@@ -68,6 +68,7 @@ public class TerminalView extends JPanel {
         main.add(strip, BorderLayout.NORTH);
         main.add(terminals, BorderLayout.CENTER);
         sidePanel = new TerminalSidePanel(service, connectableServers, this::sendToActive);
+        sidePanel.sftpButton().addActionListener(e -> openSftp());
         add(main, BorderLayout.CENTER);
         add(sidePanel, BorderLayout.EAST);
     }
@@ -84,6 +85,32 @@ public class TerminalView extends JPanel {
     /** The server of the selected tab, if any. */
     public java.util.Optional<Server> activeServer() {
         return active == null ? java.util.Optional.empty() : java.util.Optional.of(active.server());
+    }
+
+    /** SFTP for the active tab's server, or a menu of running servers when no tab is open. */
+    private void openSftp() {
+        if (active != null) {
+            openSftp(active.server());
+            return;
+        }
+        JPopupMenu menu = new JPopupMenu();
+        for (Server s : connectableServers.get()) {
+            JMenuItem item = new JMenuItem(s.name(), new com.infradesk.ui.components.StatusDot(s.status()));
+            item.setEnabled(s.status() == ServerStatus.RUNNING);
+            item.addActionListener(e -> openSftp(s));
+            menu.add(item);
+        }
+        menu.show(sidePanel.sftpButton(), 0, -menu.getPreferredSize().height);
+    }
+
+    private void openSftp(Server server) {
+        if (!service.isConfigured(server.id())) {
+            openSettings.accept(server);
+            if (!service.isConfigured(server.id())) {
+                return;
+            }
+        }
+        new SftpDialog(javax.swing.SwingUtilities.getWindowAncestor(this), service, server).setVisible(true);
     }
 
     private void sendToActive(String commandLine) {

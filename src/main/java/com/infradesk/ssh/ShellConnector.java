@@ -7,4 +7,7 @@ public interface ShellConnector {
 
     /** Runs a command without a PTY; the session's output is the command's stdout and stderr. */
     ShellSession exec(SshTarget target, HostKeyPrompt prompt, String command);
+
+    /** Opens an SFTP session. */
+    RemoteFiles sftp(SshTarget target, HostKeyPrompt prompt);
 }

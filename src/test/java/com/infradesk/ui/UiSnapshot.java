@@ -119,6 +119,18 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
+        // SFTP browser on the demo file tree.
+        JDialog[] sftp = new JDialog[1];
+        SwingUtilities.invokeAndWait(() -> sftp[0] = new com.infradesk.ui.terminal.SftpDialog(terminalFrame[0],
+                InfraDeskApp.demoTerminalService(), inventory.getFirst().servers().getFirst()));
+        Thread.sleep(1500);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(sftp[0], sftp[0].getContentPane(), sftp[0].getWidth(), sftp[0].getHeight() - 28, "sftp.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
         System.out.println("Snapshots written to " + DIR.getAbsolutePath());
         System.exit(0);
     }

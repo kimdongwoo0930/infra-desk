@@ -41,7 +41,8 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `core.CloudProviderException` | SDK 예외를 감싼 공통 예외. 메시지는 사용자에게 보여줄 한국어 |
 | `service.InventoryService` | `loadAll()` / `load(accounts)`(계정별 병렬, 실패는 계정 단위로 `AccountInventory.error`), `control`, `addAccount`, `removeAccount`, `testConnection` |
 | `service.ServerAction` | `START`, `STOP`, `REBOOT`. 확인 창이 필요한지(`needsConfirmation`) 포함 |
-| `service.TerminalService` | 서버별 SSH 설정·키 저장, 공인 IP로 셸 열기, 명령 실행(`run`: 제한 시간·출력 상한), 저장된 명령어 |
+| `service.TerminalService` | 서버별 SSH 설정·키 저장, 공인 IP로 셸 열기, 명령 실행(`run`: 제한 시간·출력 상한), SFTP 열기, 저장된 명령어 |
+| `ssh.RemoteFiles` / `RemoteFile` | SFTP 목록·업로드·다운로드·삭제 (MINA `sshd-sftp` / 데모 메모리 트리) |
 | `ssh.ShellConnector` / `ShellSession` | 셸 열기 / 입출력 스트림·크기 조정·종료 대기 |
 | `ssh.ProcStats` | 원격 `/proc` 스냅샷 명령, 파싱, 두 스냅샷 사이 사용률 계산 |
 | `service.LiveStats` | exec 세션 출력을 읽어 2초마다 `ProcStats.Sample` 전달 |
@@ -132,6 +133,7 @@ API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서
 | `terminal.TerminalPanel` | 탭 하나: 연결, JediTerm 위젯, 상태바, 실패 안내 |
 | `terminal.TerminalSidePanel` | 오른쪽 패널: 저장된 명령어, 일괄 실행, SFTP 버튼 |
 | `terminal.BatchResultDialog` | 일괄 실행 결과 (서버별 상태 + 출력) |
+| `terminal.SftpDialog` | SFTP 파일 탐색기 |
 | `terminal.SshSettingsDialog` | 서버별 사용자 이름·포트·SSH 키 등록 |
 | `terminal.HostKeyDialog` | 처음 보는 호스트 키 확인 (어느 스레드에서든 호출 가능) |
 | `components.*` | `Buttons`, `DashedButton`, `StatusDot`, `StatusBadge`, `RoundedPanel` |

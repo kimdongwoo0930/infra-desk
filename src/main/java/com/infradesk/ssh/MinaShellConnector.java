@@ -13,6 +13,8 @@ import org.apache.sshd.common.NamedResource;
 import org.apache.sshd.common.config.keys.FilePasswordProvider;
 import org.apache.sshd.common.config.keys.KeyUtils;
 import org.apache.sshd.common.util.security.SecurityUtils;
+import org.apache.sshd.sftp.client.SftpClient;
+import org.apache.sshd.sftp.client.SftpClientFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -110,12 +112,24 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         });
     }
 
-    private interface SessionTask {
-        ShellSession run(ClientSession session) throws IOException;
+    @Override
+    public RemoteFiles sftp(SshTarget target, HostKeyPrompt prompt) {
+        return withSession(target, prompt, session -> {
+            try {
+                return new MinaRemoteFiles(session, SftpClientFactory.instance().createSftpClient(session));
+            } catch (IOException e) {
+                throw new SshException(SshException.Kind.CHANNEL,
+                        "SFTP를 열지 못했어요. 서버에서 SFTP 서브시스템이 꺼져 있을 수 있어요.", e);
+            }
+        });
+    }
+
+    private interface SessionTask<T> {
+        T run(ClientSession session) throws IOException;
     }
 
     /** Connects and authenticates, then hands the session to {@code task}; cleans up on failure. */
-    private ShellSession withSession(SshTarget target, HostKeyPrompt prompt, SessionTask task) {
+    private <T> T withSession(SshTarget target, HostKeyPrompt prompt, SessionTask<T> task) {
         KeyPair identity = loadKey(target);
         Attempt attempt = new Attempt(prompt);
         ClientSession session = null;
@@ -126,11 +140,108 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
             session.addPublicKeyIdentity(identity);
             session.auth().verify(AUTH_TIMEOUT);
             return task.run(session);
+        } catch (SshException e) {
+            if (session != null) {
+                session.close(true);
+            }
+            throw e;
         } catch (IOException | RuntimeException e) {
             if (session != null) {
                 session.close(true);
             }
             throw translate(target, attempt, e);
+        }
+    }
+
+    /** SFTP over an authenticated session; closing it closes the session. */
+    private static final class MinaRemoteFiles implements RemoteFiles {
+
+        private final ClientSession session;
+        private final SftpClient sftp;
+
+        MinaRemoteFiles(ClientSession session, SftpClient sftp) {
+            this.session = session;
+            this.sftp = sftp;
+        }
+
+        @Override
+        public String home() throws IOException {
+            return sftp.canonicalPath(".");
+        }
+
+        @Override
+        public java.util.List<RemoteFile> list(String directory) throws IOException {
+            java.util.List<RemoteFile> files = new java.util.ArrayList<>();
+            for (SftpClient.DirEntry e : sftp.readDir(directory)) {
+                String name = e.getFilename();
+                if (name.equals(".") || name.equals("..")) {
+                    continue;
+                }
+                SftpClient.Attributes a = e.getAttributes();
+                String path = RemoteFiles.join(directory, name);
+                boolean dir = a.isDirectory();
+                if (a.isSymbolicLink()) {
+                    try {
+                        dir = sftp.stat(path).isDirectory();
+                    } catch (IOException broken) {
+                        dir = false;
+                    }
+                }
+                files.add(new RemoteFile(name, path, dir, a.getSize(),
+                        a.getModifyTime() == null ? null : a.getModifyTime().toInstant()));
+            }
+            files.sort(java.util.Comparator.comparing((RemoteFile f) -> !f.directory())
+                    .thenComparing(RemoteFile::name, String.CASE_INSENSITIVE_ORDER));
+            return files;
+        }
+
+        @Override
+        public boolean exists(String path) throws IOException {
+            try {
+                sftp.lstat(path);
+                return true;
+            } catch (org.apache.sshd.sftp.common.SftpException e) {
+                if (e.getStatus() == org.apache.sshd.sftp.common.SftpConstants.SSH_FX_NO_SUCH_FILE) {
+                    return false;
+                }
+                throw e;
+            }
+        }
+
+        @Override
+        public void download(String remotePath, java.nio.file.Path localFile, java.util.function.LongConsumer progress)
+                throws IOException {
+            try (InputStream in = sftp.read(remotePath);
+                 OutputStream out = java.nio.file.Files.newOutputStream(localFile)) {
+                Transfers.copy(in, out, progress);
+            }
+        }
+
+        @Override
+        public void upload(java.nio.file.Path localFile, String remotePath, java.util.function.LongConsumer progress)
+                throws IOException {
+            try (InputStream in = java.nio.file.Files.newInputStream(localFile);
+                 OutputStream out = sftp.write(remotePath)) {
+                Transfers.copy(in, out, progress);
+            }
+        }
+
+        @Override
+        public void delete(RemoteFile file) throws IOException {
+            if (file.directory()) {
+                sftp.rmdir(file.path());
+            } else {
+                sftp.remove(file.path());
+            }
+        }
+
+        @Override
+        public void close() {
+            try {
+                sftp.close();
+            } catch (IOException ignored) {
+            }
+            session.close(false);
         }
     }
 

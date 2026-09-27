@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.jackson.jsr310)
     implementation(libs.java.keyring)
     implementation(libs.sshd.core)
+    implementation(libs.sshd.sftp)
     runtimeOnly(libs.eddsa) // lets MINA SSHD read ed25519 keys
     implementation(libs.jediterm.core)
     implementation(libs.jediterm.ui)

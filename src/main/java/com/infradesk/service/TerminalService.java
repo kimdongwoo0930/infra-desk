@@ -3,6 +3,7 @@ package com.infradesk.service;
 import com.infradesk.core.Server;
 import com.infradesk.ssh.HostKeyPrompt;
 import com.infradesk.ssh.ProcStats;
+import com.infradesk.ssh.RemoteFiles;
 import com.infradesk.ssh.ShellConnector;
 import com.infradesk.ssh.ShellSession;
 import com.infradesk.ssh.SshException;
@@ -142,6 +143,11 @@ public class TerminalService {
             watchdog.interrupt();
             session.close();
         }
+    }
+
+    /** Opens SFTP to the server with its saved SSH settings. */
+    public RemoteFiles openFiles(Server server, HostKeyPrompt prompt) {
+        return connector.sftp(target(server), prompt);
     }
 
     public List<SavedCommand> savedCommands() {

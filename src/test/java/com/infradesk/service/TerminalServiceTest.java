@@ -39,6 +39,12 @@ class TerminalServiceTest {
             lastTarget.set(target);
             return null;
         }
+
+        @Override
+        public com.infradesk.ssh.RemoteFiles sftp(SshTarget target, com.infradesk.ssh.HostKeyPrompt prompt) {
+            lastTarget.set(target);
+            return null;
+        }
     };
 
     @Test

@@ -64,6 +64,11 @@ class TerminalServiceRunTest {
                     public ShellSession exec(SshTarget t, HostKeyPrompt p, String cmd) {
                         throw new SshException(SshException.Kind.CONNECT, "연결 거부");
                     }
+
+                    @Override
+                    public com.infradesk.ssh.RemoteFiles sftp(SshTarget t, HostKeyPrompt p) {
+                        throw new SshException(SshException.Kind.CONNECT, "연결 거부");
+                    }
                 }, new InMemorySavedCommandStore(List.of()), true);
         ExecResult r = svc.run(BOT, "uptime", TRUST, Duration.ofSeconds(5));
         assertEquals("연결 거부", r.error());
@@ -132,6 +137,11 @@ class TerminalServiceRunTest {
                     @Override
                     public ShellSession exec(SshTarget t, HostKeyPrompt p, String cmd) {
                         return hanging;
+                    }
+
+                    @Override
+                    public com.infradesk.ssh.RemoteFiles sftp(SshTarget t, HostKeyPrompt p) {
+                        throw new UnsupportedOperationException();
                     }
                 }, new InMemorySavedCommandStore(List.of()), true);
         ExecResult r = svc.run(BOT, "sleep 999", TRUST, Duration.ofMillis(200));
