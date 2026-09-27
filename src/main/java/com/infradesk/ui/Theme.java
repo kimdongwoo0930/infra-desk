@@ -75,6 +75,7 @@ public final class Theme {
         }
         warmUpGlyphCache();
         com.infradesk.ui.components.TextUndo.install();
+        com.infradesk.ui.components.TextContextMenu.install();
     }
 
     /**

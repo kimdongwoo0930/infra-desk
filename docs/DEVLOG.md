@@ -23,7 +23,7 @@
 - 그런데 표준 우클릭 메뉴로 바꿔도 **메뉴를 여는 순간** 또 입력이 멈춤 (`MOUSE_PRESS popup=true` → `FOCUS_GAINED JRootPane` → 이후 입력 없음).
   - 원인: FlatLaf `FlatPopupFactory`는 macOS에서 `Popup.dropShadowPainted`가 켜져 있으면 **모든 팝업을 네이티브 창(heavyweight)으로 강제**함 (그림자·둥근 테두리용). 모달 대화 상자 위의 이 창이 입력을 잡고 놓지 않음.
   - 조치: `Popup.dropShadowPainted=false` → Swing 기본 규칙으로 창 안에 들어가면 창 내부(lightweight)에 그림. 같은 대화 상자의 리전 선택 상자 등 모든 팝업에 적용.
-  - 입력칸 우클릭 메뉴는 **제거** (두 번 멈춤 유발). 붙여넣기는 ⌘V와 메뉴 막대 "편집"으로.
+  - 입력칸 우클릭 메뉴는 한때 제거했다가, 사용자가 필요로 해서 **다시 추가**. 원인(네이티브 팝업 창)을 끈 상태에서, 팝업이 창 밖으로 나가면 Swing이 여전히 네이티브 창을 쓰므로 메뉴 위치를 항상 창 안으로 조정. 확인: 입력칸 왼쪽·오른쪽 끝을 눌러도 팝업이 같은 대화 상자 안(lightweight)에 그려짐.
 - 사용자가 ⌘Z를 눌렀는데 Swing 입력칸엔 실행 취소가 없음 → `components.TextUndo`: 모든 입력칸에 실행 취소/다시 실행(⌘Z, ⇧⌘Z), 편집 메뉴에도 추가.
 
 ### `~/.ssh/config`에서 SSH 설정 가져오기
