@@ -65,6 +65,7 @@ public class MainFrame extends JFrame {
     private LiveStats liveStats;
     private java.util.Optional<TrayController> tray = java.util.Optional.empty();
     private java.util.Map<String, Double> lastCpu = java.util.Map.of();
+    private LocalTime lastRefreshAt;
     private boolean hiddenNoticeShown;
     /** SSH-read facts per server id, reused for five minutes. */
     private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.HostFacts>> factsCache =
@@ -279,7 +280,7 @@ public class MainFrame extends JFrame {
             sidebar.setCpu(cpu);
             alerts.onCpu(cpu);
             lastCpu = cpu;
-            tray.ifPresent(t -> t.update(inventory, cpu));
+            tray.ifPresent(t -> t.update(inventory, cpu, lastRefreshAt));
         }, err -> { });
     }
 
@@ -600,7 +601,8 @@ public class MainFrame extends JFrame {
         refreshing = false;
         inventory = List.copyOf(loaded);
         alerts.onInventory(inventory);
-        tray.ifPresent(t -> t.update(inventory, lastCpu));
+        lastRefreshAt = LocalTime.now();
+        tray.ifPresent(t -> t.update(inventory, lastCpu, lastRefreshAt));
         titleBar.setRefreshing(false);
         titleBar.markRefreshed(LocalTime.now());
         titleBar.setCounts(inventory.stream().mapToInt(i -> i.servers().size()).sum(), inventory.size());

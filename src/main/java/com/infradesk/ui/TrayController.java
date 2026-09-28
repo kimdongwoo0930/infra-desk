@@ -67,7 +67,7 @@ public final class TrayController {
         TrayIcon trayIcon = new TrayIcon(image(false), "InfraDesk");
         trayIcon.setImageAutoSize(true);
         TrayController controller = new TrayController(trayIcon, actions, demo);
-        trayIcon.setPopupMenu(controller.menu(List.of(), Map.of()));
+        trayIcon.setPopupMenu(controller.menu(List.of(), Map.of(), ""));
         try {
             SystemTray.getSystemTray().add(trayIcon);
         } catch (java.awt.AWTException e) {
@@ -86,12 +86,15 @@ public final class TrayController {
     }
 
     /** Rebuilds the menu and icon from the latest data. Call on the EDT. */
-    public void update(List<AccountInventory> inventory, Map<String, Double> cpu) {
+    public void update(List<AccountInventory> inventory, Map<String, Double> cpu, java.time.LocalTime refreshedAt) {
         Summary s = Summary.of(inventory);
+        String updated = refreshedAt == null ? "" : " · " + refreshedAt.format(TIME) + " 갱신";
         icon.setImage(s.needsAttention() ? attentionImage : normalImage);
-        icon.setToolTip("InfraDesk" + (demo ? " (데모)" : "") + " · " + s.headline());
-        icon.setPopupMenu(menu(inventory, cpu));
+        icon.setToolTip("InfraDesk" + (demo ? " (데모)" : "") + " · " + s.headline() + updated);
+        icon.setPopupMenu(menu(inventory, cpu, updated));
     }
+
+    private static final java.time.format.DateTimeFormatter TIME = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
 
     /** Counts for the header, tooltip and badge. Package-private for tests. */
     record Summary(int total, int running, int transitional, int stopped, int failedAccounts) {
@@ -136,9 +139,9 @@ public final class TrayController {
         }
     }
 
-    private PopupMenu menu(List<AccountInventory> inventory, Map<String, Double> cpu) {
+    private PopupMenu menu(List<AccountInventory> inventory, Map<String, Double> cpu, String updated) {
         PopupMenu menu = new PopupMenu();
-        MenuItem header = new MenuItem("InfraDesk" + (demo ? " (데모)" : "") + " · " + Summary.of(inventory).headline());
+        MenuItem header = new MenuItem("InfraDesk" + (demo ? " (데모)" : "") + " · " + Summary.of(inventory).headline() + updated);
         header.setEnabled(false);
         menu.add(header);
         menu.addSeparator();
