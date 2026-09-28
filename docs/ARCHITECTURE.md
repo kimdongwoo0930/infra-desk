@@ -188,5 +188,6 @@ MainFrame.setInventory → AlertService.onInventory → AlertMonitor (상태 변
 installDist → appImage (jpackage + jlink 필요한 모듈만) → selfTestAppImage (앱 실행 파일로 --self-test)
            → dmg (macOS) / windowsZip (Windows)
 ```
+- JVM 옵션: `build.gradle.kts`의 `appJvmArgs`(SerialGC, `-Xms16m -Xmx256m`, 빈 힙 반환, C1 전용). `run`·`runDemo`·jpackage가 함께 쓴다. 근거는 DEVLOG "메모리 줄이기"
 - 아이콘: `src/packaging/macos/InfraDesk.icns`, `src/packaging/windows/InfraDesk.ico` (`tools.IconGenerator`가 생성)
 - CI (`.github/workflows/build.yml`): `main` 푸시 때만 macOS·Windows에서 테스트 → 패키징(자가 점검) → **`beta` 시험판 릴리스**의 `InfraDesk-beta-macOS.dmg` / `InfraDesk-beta-windows.zip`을 교체. 설명은 `.github/release-notes.md`.

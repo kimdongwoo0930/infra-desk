@@ -74,8 +74,18 @@ tasks.test {
     useJUnitPlatform()
 }
 
+// JVM options shared by `run`, `runDemo`, installDist scripts and the packaged app.
+// The live heap is ~20MB, so a small serial-GC heap that grows on demand and shrinks back,
+// plus C1-only JIT, keeps the resident size far below the JVM defaults (see DEVLOG "메모리").
+val appJvmArgs = listOf(
+    "--enable-native-access=ALL-UNNAMED",
+    "-XX:+UseSerialGC", "-Xms16m", "-Xmx256m",
+    "-XX:MinHeapFreeRatio=10", "-XX:MaxHeapFreeRatio=30",
+    "-XX:TieredStopAtLevel=1",
+)
+
 application {
-    applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
+    applicationDefaultJvmArgs = appJvmArgs
 }
 
 // Dev tool: renders screens with demo data to build/snapshots/*.png without showing them.
@@ -88,7 +98,7 @@ tasks.register<JavaExec>("snapshot") {
 }
 
 tasks.named<JavaExec>("run") {
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    jvmArgs(appJvmArgs)
 }
 
 // Runs the app with fake data: no settings file, keychain, or network access.
@@ -98,7 +108,7 @@ tasks.register<JavaExec>("runDemo") {
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass = "com.infradesk.app.InfraDeskApp"
     args("--demo")
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    jvmArgs(appJvmArgs)
 }
 
 // Dev tool: draws the app icon into src/packaging and runtime resources, then builds the .icns.
@@ -149,9 +159,9 @@ tasks.register<Exec>("appImage") {
         "--main-class", "com.infradesk.app.InfraDeskApp",
         "--add-modules", runtimeModules.joinToString(","),
         "--jlink-options", "--strip-debug --no-header-files --no-man-pages --compress zip-6",
-        "--java-options", "--enable-native-access=ALL-UNNAMED",
         "--dest", out.absolutePath,
     )
+    appJvmArgs.forEach { args += listOf("--java-options", it) }
     if (isMac) {
         args += listOf("--icon", "src/packaging/macos/InfraDesk.icns",
             "--mac-package-identifier", "com.infradesk.app", "--mac-package-name", "InfraDesk",

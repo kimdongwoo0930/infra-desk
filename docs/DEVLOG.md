@@ -4,6 +4,35 @@
 
 ---
 
+## 2026-09-28 · 메모리 줄이기
+
+Windows에서 실제 실행과 서버 추가가 확인됐지만, 작업 관리자에 약 500MB가 표시됐다. macOS에서 데모 모드를 같은 방식으로 재 보니(`footprint`, NMT) 기본 설정일 때도 약 480MB였다.
+
+### 어디에 쓰였나 (macOS, 데모, 실행 25초 뒤)
+| 항목 | 기본값 | 조정 후 |
+|---|---|---|
+| JVM 전체 (NMT committed) | 236MB | 77MB |
+| └ Java 힙 | 112MB (실제 사용 약 20MB) | 약 17MB |
+| └ G1 GC 자료구조 | 55MB | 0MB (SerialGC) |
+| 그래픽 (창 버퍼·Metal 텍스처) | 48~224MB | 같음 |
+| 나머지 네이티브 (AWT, 폰트, 라이브러리 malloc) | 약 150MB | 같음 |
+
+- 살아 있는 객체는 약 20MB뿐이다. 하지만 JVM 기본값(G1, 초기 힙 = RAM의 1/64, 최대 = 1/4)은 힙을 크게 잡아 두고 잘 돌려주지 않는다. RAM이 큰 Windows PC일수록 초기 힙과 young 영역이 커져서 작업 집합이 수백 MB까지 불어난다.
+- OCI SDK는 첫 계정에서 힙 약 16MB와 클래스/코드 약 30MB를 한 번 쓰고, 이후 계정마다 1MB가 채 안 늘어난다(오프라인 측정, 계정 3개).
+- 그래픽 메모리는 창이 보이는지 가려졌는지에 따라 48MB와 224MB 사이를 오간다. macOS 창 서버의 몫이라 JVM 옵션으로는 줄지 않는다. `swing.volatileImageBufferEnabled=false`는 macOS에서 31MB를 줄이지만, Windows에서는 VRAM에 있던 버퍼를 프로세스 메모리로 옮기는 셈이라 쓰지 않았다.
+
+### 결정
+| 옵션 | 이유 |
+|---|---|
+| `-XX:+UseSerialGC` | 힙이 작은 데스크톱 앱이다. G1의 영역별 자료구조(약 55MB)가 필요 없고, 멈춤 시간도 수 ms 수준이다 |
+| `-Xms16m -Xmx256m` | 필요할 때만 커진다. 상한은 실측(데모 약 20MB, OCI 3계정 약 40MB)에 터미널 스크롤백(탭당 5000줄)과 일괄 실행 출력(최대 256KB)을 더해도 여유 있게 잡았다 |
+| `-XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30` | GC 뒤에 남는 빈 힙을 OS에 돌려준다 |
+| `-XX:TieredStopAtLevel=1` | C1 JIT만 쓴다. 이 앱은 I/O 대기 위주라 C2 최적화가 필요 없고, 컴파일러 메모리와 코드 캐시가 약 10MB 준다 |
+
+- `build.gradle.kts`의 `appJvmArgs` 목록 하나를 `run`, `runDemo`, `installDist` 실행 스크립트, jpackage `--java-options`가 함께 쓴다.
+- 결과: 패키징된 앱(데모)의 footprint가 약 480MB에서 약 410MB(창이 보일 때)로, 그래픽을 뺀 나머지는 약 250MB에서 약 180MB로 줄었다. Windows에서는 기본 힙이 RAM에 비례해 컸던 만큼 효과가 더 클 것으로 보고, 사용자 측정을 기다린다.
+- 참고로 JVM 기본값에서 옵션을 바꿔가며 잰 수치(데모, 25초): 기본 G1은 JVM 236MB, G1+`-Xmx192m`+주기적 GC는 141MB, SerialGC+`-Xmx160m`은 86MB, 여기에 C1 전용을 더하면 77MB.
+
 ## 2026-09-28 · Docker 컨테이너
 
 - 사용자 질문 "도커 같은 건 못 가져오겠지?" → SSH로 가능 (CLAUDE.md 확장 계획, Docker TCP 2375는 절대 쓰지 않음).

@@ -69,7 +69,7 @@
 |---|---|
 | macOS (Apple Silicon) | ✅ |
 | macOS (Intel) | ⏳ 지금 빌드는 Apple Silicon 전용 (Intel용은 별도 빌드 필요) |
-| Windows 10/11 | 🟡 CI에서 빌드·자가 점검 통과, 직접 실행은 확인 전 |
+| Windows 10/11 | ✅ 실행·계정 추가 확인 |
 | Linux | 소스에서 `./gradlew run` (설치 파일 없음) |
 
 ## 다운로드 (베타)
