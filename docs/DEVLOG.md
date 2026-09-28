@@ -190,6 +190,7 @@ Windows에서 오른쪽 아래 트레이 메뉴와 작업 관리자의 앱 이�
 - **트레이 아이콘 색:** 템플릿 이미지는 macOS에만 있는 기능이라, Windows에서는 검은 아이콘이 어두운 작업 표시줄에 묻힌다. 레지스트리 `SystemUsesLightTheme`를 읽어 흰색이나 어두운색으로 그리고, 크기는 16·20·24·32px로 준비했다(배율 100~200%).
 - **작업 관리자:** 작업 관리자는 exe의 파일 설명(FileDescription)을 앱 이름으로 보여 준다. jpackage `--description`에 넣은 한글 문장이 "???"로 기록돼서, ASCII `InfraDesk`로 바꿨다.
 - `./gradlew snapshot`이 `tray-menu-windows.png`(메인 메뉴 + 서버 하위 메뉴)도 그린다. macOS에서 렌더링한 결과라 실제 Windows에서 위치와 포커스 동작은 사용자 확인이 필요하다.
+- **실제 환경(Windows):** 트레이 메뉴 한글과 작업 관리자 이름("InfraDesk")이 제대로 나온다(사용자 확인, 2026-09-29).
 
 ## 2026-09-28 · 메모리 줄이기
 
