@@ -36,6 +36,8 @@ import javax.crypto.spec.SecretKeySpec;
 public class VaultSecretStore implements SecretStore {
 
     static final String MASTER_KEY_ITEM = "vault.masterKey";
+    /** Set once every legacy item was copied; afterwards the legacy store is never consulted. */
+    static final String MIGRATED_MARKER = "_vault.migrated";
     private static final byte[] MAGIC = {'I', 'D', 'V', '1'};
     private static final int IV_BYTES = 12;
     private static final TypeReference<HashMap<String, String>> MAP = new TypeReference<>() {
@@ -66,7 +68,7 @@ public class VaultSecretStore implements SecretStore {
     public synchronized Optional<String> get(String name) {
         load();
         String v = values.get(name);
-        if (v == null && legacy != null && legacyChecked.add(name)) {
+        if (v == null && legacy != null && !values.containsKey(MIGRATED_MARKER) && legacyChecked.add(name)) {
             Optional<String> old = legacy.get(name);
             if (old.isPresent()) {
                 values.put(name, old.get());
@@ -93,6 +95,35 @@ public class VaultSecretStore implements SecretStore {
         if (legacy != null) {
             legacy.delete(name);
         }
+    }
+
+    /**
+     * Copies the given names from the legacy store into the vault, deletes them from the legacy
+     * store, and marks the vault as migrated. Run it from the process that created the legacy
+     * items (the dev JVM) so macOS doesn't ask for each one.
+     *
+     * @return number of secrets copied
+     */
+    public synchronized int migrateFromLegacy(java.util.Collection<String> names) {
+        load();
+        int copied = 0;
+        if (legacy != null) {
+            for (String name : names) {
+                Optional<String> old = legacy.get(name);
+                if (old.isPresent()) {
+                    values.putIfAbsent(name, old.get());
+                    copied++;
+                }
+            }
+        }
+        values.put(MIGRATED_MARKER, "true");
+        write();
+        if (legacy != null) {
+            for (String name : names) {
+                legacy.delete(name);
+            }
+        }
+        return copied;
     }
 
     private void load() {

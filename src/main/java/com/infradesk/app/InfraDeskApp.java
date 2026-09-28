@@ -48,6 +48,9 @@ public final class InfraDeskApp {
         if (Arrays.asList(args).contains("--self-test")) {
             System.exit(SelfTest.run());
         }
+        if (Arrays.asList(args).contains("--migrate-secrets")) {
+            System.exit(migrateSecrets());
+        }
         boolean demo = Arrays.asList(args).contains("--demo") || Boolean.getBoolean("infradesk.demo");
         boolean debugInput = Arrays.asList(args).contains("--debug-input");
         if (SystemInfo.isMacOS) {
@@ -95,6 +98,34 @@ public final class InfraDeskApp {
         });
         return new AlertService(new InMemoryAlertSettingsStore(
                 new AlertSettings(true, true, true, true, 90, 5)), new InMemorySecretStore(), preview, Clock.systemUTC());
+    }
+
+    /**
+     * {@code --migrate-secrets}: moves every per-item keychain secret into the vault and deletes the
+     * old items. Meant to run once from the JVM that created them (./gradlew run), which reads them
+     * without a keychain prompt.
+     */
+    private static int migrateSecrets() {
+        var dir = AppPaths.configDir();
+        java.util.Set<String> names = new java.util.LinkedHashSet<>();
+        for (var a : new JsonAccountStore(dir).load()) {
+            names.add(SecretStore.accountKey(a.id(), com.infradesk.core.AccountSecrets.PRIVATE_KEY));
+        }
+        try {
+            var tree = new com.fasterxml.jackson.databind.ObjectMapper().readTree(dir.resolve("ssh-settings.json").toFile());
+            tree.fieldNames().forEachRemaining(id -> {
+                names.add("server." + id + "." + TerminalService.SSH_KEY);
+                names.add("server." + id + "." + TerminalService.SSH_PASSPHRASE);
+            });
+        } catch (java.io.IOException ignored) {
+            // No SSH settings yet.
+        }
+        names.add("alerts.discordWebhook");
+        KeychainSecretStore keychain = new KeychainSecretStore();
+        int copied = new VaultSecretStore(dir, keychain, keychain).migrateFromLegacy(names);
+        System.out.println("옮긴 비밀값 " + copied + "개 → " + dir.resolve("secrets.vault")
+                + " (확인한 항목 " + names.size() + "개, 옛 키체인 항목은 삭제)");
+        return 0;
     }
 
     public static TerminalService demoTerminalService() {

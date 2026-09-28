@@ -96,4 +96,23 @@ class VaultSecretStoreTest {
         VaultSecretStore reopened = new VaultSecretStore(dir, keychain, new CountingStore());
         assertEquals("old-key", reopened.get("account.a.privateKey").orElseThrow(), "copied into the vault");
     }
+
+    @Test
+    void bulkMigrationCopiesDeletesAndStopsLegacyLookups() {
+        CountingStore legacy = new CountingStore();
+        legacy.put("account.a.privateKey", "k1");
+        legacy.put("server.s.sshKey", "k2");
+        InMemorySecretStore keychain = new InMemorySecretStore();
+
+        int copied = new VaultSecretStore(dir, keychain, legacy)
+                .migrateFromLegacy(java.util.List.of("account.a.privateKey", "server.s.sshKey", "alerts.discordWebhook"));
+        assertEquals(2, copied);
+        assertTrue(legacy.get("server.s.sshKey").isEmpty(), "old item deleted");
+
+        CountingStore laterLegacy = new CountingStore();
+        VaultSecretStore app = new VaultSecretStore(dir, keychain, laterLegacy);
+        assertEquals("k2", app.get("server.s.sshKey").orElseThrow());
+        app.get("server.other.sshKey");
+        assertEquals(0, laterLegacy.reads.get(), "migrated vault never asks the legacy store");
+    }
 }
