@@ -23,12 +23,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * macOS menu-bar (system tray) icon with a server-status menu. The menu is a native AWT
- * PopupMenu, so it doesn't go through Swing popups at all.
+ * Menu-bar (macOS) / notification-area (Windows) icon with a server-status menu.
  *
- * <p>The icon is a template image (monochrome, follows the light/dark menu bar); attention is
- * shown with a badge shape since template images can't carry color. Details are in the menu
- * header and tooltip, never in the badge alone.
+ * <p>The menu is described once as a list of {@link Entry} values and rendered per platform:
+ * on macOS as a native AWT PopupMenu (a real menu-bar menu), on Windows as a Swing popup
+ * ({@link SwingTrayMenu}) because native AWT menus there can't draw Hangul or emoji and show "???".
+ *
+ * <p>On macOS the icon is a template image (monochrome, follows the light/dark menu bar); on
+ * Windows it is drawn light or dark to match the taskbar. Attention is shown with a badge shape;
+ * details are in the menu header and tooltip, never in the badge alone.
  */
 public final class TrayController {
 
@@ -49,16 +52,23 @@ public final class TrayController {
         void quit();
     }
 
+    private static final boolean MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
+
     private final TrayIcon icon;
     private final Actions actions;
     private final boolean demo;
-    private final Image normalImage = image(false);
-    private final Image attentionImage = image(true);
+    private final Color glyph = MAC ? Color.BLACK : (SwingTrayMenu.lightTaskbar() ? new Color(0x1E1F22) : Color.WHITE);
+    private final Image normalImage = image(false, glyph);
+    private final Image attentionImage = image(true, glyph);
+    /** Windows only; null on macOS. */
+    private final SwingTrayMenu swingMenu;
+    private List<Entry> entries = List.of();
 
     private TrayController(TrayIcon icon, Actions actions, boolean demo) {
         this.icon = icon;
         this.actions = actions;
         this.demo = demo;
+        this.swingMenu = MAC ? null : new SwingTrayMenu();
     }
 
     /** Adds the icon to the menu bar; empty when the platform has no tray. Call on the EDT. */
@@ -66,10 +76,24 @@ public final class TrayController {
         if (!SystemTray.isSupported()) {
             return java.util.Optional.empty();
         }
-        TrayIcon trayIcon = new TrayIcon(image(false), "InfraDesk");
+        TrayIcon trayIcon = new TrayIcon(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), "InfraDesk");
         trayIcon.setImageAutoSize(true);
         TrayController controller = new TrayController(trayIcon, actions, demo);
-        trayIcon.setPopupMenu(controller.menu(List.of(), Map.of(), ""));
+        trayIcon.setImage(controller.normalImage);
+        if (!MAC) {
+            // Windows convention: left click opens the app, right click opens the menu.
+            trayIcon.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseReleased(java.awt.event.MouseEvent e) {
+                    if (e.isPopupTrigger() || javax.swing.SwingUtilities.isRightMouseButton(e)) {
+                        controller.swingMenu.show(controller.entries);
+                    } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+                        actions.showWindow();
+                    }
+                }
+            });
+        }
+        controller.update(List.of(), Map.of(), null);
         try {
             SystemTray.getSystemTray().add(trayIcon);
         } catch (java.awt.AWTException e) {
@@ -85,6 +109,9 @@ public final class TrayController {
 
     public void remove() {
         SystemTray.getSystemTray().remove(icon);
+        if (swingMenu != null) {
+            swingMenu.dispose();
+        }
     }
 
     /** Rebuilds the menu and icon from the latest data. Call on the EDT. */
@@ -107,7 +134,10 @@ public final class TrayController {
         String updated = refreshedAt == null ? "" : " · " + refreshedAt.format(TIME) + " 갱신";
         icon.setImage(s.needsAttention() ? attentionImage : normalImage);
         icon.setToolTip("InfraDesk" + (demo ? " (데모)" : "") + " · " + s.headline() + updated);
-        icon.setPopupMenu(menu(inventory, cpu, updated));
+        entries = entries(inventory, cpu, updated, demo, update, actions);
+        if (MAC) {
+            icon.setPopupMenu(toAwt(entries));
+        }
     }
 
     private static final java.time.format.DateTimeFormatter TIME = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
@@ -155,86 +185,131 @@ public final class TrayController {
         }
     }
 
-    private PopupMenu menu(List<AccountInventory> inventory, Map<String, Double> cpu, String updated) {
-        PopupMenu menu = new PopupMenu();
-        MenuItem header = new MenuItem("InfraDesk" + (demo ? " (데모)" : "") + " · " + Summary.of(inventory).headline() + updated);
-        header.setEnabled(false);
-        menu.add(header);
+    /** One line of the tray menu, independent of how the platform renders it. */
+    sealed interface Entry {
+        /** Disabled informational line. */
+        record Label(String text) implements Entry {
+        }
+
+        /** Clickable item; {@code highlight} marks the update offer. */
+        record Item(String text, boolean highlight, Runnable action) implements Entry {
+        }
+
+        record Separator() implements Entry {
+        }
+
+        /** A server with a submenu of the actions its current state allows. */
+        record ServerMenu(Server server, Double cpu, List<Entry> items) implements Entry {
+        }
+    }
+
+    /** Package-private and static so the UI snapshot tool can render the menu without a tray. */
+    static List<Entry> entries(List<AccountInventory> inventory, Map<String, Double> cpu, String updated, boolean demo,
+                               com.infradesk.service.UpdateService.Release update, Actions actions) {
+        List<Entry> menu = new java.util.ArrayList<>();
+        menu.add(new Entry.Label("InfraDesk" + (demo ? " (데모)" : "") + " · " + Summary.of(inventory).headline() + updated));
         if (update != null) {
             com.infradesk.service.UpdateService.Release r = update;
-            menu.add(item("⬇️  새 베타 빌드 " + r.build() + " 받기…", () -> actions.openUpdate(r)));
+            menu.add(new Entry.Item("새 베타 빌드 " + r.build() + " 받기…", true, () -> actions.openUpdate(r)));
         }
-        menu.addSeparator();
+        menu.add(new Entry.Separator());
 
         if (inventory.isEmpty()) {
-            MenuItem empty = new MenuItem("등록된 계정이 없어요");
-            empty.setEnabled(false);
-            menu.add(empty);
+            menu.add(new Entry.Label("등록된 계정이 없어요"));
         }
         for (AccountInventory inv : inventory) {
-            MenuItem account = new MenuItem(inv.account().provider().displayName().replace(" Cloud", "") + " · "
+            menu.add(new Entry.Label(inv.account().provider().displayName().replace(" Cloud", "") + " · "
                     + inv.account().displayName() + " (" + Regions.shortName(inv.account().region()) + ")"
-                    + (inv.failed() ? " — 연결 오류" : ""));
-            account.setEnabled(false);
-            menu.add(account);
+                    + (inv.failed() ? " — 연결 오류" : "")));
             for (Server s : inv.servers()) {
-                menu.add(serverMenu(s, cpu.get(s.id())));
+                menu.add(new Entry.ServerMenu(s, cpu.get(s.id()), serverItems(s, actions)));
             }
         }
 
-        menu.addSeparator();
-        menu.add(item("새로고침", actions::refresh));
-        menu.add(item("InfraDesk 열기", actions::showWindow));
-        menu.addSeparator();
-        MenuItem version = new MenuItem("버전 " + com.infradesk.app.BuildInfo.current().display());
-        version.setEnabled(false);
-        menu.add(version);
-        menu.add(item("종료", actions::quit));
+        menu.add(new Entry.Separator());
+        menu.add(new Entry.Item("새로고침", false, actions::refresh));
+        menu.add(new Entry.Item("InfraDesk 열기", false, actions::showWindow));
+        menu.add(new Entry.Separator());
+        menu.add(new Entry.Label("버전 " + com.infradesk.app.BuildInfo.current().display()));
+        menu.add(new Entry.Item("종료", false, actions::quit));
         return menu;
     }
 
-    /** "🟢 name   23%" with a submenu of actions allowed in the current state. */
-    private Menu serverMenu(Server s, Double cpu) {
-        Menu m = new Menu(label(s, cpu));
-        m.add(item("대시보드에서 보기", () -> actions.showServer(s.id())));
+    private static List<Entry> serverItems(Server s, Actions actions) {
+        List<Entry> m = new java.util.ArrayList<>();
+        m.add(new Entry.Item("대시보드에서 보기", false, () -> actions.showServer(s.id())));
         if (s.status() == ServerStatus.RUNNING) {
-            m.add(item("SSH 열기", () -> actions.openSsh(s.id())));
-            m.addSeparator();
-            m.add(item("재부팅…", () -> actions.runAction(s.id(), ServerAction.REBOOT)));
-            m.add(item("정지…", () -> actions.runAction(s.id(), ServerAction.STOP)));
+            m.add(new Entry.Item("SSH 열기", false, () -> actions.openSsh(s.id())));
+            m.add(new Entry.Separator());
+            m.add(new Entry.Item("재부팅…", false, () -> actions.runAction(s.id(), ServerAction.REBOOT)));
+            m.add(new Entry.Item("정지…", false, () -> actions.runAction(s.id(), ServerAction.STOP)));
         } else if (s.status().canStart()) {
-            m.addSeparator();
-            m.add(item("시작", () -> actions.runAction(s.id(), ServerAction.START)));
+            m.add(new Entry.Separator());
+            m.add(new Entry.Item("시작", false, () -> actions.runAction(s.id(), ServerAction.START)));
         }
         return m;
     }
 
-    /** Menu label; the emoji and the text both carry the status, so it's never color alone. */
-    static String label(Server s, Double cpu) {
-        String dot = s.status() == ServerStatus.RUNNING ? "🟢" : s.status().isTransitional() ? "🟡" : "⚪";
-        String detail = s.status() != ServerStatus.RUNNING ? s.status().label()
-                : cpu == null ? "실행 중" : "CPU " + Math.round(cpu) + "%";
-        return dot + "  " + s.name() + "  —  " + detail;
+    /** Native menu for the macOS menu bar; emoji carry the status color there. */
+    private static PopupMenu toAwt(List<Entry> entries) {
+        PopupMenu menu = new PopupMenu();
+        addAwt(menu, entries);
+        return menu;
     }
 
-    private static MenuItem item(String label, Runnable action) {
-        MenuItem item = new MenuItem(label);
-        item.addActionListener(e -> javax.swing.SwingUtilities.invokeLater(action));
-        return item;
+    private static void addAwt(Menu menu, List<Entry> entries) {
+        for (Entry e : entries) {
+            switch (e) {
+                case Entry.Label l -> {
+                    MenuItem item = new MenuItem(l.text());
+                    item.setEnabled(false);
+                    menu.add(item);
+                }
+                case Entry.Item i -> {
+                    MenuItem item = new MenuItem(i.highlight() ? "⬇️  " + i.text() : i.text());
+                    item.addActionListener(ev -> javax.swing.SwingUtilities.invokeLater(i.action()));
+                    menu.add(item);
+                }
+                case Entry.Separator ignored -> menu.addSeparator();
+                case Entry.ServerMenu sm -> {
+                    Menu sub = new Menu(label(sm.server(), sm.cpu()));
+                    addAwt(sub, sm.items());
+                    menu.add(sub);
+                }
+            }
+        }
+    }
+
+    /** "🟢  name  —  CPU 23%"; the emoji and the text both carry the status, so it's never color alone. */
+    static String label(Server s, Double cpu) {
+        String dot = s.status() == ServerStatus.RUNNING ? "🟢" : s.status().isTransitional() ? "🟡" : "⚪";
+        return dot + "  " + plainLabel(s, cpu);
+    }
+
+    /** "name  —  CPU 23%" without the emoji (the Swing menu draws a status dot icon instead). */
+    static String plainLabel(Server s, Double cpu) {
+        String detail = s.status() != ServerStatus.RUNNING ? s.status().label()
+                : cpu == null ? "실행 중" : "CPU " + Math.round(cpu) + "%";
+        return s.name() + "  —  " + detail;
     }
 
     /** Server glyph (two stacked racks); the attention variant adds a filled badge top-right. */
-    private static Image image(boolean attention) {
-        return new BaseMultiResolutionImage(draw(22, attention), draw(44, attention));
+    private static Image image(boolean attention, Color color) {
+        if (MAC) {
+            return new BaseMultiResolutionImage(draw(22, attention, color), draw(44, attention, color));
+        }
+        // Windows tray slots are 16px at 100% scaling, 24px at 150%, 32px at 200%.
+        return new BaseMultiResolutionImage(draw(16, attention, color), draw(20, attention, color),
+                draw(24, attention, color), draw(32, attention, color));
     }
 
-    private static BufferedImage draw(int size, boolean attention) {
+    private static BufferedImage draw(int size, boolean attention, Color color) {
         BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             float u = size / 22f;
-            g.setColor(Color.BLACK);
+            g.setColor(color);
             g.setStroke(new BasicStroke(1.6f * u, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g.draw(new RoundRectangle2D.Float(3 * u, 4 * u, 15 * u, 6 * u, 3 * u, 3 * u));
             g.draw(new RoundRectangle2D.Float(3 * u, 12 * u, 15 * u, 6 * u, 3 * u, 3 * u));

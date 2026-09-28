@@ -53,4 +53,28 @@ class TrayControllerTest {
         assertEquals("⚪  box  —  정지됨", TrayController.label(server("box", ServerStatus.STOPPED), null));
         assertEquals("🟡  web  —  정지 중", TrayController.label(server("web", ServerStatus.STOPPING), 5.0));
     }
+
+    @Test
+    void plainLabelDropsEmojiForTheSwingMenu() {
+        assertEquals("bot  —  CPU 23%", TrayController.plainLabel(server("bot", ServerStatus.RUNNING), 23.4));
+    }
+
+    @Test
+    void entriesOfferOnlyActionsTheStateAllows() {
+        TrayController.Actions noop = (TrayController.Actions) java.lang.reflect.Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[]{TrayController.Actions.class}, (o, m, a) -> null);
+        var inv = List.of(new AccountInventory(A, List.of(server("bot", ServerStatus.RUNNING), server("box", ServerStatus.STOPPED)), null));
+        var entries = TrayController.entries(inv, Map.of(), "", false, null, noop);
+        var servers = entries.stream().filter(e -> e instanceof TrayController.Entry.ServerMenu)
+                .map(e -> (TrayController.Entry.ServerMenu) e).toList();
+        assertEquals(2, servers.size());
+        assertEquals(List.of("대시보드에서 보기", "SSH 열기", "재부팅…", "정지…"), itemTexts(servers.get(0).items()));
+        assertEquals(List.of("대시보드에서 보기", "시작"), itemTexts(servers.get(1).items()));
+        assertTrue(entries.getFirst() instanceof TrayController.Entry.Label l && l.text().startsWith("InfraDesk · 실행 중 1 / 2대"));
+    }
+
+    private static List<String> itemTexts(List<TrayController.Entry> entries) {
+        return entries.stream().filter(e -> e instanceof TrayController.Entry.Item)
+                .map(e -> ((TrayController.Entry.Item) e).text()).toList();
+    }
 }

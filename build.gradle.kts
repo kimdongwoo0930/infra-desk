@@ -154,7 +154,9 @@ tasks.register<Exec>("appImage") {
     val args = mutableListOf(
         "jpackage", "--type", "app-image",
         "--name", "InfraDesk", "--app-version", project.version.toString(),
-        "--vendor", "InfraDesk", "--description", "여러 클라우드 계정의 서버를 한 곳에서 관리",
+        // Windows shows the description as the process name in Task Manager and jpackage writes
+        // non-ASCII text there as "???", so it stays plain ASCII.
+        "--vendor", "InfraDesk", "--description", "InfraDesk",
         "--input", libDir.absolutePath, "--main-jar", "infra-desk-${project.version}.jar",
         "--main-class", "com.infradesk.app.InfraDeskApp",
         "--add-modules", runtimeModules.joinToString(","),

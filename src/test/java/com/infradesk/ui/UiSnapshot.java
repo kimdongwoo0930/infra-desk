@@ -97,6 +97,43 @@ public final class UiSnapshot {
                         settings.getContentPane().getPreferredSize().height, "settings.png");
                 settings.dispose();
 
+                // Windows tray menu (Swing popup): the main list and the first server's submenu side by side.
+                TrayController.Actions noop = (TrayController.Actions) java.lang.reflect.Proxy.newProxyInstance(
+                        TrayController.Actions.class.getClassLoader(), new Class<?>[]{TrayController.Actions.class}, (o, m, a) -> null);
+                var entries = TrayController.entries(inventory, java.util.Map.of(inventory.getFirst().servers().getFirst().id(), 23.0),
+                        " · 18:42 갱신", true, null, noop);
+                var sub = entries.stream().filter(e -> e instanceof TrayController.Entry.ServerMenu).findFirst()
+                        .map(e -> ((TrayController.Entry.ServerMenu) e).items()).orElseThrow();
+                // Popups are invisible until shown, so lay them out and paint them by hand.
+                javax.swing.JPopupMenu[] menus = {SwingTrayMenu.build(entries), SwingTrayMenu.build(sub)};
+                javax.swing.JWindow trayWindow = new javax.swing.JWindow();
+                trayWindow.addNotify();
+                int trayW = 16;
+                int trayH = 0;
+                for (var m : menus) {
+                    trayWindow.getContentPane().add(m);
+                    m.setSize(m.getPreferredSize());
+                    layoutAll(m);
+                    trayW += m.getWidth() + 16;
+                    trayH = Math.max(trayH, m.getHeight() + 32);
+                }
+                BufferedImage trayImg = new BufferedImage(trayW * 2, trayH * 2, BufferedImage.TYPE_INT_RGB);
+                Graphics2D tg = trayImg.createGraphics();
+                tg.setColor(Theme.APP_BG);
+                tg.fillRect(0, 0, trayImg.getWidth(), trayImg.getHeight());
+                tg.scale(2, 2);
+                tg.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                int x = 16;
+                for (var m : menus) {
+                    Graphics2D mg = (Graphics2D) tg.create(x, 16, m.getWidth(), m.getHeight());
+                    m.paint(mg);
+                    mg.dispose();
+                    x += m.getWidth() + 16;
+                }
+                tg.dispose();
+                ImageIO.write(trayImg, "png", new File(DIR, "tray-menu-windows.png"));
+                trayWindow.dispose();
+
                 JDialog ssh = new com.infradesk.ui.terminal.SshSettingsDialog(frame, InfraDeskApp.demoTerminalService(),
                         inventory.getFirst().servers().getFirst());
                 write(ssh, ssh.getContentPane(), ssh.getWidth(), ssh.getContentPane().getPreferredSize().height,
