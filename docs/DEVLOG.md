@@ -14,6 +14,7 @@
 - **모든 줄을 가림 처리** (`Logging.redact`): 개인키(PEM, 잘린 것 포함), 디스코드 웹훅 URL, 공인 IPv4(`x.x.x.24`), OCID(`ocid1.instance.oc1.<region>.…123456`). 로그를 이슈에 붙여도 되게.
 - `ui.ErrorReporter`: 처리되지 않은 예외(EDT 포함)를 스택과 함께 기록하고 30초에 한 번까지 토스트("설정 → 앱 정보 → 로그 폴더 열기").
 - 기록하는 일: 시작(빌드·Java·OS·데모/최소화), 서버 제어 요청·결과, SSH 연결 성공·실패, 업데이트 확인, 자동 실행 변경, 종료.
+- 실사용 로그 확인: 시작·업데이트 확인 기록 정상, 개인 정보 없음. 잡음이던 OCI SDK 안내 3줄(VPN 장비 설정 API의 스트림 안내, OCI 인스턴스 안에서만 의미 있는 IMDS 안내)은 해당 로거만 SEVERE로 낮춰 숨김. 이름 없는 가상 스레드는 `[virtual-<id>]`로 표시.
 
 ### 앱 정보 + 업데이트 확인
 - Gradle `generateBuildInfo` → `build-info.properties`(version, build, commit). CI는 `-PbuildNumber=<run>` `-Pcommit=<sha>`, 로컬은 `build=dev` + git HEAD.

@@ -38,6 +38,8 @@ public final class Logging {
     private static final Pattern OCID = Pattern.compile("\\b(ocid1\\.[a-z]+\\.[a-z0-9]+\\.[a-z0-9-]*\\.)([a-z0-9]{8,})([a-z0-9]{6})\\b");
 
     private static Path logFile;
+    /** Strong references so the level overrides aren't garbage-collected with their loggers. */
+    private static final java.util.List<Logger> QUIET = new java.util.ArrayList<>();
 
     private Logging() {
     }
@@ -48,6 +50,12 @@ public final class Logging {
         Logger root = Logger.getLogger("");
         root.setLevel(Level.WARNING);
         Logger.getLogger("com.infradesk").setLevel(Level.INFO);
+        // Known-harmless OCI SDK notices, logged on every client/dialog: a stream-closing tip for
+        // VPN device-config APIs we never call, and an IMDS hint that only applies on OCI instances.
+        for (String noisy : new String[] {"com.oracle.bmc.core.VirtualNetworkClient", "com.oracle.bmc.Region"}) {
+            QUIET.add(Logger.getLogger(noisy));
+        }
+        QUIET.forEach(l -> l.setLevel(Level.SEVERE));
 
         Formatter formatter = new LineFormatter();
         Handler console = new ConsoleHandler();
@@ -110,7 +118,7 @@ public final class Logging {
             StringBuilder sb = new StringBuilder();
             sb.append(TIME.format(Instant.ofEpochMilli(r.getMillis()))).append(' ')
                     .append(String.format("%-7s", r.getLevel().getName())).append(' ')
-                    .append('[').append(Thread.currentThread().getName()).append("] ")
+                    .append('[').append(threadName()).append("] ")
                     .append(shortName(r.getLoggerName())).append(": ")
                     .append(formatMessage(r)).append(System.lineSeparator());
             if (r.getThrown() != null) {
@@ -119,6 +127,12 @@ public final class Logging {
                 sb.append(sw);
             }
             return redact(sb.toString());
+        }
+
+        /** Virtual threads are unnamed; show "virtual-<id>" instead of "[]". */
+        private static String threadName() {
+            Thread t = Thread.currentThread();
+            return t.getName().isEmpty() ? (t.isVirtual() ? "virtual-" : "thread-") + t.threadId() : t.getName();
         }
 
         private static String shortName(String name) {
