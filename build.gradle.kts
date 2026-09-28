@@ -3,7 +3,8 @@ plugins {
 }
 
 group = "com.infradesk"
-version = "1.0.0"
+// Release builds pass -PappVersion from the git tag (v1.2.3 → 1.2.3).
+version = providers.gradleProperty("appVersion").getOrElse("1.0.0")
 
 java {
     toolchain {

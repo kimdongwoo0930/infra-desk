@@ -180,3 +180,4 @@ installDist → appImage (jpackage + jlink 필요한 모듈만) → selfTestAppI
 ```
 - 아이콘: `src/packaging/macos/InfraDesk.icns`, `src/packaging/windows/InfraDesk.ico` (`tools.IconGenerator`가 생성)
 - CI: `.github/workflows/build.yml` — macOS·Windows에서 테스트 후 패키징, 산출물 업로드
+- Release: `git tag v1.2.3 && git push origin v1.2.3` → 태그 버전으로 빌드해 GitHub Release에 `.dmg`와 Windows zip 첨부 (`.github/release-notes.md`)

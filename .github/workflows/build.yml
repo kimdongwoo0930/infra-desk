@@ -3,6 +3,7 @@ name: build
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -26,14 +27,42 @@ jobs:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v4
+      - name: Version from tag
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION_ARG=-PappVersion=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          fi
       - name: Test
         shell: bash
-        run: ./gradlew test
+        run: ./gradlew test $VERSION_ARG
       - name: Package (includes --self-test of the packaged app)
         shell: bash
-        run: ./gradlew ${{ matrix.task }}
+        run: ./gradlew ${{ matrix.task }} $VERSION_ARG
       - uses: actions/upload-artifact@v4
         with:
           name: InfraDesk-${{ runner.os }}
           path: ${{ matrix.artifact }}
           if-no-files-found: error
+
+  # A pushed v* tag publishes a GitHub Release with the macOS .dmg and Windows .zip.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "InfraDesk ${GITHUB_REF_NAME#v}" \
+            --notes-file .github/release-notes.md \
+            --verify-tag
