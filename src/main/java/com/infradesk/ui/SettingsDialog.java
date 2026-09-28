@@ -110,10 +110,15 @@ public class SettingsDialog extends JDialog {
             addGeneralSections(body);
         }
 
-        JLabel title = new JLabel("디스코드 알림");
+        JLabel title = new JLabel(AlertService.AVAILABLE ? "디스코드 알림" : "디스코드 알림 · 준비 중");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 15f));
         add(body, title);
         body.add(Box.createVerticalStrut(4));
+        if (!AlertService.AVAILABLE) {
+            add(body, new WrappingLabel("서버가 멈추거나 CPU가 계속 높을 때 디스코드로 알려 주는 기능이에요. "
+                    + "다음 업데이트에서 열릴 예정이에요.", 476, -1, Theme.TEXT_MUTED));
+            return body;
+        }
         add(body, muted(demoMode
                 ? "데모 모드예요. 실제로 보내지 않고 화면 구석에 미리보기만 띄워요."
                 : "앱이 실행 중일 때만 알림을 보내요. 웹훅 URL은 암호화해서 이 PC에만 저장돼요."));
@@ -229,7 +234,9 @@ public class SettingsDialog extends JDialog {
         right.setOpaque(false);
         right.add(cancel);
         right.add(saveButton);
-        footer.add(testButton, BorderLayout.WEST);
+        if (AlertService.AVAILABLE) {
+            footer.add(testButton, BorderLayout.WEST);
+        }
         footer.add(right, BorderLayout.EAST);
         return footer;
     }
@@ -291,7 +298,7 @@ public class SettingsDialog extends JDialog {
     }
 
     private void save() {
-        if (!validUrl()) {
+        if (AlertService.AVAILABLE && !validUrl()) {
             return;
         }
         AlertSettings s = current();
@@ -300,7 +307,9 @@ public class SettingsDialog extends JDialog {
         boolean auto = autoUpdate.isSelected();
         saveButton.setEnabled(false);
         Async.run(() -> {
-            alerts.save(s, typed);
+            if (AlertService.AVAILABLE) {
+                alerts.save(s, typed);
+            }
             if (launchAtLogin != null && launchAtLogin.isSupported() && !demoMode && login != launchAtLogin.isEnabled()) {
                 launchAtLogin.setEnabled(login);
             }

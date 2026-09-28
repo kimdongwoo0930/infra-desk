@@ -418,7 +418,9 @@ public class MainFrame extends JFrame {
         List<AccountInventory> snapshot = inventory;
         Async.run(() -> service.currentCpu(snapshot), cpu -> {
             sidebar.setCpu(cpu);
-            alerts.onCpu(cpu);
+            if (com.infradesk.alert.AlertService.AVAILABLE) {
+                alerts.onCpu(cpu);
+            }
             lastCpu = cpu;
             tray.ifPresent(t -> t.update(inventory, cpu, lastRefreshAt));
         }, err -> { });
@@ -825,7 +827,9 @@ public class MainFrame extends JFrame {
     public void setInventory(List<AccountInventory> loaded) {
         refreshing = false;
         inventory = List.copyOf(loaded);
-        alerts.onInventory(inventory);
+        if (com.infradesk.alert.AlertService.AVAILABLE) {
+            alerts.onInventory(inventory);
+        }
         lastRefreshAt = LocalTime.now();
         tray.ifPresent(t -> t.update(inventory, lastCpu, lastRefreshAt));
         titleBar.setRefreshing(false);

@@ -19,6 +19,12 @@ import java.util.logging.Logger;
  */
 public class AlertService {
 
+    /**
+     * Discord alerts are shown as "준비 중" and not fed by the app until they have been tried on a
+     * real channel. The code and its tests stay; flip this to ship the feature.
+     */
+    public static final boolean AVAILABLE = false;
+
     private static final Logger LOG = Logger.getLogger(AlertService.class.getName());
     static final String WEBHOOK_KEY = "alerts.discordWebhook";
 
