@@ -21,29 +21,56 @@ public final class ProcStats {
      */
     public static final int MAX_SNAPSHOTS = 10 * 60 / INTERVAL_SECONDS + 10;
 
-    /** Linux: the real /proc files. */
-    private static final String LINUX_LOOP = "i=0; while [ $i -lt " + MAX_SNAPSHOTS + " ]; do head -n 1 /proc/stat; "
-            + "grep -E '^(MemTotal|MemAvailable):' /proc/meminfo; tail -n +3 /proc/net/dev; "
-            + "echo ---; i=$((i+1)); sleep " + INTERVAL_SECONDS + "; done";
+    /** Remote loop printing one snapshot block every {@link #INTERVAL_SECONDS}. POSIX sh (also zsh). */
+    public static final String COMMAND = command(MAX_SNAPSHOTS, INTERVAL_SECONDS);
 
     /**
-     * macOS has no /proc, so the same block is written from its own tools: CPU busy % over one
-     * second from iostat (as an "@cpu" line), memory from hw.memsize and vm_stat (free + inactive +
-     * speculative + purgeable pages count as available), and per-interface byte counters from
-     * netstat -ib in /proc/net/dev layout. iostat takes a second, so the loop sleeps one more.
+     * Two snapshots one second apart, then exit: one utilization sample for the once-a-minute
+     * collection on directly connected servers. Parse with {@link #parseOneShot}.
      */
-    private static final String MAC_LOOP = "t=$(sysctl -n hw.memsize); ps=$(sysctl -n hw.pagesize); i=0; "
-            + "while [ $i -lt " + MAX_SNAPSHOTS + " ]; do "
-            + "iostat -n0 -c 2 -w 1 | tail -n 1 | awk '{print \"@cpu \" $1+$2}'; "
-            + "echo \"MemTotal: $((t/1024)) kB\"; "
-            + "vm_stat | awk -v ps=$ps '/Pages free/{f=$3+0} /Pages inactive/{n=$3+0} /Pages speculative/{s=$3+0} "
-            + "/Pages purgeable/{p=$3+0} END{print \"MemAvailable: \" int((f+n+s+p)*ps/1024) \" kB\"}'; "
-            + "netstat -ibn | awk '$3 ~ /^<Link/ && $1 !~ /^lo/ {if (NF>=11) print $1\": \"$7\" 0 0 0 0 0 0 0 \"$10; "
-            + "else print $1\": \"$6\" 0 0 0 0 0 0 0 \"$9}'; "
-            + "echo ---; i=$((i+1)); sleep " + (INTERVAL_SECONDS - 1) + "; done";
+    public static final String ONE_SHOT = command(2, 1);
 
-    /** Remote loop printing one snapshot block every {@link #INTERVAL_SECONDS}. POSIX sh (also zsh). */
-    public static final String COMMAND = "if [ \"$(uname)\" = Darwin ]; then " + MAC_LOOP + "; else " + LINUX_LOOP + "; fi";
+    /**
+     * Linux reads the real /proc files. macOS has no /proc, so the same block is written from its
+     * own tools: CPU busy % over one second from iostat (as an "@cpu" line), memory from hw.memsize
+     * and vm_stat (free + inactive + speculative + purgeable pages count as available), and
+     * per-interface byte counters from netstat -ib in /proc/net/dev layout. iostat itself takes a
+     * second, so the macOS loop sleeps one second less.
+     */
+    private static String command(int snapshots, int intervalSeconds) {
+        String linux = "i=0; while [ $i -lt " + snapshots + " ]; do head -n 1 /proc/stat; "
+                + "grep -E '^(MemTotal|MemAvailable):' /proc/meminfo; tail -n +3 /proc/net/dev; "
+                + "echo ---; i=$((i+1)); [ $i -lt " + snapshots + " ] && sleep " + intervalSeconds + "; done; true";
+        String mac = "t=$(sysctl -n hw.memsize); ps=$(sysctl -n hw.pagesize); i=0; "
+                + "while [ $i -lt " + snapshots + " ]; do "
+                + "iostat -n0 -c 2 -w 1 | tail -n 1 | awk '{print \"@cpu \" $1+$2}'; "
+                + "echo \"MemTotal: $((t/1024)) kB\"; "
+                + "vm_stat | awk -v ps=$ps '/Pages free/{f=$3+0} /Pages inactive/{n=$3+0} /Pages speculative/{s=$3+0} "
+                + "/Pages purgeable/{p=$3+0} END{print \"MemAvailable: \" int((f+n+s+p)*ps/1024) \" kB\"}'; "
+                + "netstat -ibn | awk '$3 ~ /^<Link/ && $1 !~ /^lo/ {if (NF>=11) print $1\": \"$7\" 0 0 0 0 0 0 0 \"$10; "
+                + "else print $1\": \"$6\" 0 0 0 0 0 0 0 \"$9}'; "
+                + "echo ---; i=$((i+1)); sleep " + (intervalSeconds - 1) + "; done";
+        return "if [ \"$(uname)\" = Darwin ]; then " + mac + "; else " + linux + "; fi";
+    }
+
+    /** The sample from {@link #ONE_SHOT} output, stamped {@code now}; empty if the output is incomplete. */
+    public static Optional<Sample> parseOneShot(String output, Instant now) {
+        List<Snapshot> snapshots = new java.util.ArrayList<>();
+        List<String> block = new java.util.ArrayList<>();
+        for (String line : output.split("\\R")) {
+            if (line.strip().equals("---")) {
+                // One second apart on the server; the exact gap only matters for network rates.
+                parse(block, now.minusSeconds(snapshots.isEmpty() ? 1 : 0)).ifPresent(snapshots::add);
+                block.clear();
+            } else {
+                block.add(line);
+            }
+        }
+        if (snapshots.size() < 2) {
+            return Optional.empty();
+        }
+        return Optional.of(between(snapshots.get(snapshots.size() - 2), snapshots.getLast()));
+    }
 
     /** One parsed snapshot. Counters are cumulative since boot. */
     public record Snapshot(Instant time, long cpuBusy, long cpuTotal, long memTotalKb, long memAvailableKb,

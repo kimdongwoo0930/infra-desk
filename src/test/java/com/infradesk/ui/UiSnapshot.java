@@ -89,13 +89,6 @@ public final class UiSnapshot {
                 write(addSsh, addSsh.getContentPane(), addSsh.getWidth(), addSsh.getContentPane().getPreferredSize().height,
                         "add-ssh-server.png");
                 addSsh.dispose();
-                var mac = inventory.stream().filter(i -> i.account().provider() == com.infradesk.core.ProviderType.SSH)
-                        .findFirst().orElseThrow().servers().getFirst();
-                MainFrame sshFrame = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
-                sshFrame.setInventory(inventory);
-                sshFrame.showServer(mac);
-                write(sshFrame, sshFrame.getContentPane(), 1280, 800, "main-ssh.png");
-                sshFrame.dispose();
 
                 JDialog editAccount = new AddAccountDialog(frame, service, true, service.accounts().getFirst());
                 write(editAccount, editAccount.getContentPane(), editAccount.getWidth(),
@@ -167,6 +160,24 @@ public final class UiSnapshot {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+        });
+        // Directly connected Mac mini: facts and the first SSH sample arrive asynchronously.
+        MainFrame[] sshFrame = new MainFrame[1];
+        SwingUtilities.invokeAndWait(() -> {
+            var mac = inventory.stream().filter(i -> i.account().provider() == com.infradesk.core.ProviderType.SSH)
+                    .findFirst().orElseThrow().servers().getFirst();
+            sshFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
+            sshFrame[0].setInventory(inventory);
+            sshFrame[0].showServer(mac);
+        });
+        Thread.sleep(2500);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(sshFrame[0], sshFrame[0].getContentPane(), 1280, 800, "main-ssh.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            sshFrame[0].dispose();
         });
         // Live mode: flip the toggle on the main frame and let the demo /proc stream produce samples.
         SwingUtilities.invokeAndWait(() -> {

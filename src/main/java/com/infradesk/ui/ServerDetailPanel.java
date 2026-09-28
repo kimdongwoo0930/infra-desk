@@ -173,9 +173,17 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         updateButtons();
         title.setText(server.name());
         badge.setStatus(server.status());
-        subtitle.setText(account.provider().isCloud()
+        if (!account.provider().isCloud()) {
+            IpPrivacy.protect(server.publicIp());
+        }
+        subtitleText = account.provider().isCloud()
                 ? String.join(" · ", account.displayName(), nz(server.region()), nz(server.shape()))
-                : "직접 연결 (SSH) · " + nz(server.shape()));
+                : "직접 연결 (SSH) · " + nz(server.shape());
+        subtitle.setText(IpPrivacy.mask(subtitleText));
+        cloud = account.provider().isCloud();
+        if (cpuMemLabel != null) {
+            cpuMemLabel.setText(cloud ? "OCPU / 메모리" : "CPU / 메모리");
+        }
 
         cpuMem.setText(server.cpuCount() > 0
                 ? trim(server.cpuCount()) + " OCPU · " + trim(server.memoryGb()) + " GB"
@@ -189,8 +197,16 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         }
     }
 
+    private String subtitleText = "";
+    private boolean cloud = true;
+    private JLabel cpuMemLabel;
+
     /** Fills uptime, OS, boot volume and ports from an SSH read. */
     public void setFacts(com.infradesk.ssh.HostFacts f) {
+        if (!cloud && f.cpuCount() > 0) {
+            // No cloud shape for a directly connected machine: the server reports its own size.
+            cpuMem.setText(f.cpuCount() + "코어 · " + trim(f.memoryKb() / 1024.0 / 1024.0) + " GB");
+        }
         uptime.setText(f.uptime() == null ? NONE : formatUptime(f.uptime()));
         uptime.setToolTipText(null);
         os.setText(f.osName() == null ? NONE : f.osName());
@@ -305,7 +321,9 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         grid.setOpaque(false);
         grid.setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
         grid.setAlignmentX(Component.LEFT_ALIGNMENT);
-        grid.add(cell("OCPU / 메모리", cpuMem));
+        JPanel cpuMemCell = cell("OCPU / 메모리", cpuMem);
+        cpuMemLabel = (JLabel) cpuMemCell.getComponent(0);
+        grid.add(cpuMemCell);
         grid.add(ipCell());
         grid.add(cell("업타임", uptime));
         grid.add(cell("OS", os));
@@ -345,6 +363,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         row.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 24));
         cell.add(row);
         IpPrivacy.onChange(this::renderPublicIp);
+        IpPrivacy.onChange(() -> subtitle.setText(IpPrivacy.mask(subtitleText)));
         return cell;
     }
 

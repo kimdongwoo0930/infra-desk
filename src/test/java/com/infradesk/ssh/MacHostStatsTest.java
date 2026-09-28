@@ -33,6 +33,13 @@ class MacHostStatsTest {
     }
 
     @Test
+    void cpuCountAndMemoryFacts() {
+        HostFacts f = HostFacts.parse("@uptime\n100.0 50.0\n@cpus\n10\n@memkb\n16777216\n@ports\n");
+        assertEquals(10, f.cpuCount());
+        assertEquals(16777216L, f.memoryKb());
+    }
+
+    @Test
     void bsdNetstatListenLines() {
         assertEquals(Optional.of(22), HostFacts.listeningPort("tcp4       0      0  *.22                   *.*                    LISTEN"));
         assertEquals(Optional.of(5000), HostFacts.listeningPort("tcp6       0      0  *.5000                 *.*                    LISTEN"));
@@ -49,6 +56,13 @@ class MacHostStatsTest {
         assertTrue(f.uptime() != null && f.uptime().toSeconds() > 0 && f.uptime().toDays() < 3650, "uptime " + f.uptime());
         assertTrue(f.osName().startsWith("macOS "), f.osName());
         assertTrue(f.diskTotal() > 0 && f.diskUsed() > 0, "disk");
+        assertTrue(f.cpuCount() > 0, "cpus");
+        assertTrue(f.memoryKb() > 1024 * 1024, "memory " + f.memoryKb());
+
+        Process once = new ProcessBuilder("/bin/zsh", "-c", ProcStats.ONE_SHOT).redirectErrorStream(true).start();
+        String out = new String(once.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, once.waitFor());
+        assertTrue(ProcStats.parseOneShot(out, Instant.now()).isPresent(), out);
 
         Process stats = new ProcessBuilder("/bin/zsh", "-c", ProcStats.COMMAND).redirectErrorStream(true).start();
         List<ProcStats.Snapshot> snapshots = new ArrayList<>();

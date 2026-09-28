@@ -57,6 +57,9 @@ public class DemoShellConnector implements ShellConnector {
         if (command.equals(ProcStats.COMMAND)) {
             return new DemoStatsSession(target, hostnameOf(target), statsInterval);
         }
+        if (command.equals(ProcStats.ONE_SHOT)) {
+            return new FinishedSession(target.address(), demoOneShot(hostnameOf(target)), 0);
+        }
         if (command.startsWith(DockerCommands.PRELUDE)) {
             return new FinishedSession(target.address(), DemoDocker.run(hostnameOf(target), command), 0);
         }
@@ -83,6 +86,24 @@ public class DemoShellConnector implements ShellConnector {
         return new DemoRemoteFiles(target.username(), hostnameOf(target));
     }
 
+    /** Two /proc-style blocks one second apart, with load that drifts a little per call. */
+    private static String demoOneShot(String host) {
+        java.util.Random r = new java.util.Random();
+        int seed = Math.floorMod(host.hashCode(), 20);
+        double cpu = 0.08 + seed / 100.0 + r.nextDouble() * 0.15;
+        long total = 400;
+        long busy = Math.round(total * cpu);
+        long memTotal = 24L * 1024 * 1024;
+        long avail = Math.round(memTotal * (0.55 + r.nextDouble() * 0.1));
+        long rx = 1_000_000_000L + r.nextInt(1000);
+        String first = "cpu  1000 0 500 8500 0 0 0 0 0 0\nMemTotal: " + memTotal + " kB\nMemAvailable: " + avail + " kB\n"
+                + "  eth0: " + rx + " 0 0 0 0 0 0 0 " + rx / 3 + " 0 0 0 0 0 0 0\n---\n";
+        String second = "cpu  " + (1000 + busy) + " 0 500 " + (8500 + total - busy) + " 0 0 0 0 0 0\nMemTotal: " + memTotal
+                + " kB\nMemAvailable: " + avail + " kB\n  eth0: " + (rx + 40_000 + r.nextInt(80_000)) + " 0 0 0 0 0 0 0 "
+                + (rx / 3 + 12_000 + r.nextInt(30_000)) + " 0 0 0 0 0 0 0\n---\n";
+        return first + second;
+    }
+
     /** Plausible HostFacts output that varies a little per host. */
     private static String demoFacts(String host) {
         int seed = Math.floorMod(host.hashCode(), 20);
@@ -95,7 +116,8 @@ public class DemoShellConnector implements ShellConnector {
         }
         ss.append("LISTEN 0 4096 127.0.0.1:6379 0.0.0.0:*\n");
         return "@uptime\n" + (86400L * (3 + seed) + 3600L * (seed % 24)) + ".42 1000.0\n"
-                + "@os\nUbuntu 22.04.4 LTS\n"
+                + "@os\n" + ((host.contains("mac") || host.contains("맥")) ? "macOS 15.6" : "Ubuntu 22.04.4 LTS") + "\n"
+                + "@cpus\n" + ((host.contains("mac") || host.contains("맥")) ? 10 : 4) + "\n@memkb\n" + ((host.contains("mac") || host.contains("맥")) ? 16L : 24L) * 1024 * 1024 + "\n"
                 + "@disk\n/dev/sda1 " + totalKb + " " + usedKb + " " + (totalKb - usedKb) + " 47% /\n"
                 + "@ports\n" + ss;
     }

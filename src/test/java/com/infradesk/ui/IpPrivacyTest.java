@@ -36,4 +36,24 @@ class IpPrivacyTest {
         assertEquals("203.0.113.104", IpPrivacy.display("203.0.113.104"));
         assertEquals(1, calls.get());
     }
+
+    @Test
+    void directServerAddressesAreHiddenEvenWhenPrivate() {
+        boolean before = IpPrivacy.isRevealed();
+        IpPrivacy.setRevealed(false);
+        try {
+            IpPrivacy.protect("192.168.77.5");
+            IpPrivacy.protect("home-box");
+            IpPrivacy.protect("home-box.tail1234.ts.net");
+            assertEquals("•••.•••.•••.5", IpPrivacy.display("192.168.77.5"));
+            assertEquals("h•••••", IpPrivacy.display("home-box"));
+            assertEquals("직접 연결 (SSH) · h•••••:22", IpPrivacy.mask("직접 연결 (SSH) · home-box:22"));
+            assertEquals("ubuntu@h•••••:22", IpPrivacy.mask("ubuntu@home-box.tail1234.ts.net:22"), "longest match first");
+            assertEquals("192.168.77.6", IpPrivacy.mask("192.168.77.6"), "other private addresses stay visible");
+            IpPrivacy.setRevealed(true);
+            assertEquals("home-box:22", IpPrivacy.mask("home-box:22"));
+        } finally {
+            IpPrivacy.setRevealed(before);
+        }
+    }
 }

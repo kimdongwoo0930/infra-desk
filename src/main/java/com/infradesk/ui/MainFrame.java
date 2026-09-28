@@ -75,6 +75,9 @@ public class MainFrame extends JFrame {
     private LiveStats liveStats;
     private java.util.Optional<TrayController> tray = java.util.Optional.empty();
     private java.util.Map<String, Double> lastCpu = java.util.Map.of();
+    /** Once-a-minute SSH samples for directly connected servers (they have no cloud metrics). */
+    private final com.infradesk.service.SshMetricsService sshMetrics;
+    private final java.util.Set<String> sampling = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private LocalTime lastRefreshAt;
     private boolean hiddenNoticeShown;
     /** SSH-read facts per server id, reused for five minutes. */
@@ -106,6 +109,7 @@ public class MainFrame extends JFrame {
         super("InfraDesk");
         this.service = service;
         this.terminalService = terminalService;
+        this.sshMetrics = new com.infradesk.service.SshMetricsService(terminalService, java.time.Clock.systemUTC());
         this.alerts = alerts;
         this.updates = updates;
         this.containerService = new com.infradesk.service.ContainerService(terminalService);
@@ -405,6 +409,7 @@ public class MainFrame extends JFrame {
             // Hidden in the menu bar: keep the sidebar/tray CPU and alerts fresh, skip charts.
             if (tray.isPresent()) {
                 refreshCpu();
+                sampleDirectServers(false);
             }
             return;
         }
@@ -414,11 +419,69 @@ public class MainFrame extends JFrame {
             }
         });
         refreshCpu();
+        sampleDirectServers(false);
+    }
+
+    /**
+     * Takes an SSH sample of every running, SSH-configured direct server.
+     *
+     * @param onlyNew only servers with no sample yet (right after the list loads)
+     */
+    private void sampleDirectServers(boolean onlyNew) {
+        for (AccountInventory inv : inventory) {
+            if (inv.account().provider().hasCloudMetrics()) {
+                continue;
+            }
+            for (Server s : inv.servers()) {
+                if (s.status() == com.infradesk.core.ServerStatus.RUNNING
+                        && (!onlyNew || sshMetrics.metrics(s.id()).cpuPercent().isEmpty())) {
+                    sampleDirect(s);
+                }
+            }
+        }
+    }
+
+    private void sampleDirect(Server server) {
+        if (!sshMetrics.canSample(server) || !sampling.add(server.id())) {
+            return;
+        }
+        Async.run(() -> sshMetrics.sample(server), sample -> {
+            sampling.remove(server.id());
+            if (sample.isEmpty()) {
+                if (server.id().equals(metricsServerId) && !liveActive()
+                        && sshMetrics.metrics(server.id()).cpuPercent().isEmpty()) {
+                    metrics().showMessage("SSH로 읽지 못했어요");
+                    metrics().setStatus("터미널로 한 번 접속해 호스트 키를 확인했는지 봐 주세요", true);
+                }
+                return;
+            }
+            java.util.Map<String, Double> merged = new java.util.HashMap<>(lastCpu);
+            merged.putAll(sshMetrics.latestCpu());
+            lastCpu = merged;
+            sidebar.setCpu(merged);
+            tray.ifPresent(t -> t.update(inventory, merged, lastRefreshAt));
+            if (server.id().equals(metricsServerId) && !liveActive()) {
+                showDirectHistory(server.id());
+            }
+        }, err -> sampling.remove(server.id()));
+    }
+
+    private boolean isDirect(Server server) {
+        return accountOf(server).map(a -> !a.provider().hasCloudMetrics()).orElse(false);
+    }
+
+    private void showDirectHistory(String serverId) {
+        metrics().showHistory(sshMetrics.metrics(serverId));
+        metrics().setStatus("SSH로 1분마다 수집 · 앱이 켜져 있는 동안의 기록", false);
     }
 
     private void refreshCpu() {
         List<AccountInventory> snapshot = inventory;
-        Async.run(() -> service.currentCpu(snapshot), cpu -> {
+        Async.run(() -> {
+            java.util.Map<String, Double> all = new java.util.HashMap<>(service.currentCpu(snapshot));
+            all.putAll(sshMetrics.latestCpu());
+            return all;
+        }, cpu -> {
             sidebar.setCpu(cpu);
             if (com.infradesk.alert.AlertService.AVAILABLE) {
                 alerts.onCpu(cpu);
@@ -447,9 +510,18 @@ public class MainFrame extends JFrame {
             return;
         }
         if (!account.get().provider().hasCloudMetrics()) {
-            if (!liveActive()) {
-                metrics().showMessage("클라우드 모니터링 없음 · '실시간'을 켜 보세요");
+            if (liveActive()) {
+                return;
+            }
+            if (!sshMetrics.canSample(server)) {
+                metrics().showMessage("SSH 키를 등록하면 CPU·메모리를 볼 수 있어요");
                 metrics().setStatus(" ", false);
+            } else if (sshMetrics.metrics(server.id()).cpuPercent().isEmpty()) {
+                // The first sample follows the facts read (which may ask to trust the host key).
+                metrics().showLoading();
+                metrics().setStatus("SSH로 처음 읽는 중…", false);
+            } else {
+                showDirectHistory(server.id());
             }
             return;
         }
@@ -647,6 +719,7 @@ public class MainFrame extends JFrame {
                         com.infradesk.core.SshHostProperties.port(a)))
                 .orElse(null);
         if (new SshSettingsDialog(this, terminalService, server, defaults).showDialog()) {
+
             terminalView.reconnect(server.id());
             if (server.id().equals(selectedServerId)) {
                 loadFacts(server, true);
@@ -752,6 +825,10 @@ public class MainFrame extends JFrame {
             factsCache.put(id, java.util.Map.entry(java.time.Instant.now(), facts));
             if (id.equals(selectedServerId)) {
                 detail.setFacts(facts);
+            }
+            // The facts read may just have trusted the host key; background sampling never asks.
+            if (isDirect(server) && sshMetrics.metrics(id).cpuPercent().isEmpty()) {
+                sampleDirect(server);
             }
         }, err -> {
             if (id.equals(selectedServerId)) {
@@ -863,7 +940,13 @@ public class MainFrame extends JFrame {
         titleBar.markRefreshed(LocalTime.now());
         titleBar.setCounts(inventory.stream().mapToInt(i -> i.servers().size()).sum(), inventory.size());
         sidebar.setLoading(false);
+        for (AccountInventory inv : inventory) {
+            if (!inv.account().provider().isCloud()) {
+                inv.servers().forEach(s -> IpPrivacy.protect(s.publicIp()));
+            }
+        }
         sidebar.setInventory(inventory);
+        sampleDirectServers(true);
 
         Optional<Server> selected = findServer(selectedServerId);
         if (selected.isPresent()) {
@@ -950,6 +1033,7 @@ public class MainFrame extends JFrame {
             service.removeAccount(account.id());
             if (!account.provider().isCloud()) {
                 terminalService.forget(com.infradesk.core.SshHostProperties.serverId(account.id()));
+                sshMetrics.forget(com.infradesk.core.SshHostProperties.serverId(account.id()));
             }
             return null;
         }, ignored -> refresh(), err -> JOptionPane.showMessageDialog(this, Async.message(err),

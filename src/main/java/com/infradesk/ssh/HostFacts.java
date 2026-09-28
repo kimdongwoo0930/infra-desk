@@ -13,8 +13,15 @@ import java.util.TreeSet;
  * @param osName    e.g. "Ubuntu 22.04.4 LTS", null when unknown
  * @param diskUsed  bytes used on /, -1 when unknown
  * @param diskTotal bytes on /, -1 when unknown
+ * @param cpuCount  logical CPUs, 0 when unknown
+ * @param memoryKb  total memory in KiB, 0 when unknown
  */
-public record HostFacts(Duration uptime, String osName, long diskUsed, long diskTotal, List<Integer> ports) {
+public record HostFacts(Duration uptime, String osName, long diskUsed, long diskTotal, List<Integer> ports,
+                        int cpuCount, long memoryKb) {
+
+    public HostFacts(Duration uptime, String osName, long diskUsed, long diskTotal, List<Integer> ports) {
+        this(uptime, osName, diskUsed, diskTotal, ports, 0, 0);
+    }
 
     /** POSIX sh; each section starts with a "@name" marker line. Works with busybox too. */
     public static final String COMMAND = "echo @uptime; if [ -r /proc/uptime ]; then cat /proc/uptime; else "
@@ -25,6 +32,9 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
             + "|| { command -v sw_vers >/dev/null 2>&1 && echo \"macOS $(sw_vers -productVersion)\"; } || uname -sr; "
             // macOS keeps user data on the Data volume; "/" is the small sealed system volume.
             + "echo @disk; (df -Pk /System/Volumes/Data 2>/dev/null || df -Pk / 2>/dev/null) | tail -n 1; "
+            + "echo @cpus; (nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null); "
+            + "echo @memkb; (awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null "
+            + "|| echo $(( $(sysctl -n hw.memsize 2>/dev/null) / 1024 ))); "
             + "echo @ports; (ss -tln 2>/dev/null || netstat -an -p tcp 2>/dev/null | grep LISTEN || netstat -tln 2>/dev/null)";
 
     public HostFacts {
@@ -36,6 +46,8 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
         String os = null;
         long used = -1;
         long total = -1;
+        int cpus = 0;
+        long memKb = 0;
         TreeSet<Integer> ports = new TreeSet<>();
         String section = "";
         for (String raw : output.split("\\R")) {
@@ -70,10 +82,20 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
                     }
                 }
                 case "@ports" -> listeningPort(line).ifPresent(ports::add);
+                case "@cpus" -> cpus = cpus > 0 ? cpus : parseInt(line);
+                case "@memkb" -> memKb = memKb > 0 ? memKb : parseInt(line);
                 default -> { }
             }
         }
-        return new HostFacts(uptime, os, used, total, new ArrayList<>(ports));
+        return new HostFacts(uptime, os, used, total, new ArrayList<>(ports), cpus, memKb);
+    }
+
+    private static int parseInt(String s) {
+        try {
+            return (int) Math.min(Integer.MAX_VALUE, Long.parseLong(s.strip()));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     /** Port from an `ss -tln` or `netstat -tln` line, if it listens on a non-loopback address. */
