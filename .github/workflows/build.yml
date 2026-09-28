@@ -1,11 +1,15 @@
 name: build
 
+# Builds only on pushes to main (or a manual run), then publishes the result to the
+# rolling "beta" pre-release: same download links every time, replaced by each build.
 on:
   push:
     branches: [main]
-    tags: ['v*']
-  pull_request:
   workflow_dispatch:
+
+concurrency:
+  group: beta-release
+  cancel-in-progress: true
 
 jobs:
   package:
@@ -15,10 +19,12 @@ jobs:
         include:
           - os: macos-latest
             task: dmg
-            artifact: build/dist/*.dmg
+            built: build/dist/*.dmg
+            asset: InfraDesk-beta-macOS.dmg
           - os: windows-latest
             task: windowsZip
-            artifact: build/dist/*.zip
+            built: build/dist/*.zip
+            asset: InfraDesk-beta-windows.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -27,42 +33,53 @@ jobs:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v4
-      - name: Version from tag
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "VERSION_ARG=-PappVersion=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-          fi
       - name: Test
         shell: bash
-        run: ./gradlew test $VERSION_ARG
+        run: ./gradlew test
       - name: Package (includes --self-test of the packaged app)
         shell: bash
-        run: ./gradlew ${{ matrix.task }} $VERSION_ARG
+        run: ./gradlew ${{ matrix.task }}
+      - name: Name for the beta release
+        shell: bash
+        run: mkdir -p out && mv ${{ matrix.built }} "out/${{ matrix.asset }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: InfraDesk-${{ runner.os }}
-          path: ${{ matrix.artifact }}
+          name: ${{ matrix.asset }}
+          path: out/${{ matrix.asset }}
           if-no-files-found: error
 
-  # A pushed v* tag publishes a GitHub Release with the macOS .dmg and Windows .zip.
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
+  beta-release:
     needs: package
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Release notes
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
-            --title "InfraDesk ${GITHUB_REF_NAME#v}" \
-            --notes-file .github/release-notes.md \
-            --verify-tag
+          {
+            echo "> ⚠️ **베타 버전**이에요. \`main\`에 푸시될 때마다 이 파일들이 최신 빌드로 바뀝니다."
+            echo ">"
+            echo "> 빌드 #${GITHUB_RUN_NUMBER} · 커밋 [\`${GITHUB_SHA::7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) · $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo
+            cat .github/release-notes.md
+          } > notes.md
+      - name: Move the beta tag to this commit
+        run: |
+          git tag -f beta "$GITHUB_SHA"
+          git push -f origin refs/tags/beta
+      - name: Publish
+        run: |
+          title="InfraDesk 1.0.0 Beta (빌드 ${GITHUB_RUN_NUMBER})"
+          if gh release view beta >/dev/null 2>&1; then
+            gh release edit beta --title "$title" --notes-file notes.md --prerelease
+            gh release upload beta dist/* --clobber
+          else
+            gh release create beta dist/* --title "$title" --notes-file notes.md --prerelease
+          fi

@@ -7,7 +7,9 @@
 ## 2026-09-28 · GitHub 공개 · 자동 Release
 
 - 첫 푸시 전에 공개될 기록 전체를 검사 → DEVLOG·테스트에 적혀 있던 실제 서버 공인 IP·서버/계정 이름을 예시 값(203.0.113.x, my-server, 계정 A)으로, 커밋 작성자 이메일을 GitHub noreply로 바꿔 기록을 다시 씀(원격에는 첫 커밋만 있어 영향 없음). 재검사 결과 공인 IP·개인 이메일·홈 경로·개인키·OCID 0건.
-- **자동 Release**: `v*` 태그를 푸시하면 macOS·Windows에서 테스트 → 패키징(자가 점검 포함) → Release 작업이 두 파일(`.dmg`, `-windows.zip`)을 첨부해 GitHub Release 생성. 버전은 태그에서 (`-PappVersion`, 기본 1.0.0). 설명은 `.github/release-notes.md` (설치 방법, 서명 안 된 앱 여는 법, 데모 모드).
+- 첫 CI 실행: macOS·Windows **둘 다 첫 시도에 통과** (Windows에서도 테스트 116개 + 패키징된 `InfraDesk.exe` 자가 점검).
+- **자동 베타 릴리스** (사용자 결정): 빌드는 **`main` 푸시(또는 수동 실행)에서만**. 빌드가 끝나면 하나뿐인 **`beta` 시험판(Pre-release)**에 `InfraDesk-beta-macOS.dmg`, `InfraDesk-beta-windows.zip`을 **덮어써서** 다운로드 링크가 항상 같음. `beta` 태그는 해당 커밋으로 이동. 제목 "InfraDesk 1.0.0 Beta (빌드 N)", 설명에 빌드 번호·커밋·설치 안내(`.github/release-notes.md`). 공개 저장소라 로그인 없이 누구나 받을 수 있음. 동시에 여러 푸시가 오면 최신 것만 (`concurrency`).
+- 앱 내부 버전은 1.0.0 (macOS 번들 버전은 숫자만 허용). 정식 출시 때 번호 붙은 릴리스를 따로 추가할 예정. Gradle `-PappVersion`은 그대로 지원.
 - 규칙: 공개 저장소이므로 문서·테스트에 실제 IP·서버 이름을 쓰지 않음.
 
 ---

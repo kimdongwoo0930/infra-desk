@@ -1,7 +1,16 @@
 # infra-desk
 여러 클라우드 계정의 서버를 한 곳에서 관리하는 데스크톱 앱 — 상태 모니터링, 전원 제어, SSH 터미널
 
-## 설치 (macOS)
+## 다운로드 (베타)
+
+`main`에 푸시될 때마다 자동으로 빌드되어 [Beta 릴리스](https://github.com/kimdongwoo0930/infra-desk/releases/tag/beta)에 올라갑니다.
+
+- macOS: [InfraDesk-beta-macOS.dmg](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-macOS.dmg)
+- Windows: [InfraDesk-beta-windows.zip](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-windows.zip)
+
+서명되지 않은 앱이라 처음 열 때 안내가 필요해요 — [릴리스 설명](https://github.com/kimdongwoo0930/infra-desk/releases/tag/beta) 참고.
+
+## 직접 빌드 (macOS)
 
 ```bash
 ./gradlew dmg
