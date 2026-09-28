@@ -205,3 +205,77 @@ tasks.register<Zip>("windowsZip") {
     archiveFileName = "InfraDesk-${project.version}-windows.zip"
     destinationDirectory = distDir
 }
+
+// ---- Third-party notices ----
+// Lists every runtime library with its license, read from each artifact's POM (following parent
+// POMs, where many projects declare their license). Bundled into the app (설정 → 앱 정보 →
+// 오픈소스 라이선스). The libraries' own NOTICE files ship unchanged inside their jars.
+val generateNotices by tasks.registering {
+    val out = layout.buildDirectory.file("generated/notices/com/infradesk/app/THIRD-PARTY-NOTICES.txt")
+    outputs.file(out)
+    outputs.file(layout.buildDirectory.file("generated/notices/com/infradesk/app/LICENSE.txt"))
+    inputs.files(configurations.runtimeClasspath)
+    inputs.file(rootProject.file("LICENSE"))
+    doLast {
+        val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+        fun pomFile(group: String, name: String, version: String): File? = try {
+            val cfg = configurations.detachedConfiguration(dependencies.create("$group:$name:$version@pom"))
+            cfg.isTransitive = false
+            cfg.resolve().firstOrNull()
+        } catch (e: Exception) { null }
+        fun text(el: org.w3c.dom.Element, tag: String): String? {
+            val nodes = el.getElementsByTagName(tag)
+            for (i in 0 until nodes.length) {
+                val n = nodes.item(i)
+                if (n.parentNode == el) return n.textContent.trim()
+            }
+            return null
+        }
+        fun licenses(group: String, name: String, version: String, depth: Int = 0): List<String> {
+            if (depth > 6) return emptyList()
+            val pom = pomFile(group, name, version) ?: return emptyList()
+            val doc = factory.newDocumentBuilder().parse(pom).documentElement
+            val found = mutableListOf<String>()
+            val licenseNodes = doc.getElementsByTagName("license")
+            for (i in 0 until licenseNodes.length) {
+                val el = licenseNodes.item(i) as org.w3c.dom.Element
+                val n = text(el, "name") ?: continue
+                val url = text(el, "url")
+                found += if (url.isNullOrBlank()) n else "$n <$url>"
+            }
+            if (found.isNotEmpty()) return found
+            val parents = doc.getElementsByTagName("parent")
+            if (parents.length == 0) return emptyList()
+            val p = parents.item(0) as org.w3c.dom.Element
+            return licenses(text(p, "groupId") ?: return emptyList(), text(p, "artifactId") ?: return emptyList(),
+                text(p, "version") ?: return emptyList(), depth + 1)
+        }
+        val modules = configurations.runtimeClasspath.get().resolvedConfiguration.resolvedArtifacts
+            .map { it.moduleVersion.id }
+            .distinctBy { "${it.group}:${it.name}" }
+            .sortedWith(compareBy({ it.group }, { it.name }))
+        val sb = StringBuilder()
+        sb.appendLine("InfraDesk includes the following third-party software.")
+        sb.appendLine("Each library is distributed unmodified under its own license; source code is available")
+        sb.appendLine("from Maven Central (https://central.sonatype.com) or the project sites listed there.")
+        sb.appendLine("License texts and NOTICE files are included inside each library's jar (META-INF).")
+        sb.appendLine()
+        for (m in modules) {
+            val l = licenses(m.group, m.name, m.version)
+            sb.appendLine("${m.group}:${m.name}:${m.version}")
+            sb.appendLine("    " + (if (l.isEmpty()) "License: see the project's jar (META-INF)" else l.joinToString("\n    ")))
+        }
+        sb.appendLine()
+        sb.appendLine("Notes:")
+        sb.appendLine("- JediTerm (org.jetbrains.jediterm) is LGPL-3.0 (the project also offers Apache-2.0). It is used")
+        sb.appendLine("  unmodified as separate jars in the app folder (macOS: InfraDesk.app/Contents/app), which")
+        sb.appendLine("  users may replace with their own build.")
+        sb.appendLine("- Libraries offered under several licenses (JNA, Javassist, Jersey, HK2, ...) are used under")
+        sb.appendLine("  their permissive option (Apache-2.0 / EPL-2.0).")
+        sb.appendLine("- The bundled Java runtime is Eclipse Temurin (OpenJDK), GPL-2.0 with the Classpath Exception.")
+        out.get().asFile.apply { parentFile.mkdirs(); writeText(sb.toString()) }
+        rootProject.file("LICENSE").copyTo(out.get().asFile.resolveSibling("LICENSE.txt"), overwrite = true)
+    }
+}
+sourceSets.main { resources.srcDir(layout.buildDirectory.dir("generated/notices")) }
+tasks.processResources { dependsOn(generateNotices) }

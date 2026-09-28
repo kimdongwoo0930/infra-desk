@@ -191,9 +191,13 @@ public class SettingsDialog extends JDialog {
         });
         JButton logs = Buttons.secondary("로그 폴더 열기", "folder");
         logs.addActionListener(e -> ErrorReporter.openLogFolder(com.infradesk.storage.AppPaths.logDir()));
+        JButton licenses = Buttons.secondary("오픈소스 라이선스", null);
+        licenses.addActionListener(e -> new LicensesDialog(this).setVisible(true));
         buttons.add(check);
         buttons.add(Box.createHorizontalStrut(8));
         buttons.add(logs);
+        buttons.add(Box.createHorizontalStrut(8));
+        buttons.add(licenses);
         add(body, buttons);
         body.add(Box.createVerticalStrut(6));
         add(body, appStatus);

@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-09-28 · 라이선스 · README
+
+- **MIT 라이선스** (`LICENSE`, 사용자 선택).
+- **오픈소스 고지 자동 생성** (`generateNotices`): 런타임 라이브러리 전부의 라이선스를 각 POM(부모 POM까지)에서 읽어 `THIRD-PARTY-NOTICES.txt`로 앱에 포함. 설정 → 앱 정보 → **오픈소스 라이선스**에서 MIT 전문과 함께 표시. 자가 점검에 포함 여부 추가.
+  - 확인한 것: 대부분 Apache-2.0 / MIT / BSD / EPL-2.0(Jersey) / UPL(OCI SDK). JNA·Javassist·Jersey·HK2는 이중 라이선스라 허용적인 쪽. **JediTerm은 POM상 LGPL-3.0** → 수정 없이 별도 jar로 앱 폴더에 들어가 교체 가능하므로 조건 충족, 고지에 명시. 번들 JDK는 GPL-2.0+CE.
+- **README 확장**: 아이콘, 기능 소개, 데모 스크린샷(`docs/images/`, 1280px, 가짜 데이터·가려진 IP만), 다운로드와 첫 실행(xattr/SmartScreen), 처음 설정(OCI API 키 → 계정 → SSH), 데모 모드, 보안과 데이터 위치, 개발 명령, 라이선스.
+
+---
+
 ## 2026-09-28 · 로그 · 앱 정보/업데이트 · 로그인 시 실행
 
 사용자가 고른 세 가지. 테스트는 `./gradlew run`으로.

@@ -26,6 +26,14 @@ final class SelfTest {
             }
             return b.display();
         });
+        check(failures, "License notices", () -> {
+            for (String name : new String[] {"LICENSE.txt", "THIRD-PARTY-NOTICES.txt"}) {
+                if (BuildInfo.class.getResource(name) == null) {
+                    throw new IllegalStateException(name + " missing");
+                }
+            }
+            return "ok";
+        });
         check(failures, "Jackson JSON", () -> new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(java.util.Map.of("a", 1)));
         check(failures, "OCI SDK (offline)", () -> {
             var account = new com.infradesk.core.Account("t", "t", com.infradesk.core.ProviderType.ORACLE, "ap-chuncheon-1",
