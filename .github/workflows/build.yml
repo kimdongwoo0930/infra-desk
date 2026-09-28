@@ -96,16 +96,28 @@ jobs:
           cat SHA256SUMS.txt
       - name: Archive the build currently in "beta" if it has no beta-N release yet
         run: |
-          prev=$(gh release view beta --json name -q .name 2>/dev/null | grep -o '빌드 [0-9]*' | grep -o '[0-9]*' || true)
-          if [ -n "$prev" ] && [ "$prev" != "$BUILD" ] && ! gh release view "beta-$prev" >/dev/null 2>&1; then
-            echo "Archiving build $prev as beta-$prev"
+          # Errors go to an annotation too: those are readable without signing in, logs are not.
+          archive() {
+            set -ex
+            prev=$(gh release view beta --json name -q .name | grep -o '빌드 [0-9]*' | grep -o '[0-9]*' || true)
+            if [ -z "$prev" ] || [ "$prev" = "$BUILD" ] || gh release view "beta-$prev" >/dev/null 2>&1; then
+              echo "nothing to archive (prev=$prev)"
+              return 0
+            fi
+            target=$(git rev-list -n 1 beta)
             mkdir -p prev
             gh release download beta -D prev
             gh release view beta --json body -q .body > prev-notes.md
-            gh release create "beta-$prev" prev/* --target "$(git rev-parse 'beta^{commit}')" \
+            gh release create "beta-$prev" prev/* --target "$target" \
               --title "InfraDesk 1.0.0 Beta (빌드 $prev)" --notes-file prev-notes.md --prerelease
             git fetch --tags --force
+          }
+          if ! (archive) > archive.log 2>&1; then
+            cat archive.log
+            echo "::error title=Archiving the previous build failed::$(tail -n 8 archive.log | tr '\n' ' ' | cut -c1-900)"
+            exit 1
           fi
+          cat archive.log
       - name: Release notes
         run: |
           last=$(git tag -l 'beta-[0-9]*' --sort=-v:refname | grep -v "^beta-${BUILD}$" | head -1)
