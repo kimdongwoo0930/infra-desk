@@ -24,9 +24,18 @@ import java.util.regex.Pattern;
  */
 public class UpdateService {
 
-    /** The latest published beta. */
-    public record Release(int build, String commit, String pageUrl, String downloadUrl) {
+    /**
+     * The latest published beta.
+     *
+     * @param downloadUrl  what a person downloads for this OS (dmg on macOS), or the release page
+     * @param updateUrl    the archive the app installs itself from, or null when the release has none
+     * @param checksumsUrl {@code SHA256SUMS.txt} of the release, or null when the release has none
+     */
+    public record Release(int build, String commit, String pageUrl, String downloadUrl, String updateUrl,
+                          String checksumsUrl) {
     }
+
+    public static final String CHECKSUMS_ASSET = "SHA256SUMS.txt";
 
     public static final URI BETA_RELEASE_API =
             URI.create("https://api.github.com/repos/kimdongwoo0930/infra-desk/releases/tags/beta");
@@ -37,6 +46,7 @@ public class UpdateService {
     private final HttpClient http;
     private final URI releaseApi;
     private final String assetName;
+    private final String updateAssetName;
     private final Path settingsFile;
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -45,16 +55,29 @@ public class UpdateService {
      * @param assetName    download for this OS, e.g. "InfraDesk-beta-macOS.dmg"
      */
     public UpdateService(HttpClient http, URI releaseApi, String assetName, Path settingsFile) {
+        this(http, releaseApi, assetName, updateAssetForCurrentOs(), settingsFile);
+    }
+
+    public UpdateService(HttpClient http, URI releaseApi, String assetName, String updateAssetName, Path settingsFile) {
         this.http = http;
         this.releaseApi = releaseApi;
         this.assetName = assetName;
+        this.updateAssetName = updateAssetName;
         this.settingsFile = settingsFile;
     }
 
     /** Asset name of the beta download for the running OS. */
     public static String assetForCurrentOs() {
-        String os = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
-        return os.contains("win") ? "InfraDesk-beta-windows.zip" : "InfraDesk-beta-macOS.dmg";
+        return windows() ? "InfraDesk-beta-windows.zip" : "InfraDesk-beta-macOS.dmg";
+    }
+
+    /** Asset the app installs itself from: a zip of the app (the .app bundle on macOS). */
+    public static String updateAssetForCurrentOs() {
+        return windows() ? "InfraDesk-beta-windows.zip" : "InfraDesk-beta-macOS.zip";
+    }
+
+    private static boolean windows() {
+        return System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win");
     }
 
     private volatile Boolean autoCheckInMemory;
@@ -102,7 +125,7 @@ public class UpdateService {
             if (response.statusCode() != 200) {
                 throw new IllegalStateException("업데이트 정보를 받지 못했어요 (HTTP " + response.statusCode() + ")");
             }
-            return parse(mapper.readTree(response.body()), assetName);
+            return parse(mapper.readTree(response.body()), assetName, updateAssetName);
         } catch (IOException e) {
             throw new IllegalStateException("업데이트 서버에 연결하지 못했어요", e);
         } catch (InterruptedException e) {
@@ -112,7 +135,7 @@ public class UpdateService {
     }
 
     /** Package-private for tests. */
-    static Release parse(JsonNode json, String assetName) {
+    static Release parse(JsonNode json, String assetName, String updateAssetName) {
         String name = json.path("name").asText("");
         String body = json.path("body").asText("");
         Matcher b = BUILD.matcher(name);
@@ -125,11 +148,21 @@ public class UpdateService {
         Matcher c = COMMIT.matcher(body);
         String page = json.path("html_url").asText("");
         String download = page;
+        String update = null;
+        String checksums = null;
         for (JsonNode asset : json.path("assets")) {
-            if (assetName.equals(asset.path("name").asText())) {
-                download = asset.path("browser_download_url").asText(page);
+            String assetFile = asset.path("name").asText();
+            String url = asset.path("browser_download_url").asText(null);
+            if (assetName.equals(assetFile) && url != null) {
+                download = url;
+            }
+            if (updateAssetName.equals(assetFile)) {
+                update = url;
+            }
+            if (CHECKSUMS_ASSET.equals(assetFile)) {
+                checksums = url;
             }
         }
-        return new Release(Integer.parseInt(b.group(1)), c.find() ? c.group(1) : "", page, download);
+        return new Release(Integer.parseInt(b.group(1)), c.find() ? c.group(1) : "", page, download, update, checksums);
     }
 }

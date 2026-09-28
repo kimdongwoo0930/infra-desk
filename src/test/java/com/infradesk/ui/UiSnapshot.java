@@ -134,6 +134,17 @@ public final class UiSnapshot {
                 ImageIO.write(trayImg, "png", new File(DIR, "tray-menu-windows.png"));
                 trayWindow.dispose();
 
+                var installer = new com.infradesk.service.UpdateInstaller(java.net.http.HttpClient.newHttpClient(),
+                        com.infradesk.service.UpdateInstaller.Platform.MAC, java.nio.file.Path.of("/Applications/InfraDesk.app"),
+                        java.nio.file.Path.of("build/tmp"), java.nio.file.Path.of("build/tmp/update.log"), false);
+                var release = new com.infradesk.service.UpdateService.Release(8, "abc1234", "https://p", "https://d",
+                        "https://u/InfraDesk-beta-macOS.zip", "https://u/SHA256SUMS.txt");
+                UpdateProgressDialog progress = new UpdateProgressDialog(frame, installer, release, p -> { });
+                progress.previewProgress(31_400_000, 74_900_000);
+                write(progress, progress.getContentPane(), progress.getWidth(), progress.getContentPane().getPreferredSize().height,
+                        "update-progress.png");
+                progress.dispose();
+
                 JDialog ssh = new com.infradesk.ui.terminal.SshSettingsDialog(frame, InfraDeskApp.demoTerminalService(),
                         inventory.getFirst().servers().getFirst());
                 write(ssh, ssh.getContentPane(), ssh.getWidth(), ssh.getContentPane().getPreferredSize().height,

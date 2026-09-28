@@ -27,17 +27,34 @@ class UpdateServiceTest {
              "body": "> 빌드 #7 · 커밋 [`abc1234`](https://github.com/o/r/commit/abc1234)",
              "assets": [
                {"name": "InfraDesk-beta-macOS.dmg", "browser_download_url": "https://dl/mac.dmg"},
-               {"name": "InfraDesk-beta-windows.zip", "browser_download_url": "https://dl/win.zip"}]}
+               {"name": "InfraDesk-beta-macOS.zip", "browser_download_url": "https://dl/mac.zip"},
+               {"name": "InfraDesk-beta-windows.zip", "browser_download_url": "https://dl/win.zip"},
+               {"name": "SHA256SUMS.txt", "browser_download_url": "https://dl/sums"}]}
             """;
 
     @Test
     void parsesBuildCommitAndAssetForThisOs() throws Exception {
         var json = new ObjectMapper().readTree(RELEASE);
-        UpdateService.Release mac = UpdateService.parse(json, "InfraDesk-beta-macOS.dmg");
+        UpdateService.Release mac = UpdateService.parse(json, "InfraDesk-beta-macOS.dmg", "InfraDesk-beta-macOS.zip");
         assertEquals(7, mac.build());
         assertEquals("abc1234", mac.commit());
         assertEquals("https://dl/mac.dmg", mac.downloadUrl());
-        assertEquals("https://dl/win.zip", UpdateService.parse(json, "InfraDesk-beta-windows.zip").downloadUrl());
+        assertEquals("https://dl/mac.zip", mac.updateUrl());
+        assertEquals("https://dl/sums", mac.checksumsUrl());
+        UpdateService.Release win = UpdateService.parse(json, "InfraDesk-beta-windows.zip", "InfraDesk-beta-windows.zip");
+        assertEquals("https://dl/win.zip", win.downloadUrl());
+        assertEquals("https://dl/win.zip", win.updateUrl());
+    }
+
+    @Test
+    void olderReleasesWithoutUpdateAssetsCannotSelfInstall() throws Exception {
+        var json = new ObjectMapper().readTree("""
+                {"name": "InfraDesk 1.0.0 Beta (빌드 5)", "html_url": "https://p", "body": "",
+                 "assets": [{"name": "InfraDesk-beta-macOS.dmg", "browser_download_url": "https://dl/mac.dmg"}]}
+                """);
+        UpdateService.Release r = UpdateService.parse(json, "InfraDesk-beta-macOS.dmg", "InfraDesk-beta-macOS.zip");
+        assertEquals(null, r.updateUrl());
+        assertEquals(null, r.checksumsUrl());
     }
 
     @Test

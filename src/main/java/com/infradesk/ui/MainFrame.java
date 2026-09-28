@@ -47,6 +47,8 @@ public class MainFrame extends JFrame {
     private final TerminalService terminalService;
     private final com.infradesk.alert.AlertService alerts;
     private final com.infradesk.service.UpdateService updates;
+    /** Installs updates in place; null when running from Gradle (not a packaged app) or in demo mode. */
+    private com.infradesk.service.UpdateInstaller updateInstaller;
     private final com.infradesk.service.ContainerService containerService;
     private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.DockerCommands.Listing>> containerCache =
             new java.util.HashMap<>();
@@ -89,6 +91,10 @@ public class MainFrame extends JFrame {
     private String selectedServerId;
     private boolean refreshing;
 
+    private static final boolean MAC = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
+    /** Where the status icon lives, in the words each OS uses. */
+    private static final String TRAY_NAME = MAC ? "메뉴 막대" : "알림 영역(트레이)";
+
     public MainFrame(InventoryService service, TerminalService terminalService,
                      com.infradesk.alert.AlertService alerts, boolean demoMode) {
         this(service, terminalService, alerts, null, demoMode);
@@ -116,8 +122,8 @@ public class MainFrame extends JFrame {
                     live.pause();
                     if (!hiddenNoticeShown) {
                         hiddenNoticeShown = true;
-                        tray.get().notice("InfraDesk는 메뉴 막대에서 계속 실행 중이에요",
-                                "완전히 끄려면 메뉴 막대 아이콘 → 종료 또는 ⌘Q");
+                        tray.get().notice("InfraDesk는 " + TRAY_NAME + "에서 계속 실행 중이에요",
+                                "완전히 끄려면 " + TRAY_NAME + " 아이콘 → 종료" + (MAC ? " 또는 ⌘Q" : ""));
                     }
                 } else {
                     quit();
@@ -239,7 +245,7 @@ public class MainFrame extends JFrame {
 
             @Override
             public void openUpdate(com.infradesk.service.UpdateService.Release release) {
-                openInBrowser(release.pageUrl());
+                offerUpdate(release);
             }
 
             @Override
@@ -263,6 +269,48 @@ public class MainFrame extends JFrame {
 
     public boolean hasTray() {
         return tray.isPresent();
+    }
+
+    public void setUpdateInstaller(com.infradesk.service.UpdateInstaller installer) {
+        this.updateInstaller = installer;
+    }
+
+    /** Asks, then downloads → verifies → self-tests → swaps in the new build and restarts. */
+    private void offerUpdate(com.infradesk.service.UpdateService.Release release) {
+        Optional<String> blocked = updateInstaller == null
+                ? Optional.of("설치된 앱이 아니라서(개발 실행) 스스로 바꿀 수 없어요.")
+                : updateInstaller.blocker(release);
+        if (blocked.isPresent()) {
+            int answer = JOptionPane.showConfirmDialog(isShowing() ? this : null,
+                    "새 베타 빌드 " + release.build() + "는 앱에서 바로 설치할 수 없어요.\n" + blocked.get()
+                            + "\n\n다운로드 페이지를 열까요?",
+                    "업데이트", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+            if (answer == JOptionPane.OK_OPTION) {
+                openInBrowser(release.pageUrl());
+            }
+            return;
+        }
+        int answer = JOptionPane.showConfirmDialog(isShowing() ? this : null,
+                "새 베타 빌드 " + release.build() + "를 설치할까요?\n\n"
+                        + "받은 파일을 확인하고 점검한 뒤 앱이 종료되고, 새 버전으로 바뀌어 다시 열려요.\n"
+                        + "열려 있는 SSH 터미널은 닫혀요. 설정과 키는 그대로예요.",
+                "업데이트 설치", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+        if (answer != JOptionPane.OK_OPTION) {
+            return;
+        }
+        com.infradesk.service.UpdateInstaller installer = updateInstaller;
+        new UpdateProgressDialog(isShowing() ? this : null, installer, release, prepared -> {
+            try {
+                installer.startSwap(prepared);
+            } catch (RuntimeException e) {
+                installer.discard(prepared);
+                LOG.log(java.util.logging.Level.WARNING, "Update swap failed to start", e);
+                JOptionPane.showMessageDialog(this, Async.message(e), "업데이트 실패", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            LOG.info(() -> "Quitting to install build " + release.build());
+            quit();
+        }).start();
     }
 
     private void openSettings() {
@@ -296,15 +344,15 @@ public class MainFrame extends JFrame {
             if (newer && notifiedUpdateBuild != release.build() && !manual) {
                 notifiedUpdateBuild = release.build();
                 com.infradesk.ui.components.Toast.show(this, "업데이트", "새 베타 빌드 " + release.build() + "가 있어요",
-                        "메뉴 막대 아이콘 → 새 베타 빌드 받기, 또는 설정 → 앱 정보", Theme.ACCENT);
+                        TRAY_NAME + " 아이콘 → 새 베타 빌드 설치, 또는 설정 → 앱 정보 → 업데이트 확인", Theme.ACCENT);
             }
             if (manual && settingsDialog != null) {
-                String message = newer ? "새 베타 빌드 " + release.build() + "가 있어요. 메뉴 막대에서 받을 수 있어요."
+                String message = newer ? "새 베타 빌드 " + release.build() + "가 있어요."
                         : current.isBeta() ? "최신 빌드예요 (빌드 " + current.buildNumber() + ")."
                         : "개발 빌드라 비교하지 않아요. 최신 베타는 빌드 " + release.build() + "예요.";
                 settingsDialog.showUpdateResult(message, newer);
                 if (newer) {
-                    openInBrowser(release.pageUrl());
+                    offerUpdate(release);
                 }
             }
         }, err -> {

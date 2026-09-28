@@ -44,4 +44,22 @@ public final class AppPaths {
         String state = System.getenv("XDG_STATE_HOME");
         return (state != null ? Path.of(state) : home.resolve(".local").resolve("state")).resolve("infradesk").resolve("logs");
     }
+
+    /**
+     * Disposable files such as downloaded updates. macOS: ~/Library/Caches/InfraDesk,
+     * Windows: %LOCALAPPDATA%\InfraDesk\cache, other: $XDG_CACHE_HOME/infradesk or ~/.cache/infradesk.
+     */
+    public static Path cacheDir() {
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        Path home = Path.of(System.getProperty("user.home"));
+        if (os.contains("mac")) {
+            return home.resolve("Library").resolve("Caches").resolve("InfraDesk");
+        }
+        if (os.contains("win")) {
+            String local = System.getenv("LOCALAPPDATA");
+            return (local != null ? Path.of(local) : home.resolve("AppData").resolve("Local")).resolve("InfraDesk").resolve("cache");
+        }
+        String cache = System.getenv("XDG_CACHE_HOME");
+        return (cache != null ? Path.of(cache) : home.resolve(".cache")).resolve("infradesk");
+    }
 }

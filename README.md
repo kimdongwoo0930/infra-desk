@@ -91,6 +91,8 @@ xattr -dr com.apple.quarantine /Applications/InfraDesk.app
 
 **Windows** — 압축을 풀고 `InfraDesk.exe` 실행. SmartScreen 경고가 뜨면 *추가 정보 → 실행*.
 
+**업데이트** — 설치한 뒤에는 앱 안에서 업데이트해요. *메뉴 막대(트레이) 아이콘 → 새 베타 빌드 설치*를 누르면 앱이 새 빌드를 직접 받습니다. 받은 파일을 릴리스의 `SHA256SUMS.txt`와 대조하고, 새 버전의 자가 점검(`--self-test`)을 통과하면 앱을 교체해서 다시 열어요. 앱이 직접 받은 파일에는 macOS 격리 표시가 붙지 않아서 `xattr` 명령이 다시 필요 없어요. 실패하면 지금 버전이 그대로 남습니다.
+
 ## 처음 설정
 
 ### 1. OCI API 키 만들기 (계정마다 한 번)

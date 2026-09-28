@@ -17,14 +17,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # "renames" maps each built file to its fixed name in the beta release.
           - os: macos-latest
-            task: dmg
-            built: build/dist/*.dmg
-            asset: InfraDesk-beta-macOS.dmg
+            tasks: dmg macUpdateZip
+            renames: "build/dist/*.dmg=InfraDesk-beta-macOS.dmg build/dist/*-macOS.zip=InfraDesk-beta-macOS.zip"
+            artifact: macos
           - os: windows-latest
-            task: windowsZip
-            built: build/dist/*.zip
-            asset: InfraDesk-beta-windows.zip
+            tasks: windowsZip
+            renames: "build/dist/*-windows.zip=InfraDesk-beta-windows.zip"
+            artifact: windows
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -54,14 +55,19 @@ jobs:
           PYEOF
       - name: Package (includes --self-test of the packaged app)
         shell: bash
-        run: ./gradlew ${{ matrix.task }} $BUILD_ARGS
+        run: ./gradlew ${{ matrix.tasks }} $BUILD_ARGS
       - name: Name for the beta release
         shell: bash
-        run: mkdir -p out && mv ${{ matrix.built }} "out/${{ matrix.asset }}"
+        run: |
+          mkdir -p out
+          for pair in ${{ matrix.renames }}; do
+            mv ${pair%%=*} "out/${pair#*=}"
+          done
+          ls -la out
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset }}
-          path: out/${{ matrix.asset }}
+          name: ${{ matrix.artifact }}
+          path: out/*
           if-no-files-found: error
 
   beta-release:
@@ -77,6 +83,11 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: Checksums (the app verifies its update download against these)
+        run: |
+          cd dist
+          sha256sum InfraDesk-beta-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
       - name: Release notes
         run: |
           {

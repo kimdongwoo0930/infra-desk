@@ -206,6 +206,19 @@ tasks.register<Exec>("dmg") {
     )
 }
 
+// macOS: the .app zipped with ditto (keeps symlinks, exec bits and the signature). The app
+// downloads this to update itself; the dmg is for first installs.
+tasks.register<Exec>("macUpdateZip") {
+    group = "distribution"
+    description = "Zips the macOS app into build/dist/InfraDesk-<version>-macOS.zip for in-app updates"
+    dependsOn("selfTestAppImage")
+    mustRunAfter("dmg") // dmg clears build/dist first
+    onlyIf { isMac }
+    val out = distDir.get().file("InfraDesk-${project.version}-macOS.zip").asFile
+    doFirst { out.parentFile.mkdirs(); out.delete() }
+    commandLine("ditto", "-c", "-k", "--keepParent", "${appImageDir.get().asFile}/InfraDesk.app", out.absolutePath)
+}
+
 // Windows: zip of the app image (InfraDesk.exe + runtime); no installer toolchain needed.
 tasks.register<Zip>("windowsZip") {
     group = "distribution"

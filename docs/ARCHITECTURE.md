@@ -56,7 +56,8 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `ssh.ProcStats` | 원격 `/proc` 스냅샷 명령, 파싱, 두 스냅샷 사이 사용률 계산 |
 | `service.LiveStats` | exec 세션 출력을 읽어 2초마다 `ProcStats.Sample` 전달 |
 | `ssh.SshException` | 종류(`CONNECT`, `AUTH`, `KEY_FORMAT`, `HOST_KEY_REJECTED`, `HOST_KEY_CHANGED`)와 한국어 메시지 |
-| `service.UpdateService` | GitHub `beta` 릴리스에서 최신 빌드 번호·다운로드 주소 확인, 자동 확인 설정 |
+| `service.UpdateService` | GitHub `beta` 릴리스에서 최신 빌드 번호·다운로드·업데이트 파일·`SHA256SUMS.txt` 주소 확인, 자동 확인 설정 |
+| `service.UpdateInstaller` | 앱 안 업데이트: 받기(리디렉트 따라감) → SHA-256 대조 → 앱 옆 `.infradesk-update`에 풀기(macOS `ditto`) → 새 앱 `--self-test` → `update-swap.sh`/`.ps1`가 앱 종료를 기다려 교체하고 다시 실행(실패하면 원래 앱 복원) |
 | `service.RefreshPolicy` | 다음 조회 시점과 대상 계정 결정 (평소 45초 전체, 전이·요청 직후 5초 해당 계정만) |
 | `storage.SecretStore` | 키: `account.<accountId>.<secretName>` (예: `privateKey`) |
 
@@ -187,8 +188,8 @@ MainFrame.setInventory → AlertService.onInventory → AlertMonitor (상태 변
 
 ```
 installDist → appImage (jpackage + jlink 필요한 모듈만) → selfTestAppImage (앱 실행 파일로 --self-test)
-           → dmg (macOS) / windowsZip (Windows)
+           → dmg + macUpdateZip (macOS) / windowsZip (Windows)
 ```
 - JVM 옵션: `build.gradle.kts`의 `appJvmArgs`(SerialGC, `-Xms16m -Xmx256m`, 빈 힙 반환, C1 전용). `run`·`runDemo`·jpackage가 함께 쓴다. 근거는 DEVLOG "메모리 줄이기"
 - 아이콘: `src/packaging/macos/InfraDesk.icns`, `src/packaging/windows/InfraDesk.ico` (`tools.IconGenerator`가 생성)
-- CI (`.github/workflows/build.yml`): `main` 푸시 때만 macOS·Windows에서 테스트 → 패키징(자가 점검) → **`beta` 시험판 릴리스**의 `InfraDesk-beta-macOS.dmg` / `InfraDesk-beta-windows.zip`을 교체. 설명은 `.github/release-notes.md`.
+- CI (`.github/workflows/build.yml`): `main` 푸시 때만 macOS·Windows에서 테스트 → 패키징(자가 점검) → **`beta` 시험판 릴리스**의 `InfraDesk-beta-macOS.dmg`(첫 설치용) / `InfraDesk-beta-macOS.zip`(앱 안 업데이트용) / `InfraDesk-beta-windows.zip`과 `SHA256SUMS.txt`를 교체. 설명은 `.github/release-notes.md`.

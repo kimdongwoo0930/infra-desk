@@ -87,6 +87,8 @@ public final class InfraDeskApp {
                         UpdateService.BETA_RELEASE_API, UpdateService.assetForCurrentOs(),
                         AppPaths.configDir().resolve("app-settings.json"));
                 frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, updates, false);
+                com.infradesk.service.UpdateInstaller.forRunningApp(AppPaths.cacheDir().resolve("update"),
+                        AppPaths.logDir().resolve("update.log")).ifPresent(frame::setUpdateInstaller);
             }
             AppIcon.applyTo(frame);
             // --minimized (login item): stay in the menu bar; without a tray there'd be no way back, so show.
