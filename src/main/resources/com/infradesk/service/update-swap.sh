@@ -3,6 +3,7 @@
 #   update-swap.sh <app pid> <installed .app> <new .app>
 # Waits for the app to exit, swaps the bundles (restoring the old one if anything fails),
 # then starts whichever is in place. INFRADESK_SWAP_NO_LAUNCH=1 skips the start (tests).
+cd /tmp || cd /
 pid="$1"
 app="$2"
 new="$3"

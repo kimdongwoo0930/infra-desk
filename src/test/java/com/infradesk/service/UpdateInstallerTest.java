@@ -184,6 +184,31 @@ class UpdateInstallerTest {
         assertEquals("v1", Files.readString(app.resolve("Contents/MacOS/version.txt")));
     }
 
+    @Test
+    void swapScriptRunsOutsideTheAppFolder() {
+        Path work = dir.resolve("work");
+        UpdateInstaller installer = new UpdateInstaller(HttpClient.newHttpClient(), UpdateInstaller.Platform.WINDOWS,
+                dir.resolve("apps").resolve("InfraDesk"), work, dir.resolve("logs").resolve("update.log"), false);
+        assertEquals(work.toFile(), installer.swapProcess(java.util.List.of("x")).directory(),
+                "Windows can't rename a folder that is a process's current directory");
+    }
+
+    @Test
+    void recentFailedSwapIsReportedOnce() throws IOException {
+        Path log = dir.resolve("update.log");
+        java.time.Instant now = java.time.Instant.now();
+        assertEquals(Optional.empty(), UpdateInstaller.recentSwapFailure(log, now));
+        Files.writeString(log, "2026-09-28 installing a -> b\n2026-09-28 could not move the old app aside (in use); update skipped\n");
+        assertTrue(UpdateInstaller.recentSwapFailure(log, now).orElseThrow().contains("in use"));
+        Files.writeString(log, "2026-09-28 (reported to the user)\n", java.nio.file.StandardOpenOption.APPEND);
+        assertEquals(Optional.empty(), UpdateInstaller.recentSwapFailure(log, now));
+        Files.writeString(log, "2026-09-28 updated\n");
+        assertEquals(Optional.empty(), UpdateInstaller.recentSwapFailure(log, now));
+        Files.writeString(log, "x update skipped\n");
+        assertEquals(Optional.empty(), UpdateInstaller.recentSwapFailure(log, now.plus(java.time.Duration.ofMinutes(30))),
+                "old failures are not reported");
+    }
+
     // ---- helpers ----
 
     /** Runs the swap script against a stand-in process and checks the result. */

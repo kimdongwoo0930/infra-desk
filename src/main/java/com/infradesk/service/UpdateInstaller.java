@@ -204,9 +204,7 @@ public class UpdateInstaller {
                             "-WindowStyle", "Hidden", "-File", script.toString(),
                             pid, installedApp.toString(), prepared.newApp().toString());
             LOG.info(() -> "Starting update swap to build " + prepared.release().build() + "; log: " + logFile);
-            ProcessBuilder builder = new ProcessBuilder(command)
-                    .redirectErrorStream(true)
-                    .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile.toFile()));
+            ProcessBuilder builder = swapProcess(command);
             if (!launch) {
                 builder.environment().put("INFRADESK_SWAP_NO_LAUNCH", "1");
             }
@@ -214,6 +212,43 @@ public class UpdateInstaller {
         } catch (IOException e) {
             throw new IllegalStateException("업데이트 설치를 시작하지 못했어요: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * The swap script must not run with its current directory inside the app: Windows refuses to
+     * rename a folder that any process is "in", and the app's own working directory usually is its
+     * folder (double-click in Explorer). That left build 10 in place on Windows.
+     */
+    ProcessBuilder swapProcess(List<String> command) {
+        return new ProcessBuilder(command)
+                .directory(workDir.toFile())
+                .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile.toFile()));
+    }
+
+    /**
+     * The swap script's last message if it gave up recently (the old version was started again).
+     * Checked at startup so a failed update doesn't look like nothing happened.
+     */
+    public static Optional<String> recentSwapFailure(Path logFile, java.time.Instant now) {
+        try {
+            if (!Files.isRegularFile(logFile)
+                    || Files.getLastModifiedTime(logFile).toInstant().isBefore(now.minus(Duration.ofMinutes(10)))) {
+                return Optional.empty();
+            }
+            List<String> lines = Files.readAllLines(logFile, StandardCharsets.UTF_8);
+            for (int i = lines.size() - 1; i >= 0; i--) {
+                String line = lines.get(i).strip();
+                if (line.isEmpty()) {
+                    continue;
+                }
+                return line.contains("skipped") || line.contains("restoring") || line.contains("did not exit")
+                        ? Optional.of(line) : Optional.empty();
+            }
+        } catch (IOException | java.io.UncheckedIOException e) {
+            LOG.fine(() -> "Could not read " + logFile + ": " + e.getMessage());
+        }
+        return Optional.empty();
     }
 
     /** Removes a staged update that was never swapped in (cancelled, or the app was quit another way). */

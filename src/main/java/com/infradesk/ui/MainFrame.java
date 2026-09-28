@@ -281,6 +281,23 @@ public class MainFrame extends JFrame {
         this.updateInstaller = installer;
     }
 
+    /** If the last update's swap gave up (this is the old version, started again), say so once. */
+    private void reportFailedSwap() {
+        java.nio.file.Path log = com.infradesk.storage.AppPaths.logDir().resolve("update.log");
+        com.infradesk.service.UpdateInstaller.recentSwapFailure(log, java.time.Instant.now()).ifPresent(line -> {
+            LOG.warning("Last update was not applied: " + line);
+            try {
+                java.nio.file.Files.writeString(log, java.time.LocalDateTime.now() + " (reported to the user)\n",
+                        java.nio.file.StandardOpenOption.APPEND);
+            } catch (java.io.IOException ignored) {
+                // Worst case the notice shows once more.
+            }
+            javax.swing.SwingUtilities.invokeLater(() -> com.infradesk.ui.components.Toast.show(this, "업데이트",
+                    "업데이트를 적용하지 못했어요", "지금 버전이 그대로 켜졌어요. 설정 → 앱 정보 → 로그 폴더의 update.log에 이유가 있어요.",
+                    Theme.DANGER_TEXT));
+        });
+    }
+
     /** Asks, then downloads → verifies → self-tests → swaps in the new build and restarts. */
     private void offerUpdate(com.infradesk.service.UpdateService.Release release) {
         Optional<String> blocked = updateInstaller == null
@@ -331,6 +348,7 @@ public class MainFrame extends JFrame {
         if (updates == null || demoMode) {
             return;
         }
+        reportFailedSwap();
         updateTimer = new Timer((int) java.time.Duration.ofHours(6).toMillis(), e -> {
             if (updates.autoCheck()) {
                 checkForUpdate(false);
