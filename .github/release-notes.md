@@ -1,6 +1,6 @@
 ## 설치
 
-### macOS (Apple Silicon / Intel)
+### macOS (Apple Silicon)
 1. `InfraDesk-beta-macOS.dmg`를 받아 열고, **InfraDesk**를 **응용 프로그램** 폴더로 끌어다 놓습니다.
 2. 서명·공증되지 않은 앱이라 처음 열 때 macOS가 막습니다. 터미널에서 한 번 실행하세요:
    ```

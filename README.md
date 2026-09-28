@@ -68,7 +68,7 @@
 | OS | 상태 |
 |---|---|
 | macOS (Apple Silicon) | ✅ |
-| macOS (Intel) | 🟡 같은 빌드 |
+| macOS (Intel) | ⏳ 지금 빌드는 Apple Silicon 전용 (Intel용은 별도 빌드 필요) |
 | Windows 10/11 | 🟡 CI에서 빌드·자가 점검 통과, 직접 실행은 확인 전 |
 | Linux | 소스에서 `./gradlew run` (설치 파일 없음) |
 
@@ -78,7 +78,7 @@
 
 | OS | 파일 |
 |---|---|
-| macOS (Apple Silicon · Intel) | [InfraDesk-beta-macOS.dmg](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-macOS.dmg) |
+| macOS (Apple Silicon) | [InfraDesk-beta-macOS.dmg](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-macOS.dmg) |
 | Windows | [InfraDesk-beta-windows.zip](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-windows.zip) |
 
 Java는 앱에 들어 있어 따로 설치할 필요가 없어요.
