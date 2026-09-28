@@ -46,6 +46,11 @@ public class MainFrame extends JFrame {
     private final InventoryService service;
     private final TerminalService terminalService;
     private final com.infradesk.alert.AlertService alerts;
+    private final com.infradesk.service.UpdateService updates;
+    private final com.infradesk.app.LaunchAtLogin launchAtLogin = com.infradesk.app.LaunchAtLogin.forCurrentOs();
+    private SettingsDialog settingsDialog;
+    private int notifiedUpdateBuild = -1;
+    private Timer updateTimer;
     private final CardLayout screens = new CardLayout();
     private final JPanel screenPanel = new JPanel(screens);
     private final TerminalView terminalView;
@@ -83,10 +88,17 @@ public class MainFrame extends JFrame {
 
     public MainFrame(InventoryService service, TerminalService terminalService,
                      com.infradesk.alert.AlertService alerts, boolean demoMode) {
+        this(service, terminalService, alerts, null, demoMode);
+    }
+
+    /** @param updates beta update checks, or null to disable them */
+    public MainFrame(InventoryService service, TerminalService terminalService,
+                     com.infradesk.alert.AlertService alerts, com.infradesk.service.UpdateService updates, boolean demoMode) {
         super("InfraDesk");
         this.service = service;
         this.terminalService = terminalService;
         this.alerts = alerts;
+        this.updates = updates;
         this.terminalView = new TerminalView(terminalService, this::editSshSettings, this::allServers);
         this.live = new com.infradesk.ui.metrics.LiveController(new LiveHooks(), new SwingTimeout());
         this.demoMode = demoMode;
@@ -156,7 +168,7 @@ public class MainFrame extends JFrame {
         terminalView.onEmpty(this::showDashboard);
         detail.onSsh(this::openSsh);
         sidebar.onSshSettings(this::editSshSettings);
-        sidebar.settingsButton().addActionListener(e -> new SettingsDialog(this, alerts, demoMode).setVisible(true));
+        sidebar.settingsButton().addActionListener(e -> openSettings());
         alerts.onDeliveryFailure(message -> javax.swing.SwingUtilities.invokeLater(() ->
                 com.infradesk.ui.components.Toast.show(this, "디스코드 알림 전송 실패", "알림을 보내지 못했어요",
                         message, Theme.DANGER_TEXT)));
@@ -214,6 +226,11 @@ public class MainFrame extends JFrame {
             }
 
             @Override
+            public void openUpdate(com.infradesk.service.UpdateService.Release release) {
+                openInBrowser(release.pageUrl());
+            }
+
+            @Override
             public void quit() {
                 MainFrame.this.quit();
             }
@@ -232,6 +249,68 @@ public class MainFrame extends JFrame {
         }
     }
 
+    public boolean hasTray() {
+        return tray.isPresent();
+    }
+
+    private void openSettings() {
+        settingsDialog = new SettingsDialog(this, alerts, demoMode, updates, launchAtLogin,
+                updates == null ? null : () -> checkForUpdate(true));
+        settingsDialog.setVisible(true);
+        settingsDialog = null;
+    }
+
+    /** Starts periodic beta update checks (15 s after start, then every 6 h) when enabled. */
+    public void startUpdateChecks() {
+        if (updates == null || demoMode) {
+            return;
+        }
+        updateTimer = new Timer((int) java.time.Duration.ofHours(6).toMillis(), e -> {
+            if (updates.autoCheck()) {
+                checkForUpdate(false);
+            }
+        });
+        updateTimer.setInitialDelay(15_000);
+        updateTimer.start();
+    }
+
+    /** @param manual started from the settings dialog: report every outcome there */
+    private void checkForUpdate(boolean manual) {
+        com.infradesk.app.BuildInfo current = com.infradesk.app.BuildInfo.current();
+        Async.run(updates::latest, release -> {
+            boolean newer = current.isBeta() && release.build() > current.buildNumber();
+            LOG.info(() -> "Update check: latest beta build " + release.build() + ", running " + current.display());
+            tray.ifPresent(t -> t.setUpdate(newer ? release : null));
+            if (newer && notifiedUpdateBuild != release.build() && !manual) {
+                notifiedUpdateBuild = release.build();
+                com.infradesk.ui.components.Toast.show(this, "업데이트", "새 베타 빌드 " + release.build() + "가 있어요",
+                        "메뉴 막대 아이콘 → 새 베타 빌드 받기, 또는 설정 → 앱 정보", Theme.ACCENT);
+            }
+            if (manual && settingsDialog != null) {
+                String message = newer ? "새 베타 빌드 " + release.build() + "가 있어요. 메뉴 막대에서 받을 수 있어요."
+                        : current.isBeta() ? "최신 빌드예요 (빌드 " + current.buildNumber() + ")."
+                        : "개발 빌드라 비교하지 않아요. 최신 베타는 빌드 " + release.build() + "예요.";
+                settingsDialog.showUpdateResult(message, newer);
+                if (newer) {
+                    openInBrowser(release.pageUrl());
+                }
+            }
+        }, err -> {
+            LOG.log(java.util.logging.Level.INFO, "Update check failed: " + Async.message(err));
+            if (manual && settingsDialog != null) {
+                settingsDialog.showUpdateResult(Async.message(err), false);
+            }
+        });
+    }
+
+    private void openInBrowser(String url) {
+        try {
+            java.awt.Desktop.getDesktop().browse(java.net.URI.create(url));
+        } catch (Exception e) {
+            LOG.log(java.util.logging.Level.WARNING, "Could not open " + url, e);
+        }
+    }
+
     private void bringToFront() {
         if (!isVisible()) {
             setVisible(true);
@@ -246,6 +325,7 @@ public class MainFrame extends JFrame {
 
     /** Closes sessions and exits. From the tray menu, ⌘Q, or closing the window without a tray. */
     private void quit() {
+        LOG.info("Quitting");
         live.stop();
         terminalView.closeAll();
         tray.ifPresent(TrayController::remove);
@@ -553,6 +633,8 @@ public class MainFrame extends JFrame {
         terminalView.openOrSelect(server);
     }
 
+    private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(MainFrame.class.getName());
+
     private void runAction(ServerAction action) {
         Optional<Server> server = findServer(selectedServerId);
         if (server.isEmpty()) {
@@ -565,14 +647,19 @@ public class MainFrame extends JFrame {
         }
         alerts.expectChange(s.id());
         detail.setBusy(true, action.label() + " 요청을 보내는 중…");
+        LOG.info(() -> action + " requested for server " + s.name() + " (account " + account.displayName() + ")");
         Async.run(() -> {
             service.control(account, s.id(), action);
             return null;
         }, ignored -> {
+            LOG.info(() -> action + " accepted for server " + s.name());
             policy.actionSent(account.id());
             detail.setBusy(false, action.label() + " 요청을 보냈어요. 상태를 5초마다 확인해요.");
             reload(Set.of(account.id()), false);
-        }, err -> detail.showActionError(Async.message(err)));
+        }, err -> {
+            LOG.log(java.util.logging.Level.WARNING, action + " failed for server " + s.name(), err);
+            detail.showActionError(Async.message(err));
+        });
     }
 
     private boolean confirm(ServerAction action, Server server, Account account) {

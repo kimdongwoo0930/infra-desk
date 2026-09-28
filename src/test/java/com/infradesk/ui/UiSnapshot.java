@@ -87,7 +87,10 @@ public final class UiSnapshot {
                         editAccount.getContentPane().getPreferredSize().height, "edit-account.png");
                 editAccount.dispose();
 
-                JDialog settings = new SettingsDialog(frame, InfraDeskApp.demoAlertService(), false);
+                var updates = new com.infradesk.service.UpdateService(java.net.http.HttpClient.newHttpClient(),
+                        java.net.URI.create("http://127.0.0.1:1"), "x", null);
+                JDialog settings = new SettingsDialog(frame, InfraDeskApp.demoAlertService(), false, updates,
+                        com.infradesk.app.LaunchAtLogin.forCurrentOs(), () -> { });
                 write(settings, settings.getContentPane(), settings.getWidth(),
                         settings.getContentPane().getPreferredSize().height, "settings.png");
                 settings.dispose();

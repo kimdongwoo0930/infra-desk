@@ -12,6 +12,7 @@ import com.infradesk.provider.oracle.OracleProviderFactory;
 import com.infradesk.service.InventoryService;
 import com.infradesk.service.ProviderRegistry;
 import com.infradesk.service.TerminalService;
+import com.infradesk.service.UpdateService;
 import com.infradesk.ssh.DemoShellConnector;
 import com.infradesk.ssh.MinaShellConnector;
 import com.infradesk.storage.AppPaths;
@@ -51,8 +52,15 @@ public final class InfraDeskApp {
         if (Arrays.asList(args).contains("--migrate-secrets")) {
             System.exit(migrateSecrets());
         }
+        Logging.install(AppPaths.logDir());
+        com.infradesk.ui.ErrorReporter.install();
         boolean demo = Arrays.asList(args).contains("--demo") || Boolean.getBoolean("infradesk.demo");
+        java.util.logging.Logger.getLogger(InfraDeskApp.class.getName()).info(() -> "InfraDesk " + BuildInfo.current().display()
+                + " starting · Java " + System.getProperty("java.version") + " · " + System.getProperty("os.name")
+                + " " + System.getProperty("os.version") + " (" + System.getProperty("os.arch") + ")"
+                + (demo ? " · demo" : "") + (Arrays.asList(args).contains("--minimized") ? " · minimized" : ""));
         boolean debugInput = Arrays.asList(args).contains("--debug-input");
+        boolean minimized = Arrays.asList(args).contains("--minimized");
         if (SystemInfo.isMacOS) {
             System.setProperty("apple.awt.application.name", "InfraDesk");
             System.setProperty("apple.awt.application.appearance", "NSAppearanceNameDarkAqua");
@@ -68,18 +76,25 @@ public final class InfraDeskApp {
             }
             MainFrame frame;
             if (demo) {
-                frame = new MainFrame(demoService(), demoTerminalService(), demoAlertService(), true);
+                frame = new MainFrame(demoService(), demoTerminalService(), demoAlertService(), null, true);
             } else {
                 // One keychain item (the vault's master key); every secret lives in the encrypted vault.
                 KeychainSecretStore keychain = new KeychainSecretStore();
                 SecretStore secrets = new VaultSecretStore(AppPaths.configDir(), keychain, keychain);
                 AlertService alerts = new AlertService(new JsonAlertSettingsStore(AppPaths.configDir()), secrets, null,
                         Clock.systemUTC());
-                frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, false);
+                UpdateService updates = new UpdateService(java.net.http.HttpClient.newHttpClient(),
+                        UpdateService.BETA_RELEASE_API, UpdateService.assetForCurrentOs(),
+                        AppPaths.configDir().resolve("app-settings.json"));
+                frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, updates, false);
             }
             AppIcon.applyTo(frame);
-            frame.setVisible(true);
+            // --minimized (login item): stay in the menu bar; without a tray there'd be no way back, so show.
+            if (!minimized || !frame.hasTray()) {
+                frame.setVisible(true);
+            }
             frame.refresh();
+            frame.startUpdateChecks();
         });
     }
 

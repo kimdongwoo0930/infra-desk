@@ -199,7 +199,7 @@ public class AddAccountDialog extends JDialog {
         icon.setVerticalAlignment(JLabel.TOP);
         String text = demoMode
                 ? "데모 모드예요. 입력값과 키는 저장되지 않고, 가짜 서버가 표시돼요."
-                : "API 개인키는 OS 키체인(macOS 키체인 / Windows 자격 증명 관리자)에 저장돼요. "
+                : "API 개인키는 암호화해서 이 PC에만 저장돼요 (암호화 키는 macOS 키체인 / Windows 자격 증명 관리자에). "
                         + "서버 SSH 키는 서버를 불러온 뒤 서버별로 등록해요.";
         WrappingLabel label = new WrappingLabel(text, 560 - 44 - 24 - 16 - 10, -1, Theme.TEXT_SECONDARY);
         box.add(icon, BorderLayout.WEST);

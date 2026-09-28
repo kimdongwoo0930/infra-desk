@@ -44,6 +44,8 @@ public final class TrayController {
 
         void refresh();
 
+        void openUpdate(com.infradesk.service.UpdateService.Release release);
+
         void quit();
     }
 
@@ -86,7 +88,21 @@ public final class TrayController {
     }
 
     /** Rebuilds the menu and icon from the latest data. Call on the EDT. */
+    private List<AccountInventory> lastInventory = List.of();
+    private Map<String, Double> lastCpu = Map.of();
+    private java.time.LocalTime lastRefreshed;
+    private com.infradesk.service.UpdateService.Release update;
+
+    /** Shows (or clears) the "새 베타 빌드 받기" item. Call on the EDT. */
+    public void setUpdate(com.infradesk.service.UpdateService.Release release) {
+        this.update = release;
+        update(lastInventory, lastCpu, lastRefreshed);
+    }
+
     public void update(List<AccountInventory> inventory, Map<String, Double> cpu, java.time.LocalTime refreshedAt) {
+        lastInventory = inventory;
+        lastCpu = cpu;
+        lastRefreshed = refreshedAt;
         Summary s = Summary.of(inventory);
         String updated = refreshedAt == null ? "" : " · " + refreshedAt.format(TIME) + " 갱신";
         icon.setImage(s.needsAttention() ? attentionImage : normalImage);
@@ -144,6 +160,10 @@ public final class TrayController {
         MenuItem header = new MenuItem("InfraDesk" + (demo ? " (데모)" : "") + " · " + Summary.of(inventory).headline() + updated);
         header.setEnabled(false);
         menu.add(header);
+        if (update != null) {
+            com.infradesk.service.UpdateService.Release r = update;
+            menu.add(item("⬇️  새 베타 빌드 " + r.build() + " 받기…", () -> actions.openUpdate(r)));
+        }
         menu.addSeparator();
 
         if (inventory.isEmpty()) {
@@ -166,6 +186,9 @@ public final class TrayController {
         menu.add(item("새로고침", actions::refresh));
         menu.add(item("InfraDesk 열기", actions::showWindow));
         menu.addSeparator();
+        MenuItem version = new MenuItem("버전 " + com.infradesk.app.BuildInfo.current().display());
+        version.setEnabled(false);
+        menu.add(version);
         menu.add(item("종료", actions::quit));
         return menu;
     }

@@ -87,6 +87,8 @@ public class TerminalPanel extends JPanel {
         Async.run(() -> service.open(server, new HostKeyDialog(this), INITIAL_COLUMNS, INITIAL_ROWS),
                 this::attach,
                 err -> {
+                    java.util.logging.Logger.getLogger(TerminalPanel.class.getName()).log(java.util.logging.Level.WARNING,
+                            "SSH connect failed for " + server.name() + ": " + Async.message(err), err);
                     setState(State.DISCONNECTED, "연결 실패", null);
                     boolean needsSettings = err instanceof SshException se
                             && (se.kind() == SshException.Kind.AUTH || se.kind() == SshException.Kind.KEY_FORMAT);
@@ -95,6 +97,8 @@ public class TerminalPanel extends JPanel {
     }
 
     private void attach(ShellSession shell) {
+        java.util.logging.Logger.getLogger(TerminalPanel.class.getName()).info(() -> "SSH connected to " + server.name()
+                + " as " + shell.address());
         this.session = shell;
         widget = new JediTermWidget(INITIAL_COLUMNS, INITIAL_ROWS, new TerminalSettings());
         widget.setBorder(BorderFactory.createEmptyBorder(8, 10, 0, 4));

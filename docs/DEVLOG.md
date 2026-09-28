@@ -4,6 +4,35 @@
 
 ---
 
+## 2026-09-28 · 로그 · 앱 정보/업데이트 · 로그인 시 실행
+
+사용자가 고른 세 가지. 테스트는 `./gradlew run`으로.
+
+### 로그 파일 + 오류 처리
+- `app.Logging`: java.util.logging → `~/Library/Logs/InfraDesk/infradesk-N.log`(macOS, 콘솔 앱에서도 보임) / `%LOCALAPPDATA%\InfraDesk\logs`(Windows), 2 MB × 5개 순환, 콘솔에도 출력. 우리 코드는 INFO, 라이브러리는 WARNING 이상.
+- `slf4j-nop` → `slf4j-jdk14`: 버려지던 OCI SDK·MINA SSHD 경고도 같은 로그로.
+- **모든 줄을 가림 처리** (`Logging.redact`): 개인키(PEM, 잘린 것 포함), 디스코드 웹훅 URL, 공인 IPv4(`x.x.x.24`), OCID(`ocid1.instance.oc1.<region>.…123456`). 로그를 이슈에 붙여도 되게.
+- `ui.ErrorReporter`: 처리되지 않은 예외(EDT 포함)를 스택과 함께 기록하고 30초에 한 번까지 토스트("설정 → 앱 정보 → 로그 폴더 열기").
+- 기록하는 일: 시작(빌드·Java·OS·데모/최소화), 서버 제어 요청·결과, SSH 연결 성공·실패, 업데이트 확인, 자동 실행 변경, 종료.
+
+### 앱 정보 + 업데이트 확인
+- Gradle `generateBuildInfo` → `build-info.properties`(version, build, commit). CI는 `-PbuildNumber=<run>` `-Pcommit=<sha>`, 로컬은 `build=dev` + git HEAD.
+- 표시: "1.0.0 Beta (빌드 12 · f4102ce)" / "1.0.0 개발 빌드 (f4102ce)" — 설정 → 앱 정보, 메뉴 막대 메뉴 아래쪽.
+- `service.UpdateService`: GitHub API로 `beta` 릴리스를 읽어 제목의 "빌드 N", 설명의 커밋, 이 OS용 파일 주소를 파싱. 시작 15초 뒤 + 6시간마다(설정에서 끌 수 있음, `app-settings.json`). 더 새 빌드면 메뉴 막대에 "⬇️ 새 베타 빌드 N 받기…"(릴리스 페이지 열기) + 한 번 토스트. 개발 빌드는 비교하지 않음. 데모 모드는 확인 안 함.
+- 실제 릴리스로 확인: 빌드 2, 커밋 f4102ce, macOS dmg 주소 파싱 성공.
+
+### 로그인 시 자동 실행
+- `app.LaunchAtLogin`: macOS는 `~/Library/LaunchAgents/com.infradesk.app.launcher.plist`(`open -g -a <앱> --args --minimized`, RunAtLoad), Windows는 `HKCU\…\Run`에 `"InfraDesk.exe" --minimized`.
+- 대상: 설치된 앱으로 실행 중이면 그 앱(`jpackage.app-path`), 아니면(`./gradlew run`) `/Applications/InfraDesk.app`. 없으면 비활성 + 안내.
+- `--minimized`: 창 없이 메뉴 막대에서 시작 (트레이가 없으면 창을 띄움).
+- 설정 창 "일반"에서 켜고 끔(저장 시 적용).
+
+### 기타
+- 안내 문구의 "OS 키체인에 저장" → "암호화해서 이 PC에만 저장"(금고 방식 반영).
+- 테스트 128개 통과 (로그 가림 4, 자동 실행 3, 빌드 정보 2, 업데이트 3 등).
+
+---
+
 ## 2026-09-28 · GitHub 공개 · 자동 Release
 
 - 첫 푸시 전에 공개될 기록 전체를 검사 → DEVLOG·테스트에 적혀 있던 실제 서버 공인 IP·서버/계정 이름을 예시 값(203.0.113.x, my-server, 계정 A)으로, 커밋 작성자 이메일을 GitHub noreply로 바꿔 기록을 다시 씀(원격에는 첫 커밋만 있어 영향 없음). 재검사 결과 공인 IP·개인 이메일·홈 경로·개인키·OCID 0건.

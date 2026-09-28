@@ -18,7 +18,9 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 - **storage**: 계정 설정(JSON), 비밀값(OS 키체인).
 - **ssh**: 클라우드와 무관한 SSH 연결·세션. `ShellConnector`(MINA / 데모), `ShellSession`, `known_hosts` 검증.
 - **alert**: 디스코드 알림. `AlertMonitor`(인벤토리·CPU 변화 → 알림, 순수 상태 기계), `DiscordNotifier`(웹훅 전송), `AlertService`(설정·웹훅 비밀값·전송 스레드).
-- **app**: 진입점. 실제 모드와 데모 모드의 구성 요소를 조립한다. `AppIcon`(Dock/창 아이콘), `SelfTest`(`--self-test`), `InputDiagnostics`(`--debug-input`).
+- **app**: 진입점. 실제 모드와 데모 모드의 구성 요소를 조립한다. `AppIcon`(Dock/창 아이콘), `SelfTest`(`--self-test`), `InputDiagnostics`(`--debug-input`), `Logging`(로그 파일·가림), `BuildInfo`(버전·빌드·커밋), `LaunchAtLogin`(로그인 시 실행).
+
+실행 옵션: `--demo`, `--minimized`(메뉴 막대에서만 시작), `--debug-input`, `--self-test`, `--migrate-secrets`.
 
 ## 실제 모드 vs 데모 모드
 
@@ -52,6 +54,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `ssh.ProcStats` | 원격 `/proc` 스냅샷 명령, 파싱, 두 스냅샷 사이 사용률 계산 |
 | `service.LiveStats` | exec 세션 출력을 읽어 2초마다 `ProcStats.Sample` 전달 |
 | `ssh.SshException` | 종류(`CONNECT`, `AUTH`, `KEY_FORMAT`, `HOST_KEY_REJECTED`, `HOST_KEY_CHANGED`)와 한국어 메시지 |
+| `service.UpdateService` | GitHub `beta` 릴리스에서 최신 빌드 번호·다운로드 주소 확인, 자동 확인 설정 |
 | `service.RefreshPolicy` | 다음 조회 시점과 대상 계정 결정 (평소 45초 전체, 전이·요청 직후 5초 해당 계정만) |
 | `storage.SecretStore` | 키: `account.<accountId>.<secretName>` (예: `privateKey`) |
 
@@ -70,6 +73,9 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `secrets.vault` | 모든 비밀값 (암호화) |
 | `commands.json` | 저장된 명령어 (이름, 명령) |
 | `alerts.json` | 알림 켜기/끄기, 종류, CPU 기준 |
+| `app-settings.json` | 업데이트 자동 확인 여부 |
+
+로그: macOS `~/Library/Logs/InfraDesk/infradesk-N.log`, Windows `%LOCALAPPDATA%\InfraDesk\logs` (가림 처리됨).
 | `known_hosts` | 신뢰한 SSH 호스트 키 (OpenSSH 형식) |
 
 비밀값(API 개인키, SSH 개인키·암호, 웹훅 URL)은 **`secrets.vault`**(AES-256-GCM 암호화, 권한 `rw-------`)에 저장되고, 그 **마스터 키 하나만** OS 키체인(서비스 이름 `InfraDesk`, 항목 `vault.masterKey`)에 있다. 키체인은 실행당 최대 한 번 읽는다. 아래 이름은 금고 안의 키 이름이다.

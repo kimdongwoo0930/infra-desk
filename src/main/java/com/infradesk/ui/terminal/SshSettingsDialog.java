@@ -151,7 +151,7 @@ public class SshSettingsDialog extends JDialog {
         body.add(Box.createVerticalStrut(14));
 
         WrappingLabel hint = new WrappingLabel("Ubuntu 이미지는 보통 'ubuntu', Oracle Linux는 'opc'예요. "
-                + "키는 OS 키체인에 저장되고, 서버에 등록한 공개키와 짝이 맞아야 해요.", 436, -1, Theme.TEXT_MUTED);
+                + "키는 암호화해서 이 PC에만 저장되고, 서버에 등록한 공개키와 짝이 맞아야 해요.", 436, -1, Theme.TEXT_MUTED);
         body.add(hint);
         body.add(Box.createVerticalStrut(8));
         body.add(status);

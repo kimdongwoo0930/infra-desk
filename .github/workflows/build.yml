@@ -33,12 +33,15 @@ jobs:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v4
+      - name: Build metadata
+        shell: bash
+        run: echo "BUILD_ARGS=-PbuildNumber=${GITHUB_RUN_NUMBER} -Pcommit=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
       - name: Test
         shell: bash
-        run: ./gradlew test
+        run: ./gradlew test $BUILD_ARGS
       - name: Package (includes --self-test of the packaged app)
         shell: bash
-        run: ./gradlew ${{ matrix.task }}
+        run: ./gradlew ${{ matrix.task }} $BUILD_ARGS
       - name: Name for the beta release
         shell: bash
         run: mkdir -p out && mv ${{ matrix.built }} "out/${{ matrix.asset }}"

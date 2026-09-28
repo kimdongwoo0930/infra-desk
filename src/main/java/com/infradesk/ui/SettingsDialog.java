@@ -32,6 +32,12 @@ public class SettingsDialog extends JDialog {
 
     private final AlertService alerts;
     private final boolean demoMode;
+    private final com.infradesk.service.UpdateService updates;
+    private final com.infradesk.app.LaunchAtLogin launchAtLogin;
+    private final JCheckBox startAtLogin = new JCheckBox("로그인할 때 InfraDesk 실행 (메뉴 막대에서 시작)");
+    private final JCheckBox autoUpdate = new JCheckBox("새 베타 빌드 자동 확인 (시작할 때, 6시간마다)");
+    private final WrappingLabel appStatus = new WrappingLabel(" ", 476, -1, Theme.TEXT_SECONDARY);
+    private final Runnable checkNow;
     private final JCheckBox enabled = new JCheckBox("디스코드 알림 사용");
     private final JPasswordField webhook = new JPasswordField();
     private final JCheckBox serverDown = new JCheckBox("서버가 예상치 않게 멈추거나 다시 켜졌을 때");
@@ -44,9 +50,23 @@ public class SettingsDialog extends JDialog {
     private final JButton saveButton = Buttons.primary("저장", null);
 
     public SettingsDialog(Window owner, AlertService alerts, boolean demoMode) {
+        this(owner, alerts, demoMode, null, null, null);
+    }
+
+    /**
+     * @param updates       update checks, or null to hide the section
+     * @param launchAtLogin login item control, or null to hide it
+     * @param checkNow      runs an update check and reports through {@link #showUpdateResult}
+     */
+    public SettingsDialog(Window owner, AlertService alerts, boolean demoMode,
+                          com.infradesk.service.UpdateService updates, com.infradesk.app.LaunchAtLogin launchAtLogin,
+                          Runnable checkNow) {
         super(owner, "설정", ModalityType.APPLICATION_MODAL);
         this.alerts = alerts;
         this.demoMode = demoMode;
+        this.updates = updates;
+        this.launchAtLogin = launchAtLogin;
+        this.checkNow = checkNow;
 
         AlertSettings s = alerts.settings();
         enabled.setSelected(s.enabled());
@@ -86,13 +106,17 @@ public class SettingsDialog extends JDialog {
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
         body.setBorder(BorderFactory.createEmptyBorder(20, 22, 16, 22));
 
+        if (updates != null || launchAtLogin != null) {
+            addGeneralSections(body);
+        }
+
         JLabel title = new JLabel("디스코드 알림");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 15f));
         add(body, title);
         body.add(Box.createVerticalStrut(4));
         add(body, muted(demoMode
                 ? "데모 모드예요. 실제로 보내지 않고 화면 구석에 미리보기만 띄워요."
-                : "앱이 실행 중일 때만 알림을 보내요. 웹훅 URL은 OS 키체인에 저장돼요."));
+                : "앱이 실행 중일 때만 알림을 보내요. 웹훅 URL은 암호화해서 이 PC에만 저장돼요."));
         body.add(Box.createVerticalStrut(14));
         add(body, enabled);
         body.add(Box.createVerticalStrut(10));
@@ -123,6 +147,70 @@ public class SettingsDialog extends JDialog {
         body.add(Box.createVerticalStrut(12));
         add(body, status);
         return body;
+    }
+
+    /** "일반" (login item, auto update) and "앱 정보" (version, update check, logs). */
+    private void addGeneralSections(JPanel body) {
+        JLabel general = new JLabel("일반");
+        general.setFont(general.getFont().deriveFont(Font.BOLD, 15f));
+        add(body, general);
+        body.add(Box.createVerticalStrut(10));
+        if (launchAtLogin != null) {
+            startAtLogin.setSelected(launchAtLogin.isEnabled());
+            startAtLogin.setEnabled(launchAtLogin.isSupported() && !demoMode);
+            add(body, startAtLogin);
+            String where = demoMode ? "데모 모드에서는 바꿀 수 없어요."
+                    : launchAtLogin.target().map(p -> "실행 대상: " + p).orElse("설치한 InfraDesk를 찾지 못했어요 (응용 프로그램 폴더에 설치하면 켤 수 있어요).");
+            WrappingLabel hint = new WrappingLabel(where, 452, -2, Theme.TEXT_MUTED);
+            hint.setBorder(BorderFactory.createEmptyBorder(0, 26, 6, 0));
+            add(body, hint);
+        }
+        if (updates != null) {
+            autoUpdate.setSelected(updates.autoCheck());
+            autoUpdate.setEnabled(!demoMode);
+            add(body, autoUpdate);
+        }
+        body.add(Box.createVerticalStrut(18));
+
+        JLabel about = new JLabel("앱 정보");
+        about.setFont(about.getFont().deriveFont(Font.BOLD, 15f));
+        add(body, about);
+        body.add(Box.createVerticalStrut(6));
+        JLabel version = new JLabel("InfraDesk " + com.infradesk.app.BuildInfo.current().display());
+        version.setForeground(Theme.TEXT_SECONDARY);
+        add(body, version);
+        body.add(Box.createVerticalStrut(8));
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        buttons.setOpaque(false);
+        JButton check = Buttons.secondary("업데이트 확인", "refresh");
+        check.setEnabled(checkNow != null && !demoMode);
+        check.addActionListener(e -> {
+            appStatus.setText("확인하는 중…");
+            appStatus.setForeground(Theme.TEXT_SECONDARY);
+            checkNow.run();
+        });
+        JButton logs = Buttons.secondary("로그 폴더 열기", "folder");
+        logs.addActionListener(e -> ErrorReporter.openLogFolder(com.infradesk.storage.AppPaths.logDir()));
+        buttons.add(check);
+        buttons.add(Box.createHorizontalStrut(8));
+        buttons.add(logs);
+        add(body, buttons);
+        body.add(Box.createVerticalStrut(6));
+        add(body, appStatus);
+        body.add(Box.createVerticalStrut(18));
+        JPanel divider = new JPanel();
+        divider.setBackground(Theme.DIVIDER);
+        divider.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        divider.setPreferredSize(new Dimension(0, 1));
+        add(body, divider);
+        body.add(Box.createVerticalStrut(18));
+    }
+
+    /** Called on the EDT with the outcome of an update check started from this dialog. */
+    public void showUpdateResult(String message, boolean newer) {
+        appStatus.setText(message);
+        appStatus.setForeground(newer ? Theme.RUNNING_BADGE_TEXT : Theme.TEXT_SECONDARY);
+        pack();
     }
 
     private JPanel footer() {
@@ -204,9 +292,17 @@ public class SettingsDialog extends JDialog {
         }
         AlertSettings s = current();
         String typed = typedUrl();
+        boolean login = startAtLogin.isSelected();
+        boolean auto = autoUpdate.isSelected();
         saveButton.setEnabled(false);
         Async.run(() -> {
             alerts.save(s, typed);
+            if (launchAtLogin != null && launchAtLogin.isSupported() && !demoMode && login != launchAtLogin.isEnabled()) {
+                launchAtLogin.setEnabled(login);
+            }
+            if (updates != null && !demoMode) {
+                updates.setAutoCheck(auto);
+            }
             return null;
         }, ignored -> dispose(), err -> {
             saveButton.setEnabled(true);

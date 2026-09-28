@@ -35,12 +35,30 @@ dependencies {
     implementation(libs.jediterm.core)
     implementation(libs.jediterm.ui)
     implementation(libs.xchart)
-    runtimeOnly(libs.slf4j.nop)
+    runtimeOnly(libs.slf4j.jdk14) // library warnings (OCI SDK, MINA) into our java.util.logging file
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.launcher)
 }
+
+// Build metadata shown in the app (설정 → 앱 정보) and used by the update check.
+// CI passes -PbuildNumber=<run number> and -Pcommit=<sha>; local builds are "dev" with git's HEAD.
+val buildNumber = providers.gradleProperty("buildNumber").orElse("dev")
+val commitId = providers.gradleProperty("commit").orElse(
+    providers.exec {
+        commandLine("git", "rev-parse", "--short", "HEAD")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.map { it.trim().ifEmpty { "unknown" } }
+)
+val generateBuildInfo by tasks.registering(WriteProperties::class) {
+    destinationFile = layout.buildDirectory.file("generated/build-info/com/infradesk/app/build-info.properties")
+    property("version", project.version.toString())
+    property("build", buildNumber)
+    property("commit", commitId)
+}
+sourceSets.main { resources.srcDir(layout.buildDirectory.dir("generated/build-info")) }
+tasks.processResources { dependsOn(generateBuildInfo) }
 
 application {
     mainClass = "com.infradesk.app.InfraDeskApp"

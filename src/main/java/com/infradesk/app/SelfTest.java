@@ -19,6 +19,13 @@ final class SelfTest {
         check(failures, "FlatLaf", () -> Class.forName("com.formdev.flatlaf.themes.FlatMacDarkLaf"));
         check(failures, "SVG icons", () -> new com.formdev.flatlaf.extras.FlatSVGIcon("com/infradesk/ui/icons/app.svg").getIconWidth());
         check(failures, "App icon", () -> AppIcon.images().size());
+        check(failures, "Build info", () -> {
+            BuildInfo b = BuildInfo.current();
+            if (b.version().equals("?")) {
+                throw new IllegalStateException("build-info.properties missing");
+            }
+            return b.display();
+        });
         check(failures, "Jackson JSON", () -> new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(java.util.Map.of("a", 1)));
         check(failures, "OCI SDK (offline)", () -> {
             var account = new com.infradesk.core.Account("t", "t", com.infradesk.core.ProviderType.ORACLE, "ap-chuncheon-1",
