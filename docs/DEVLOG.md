@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-09-28 · 직접 연결 서버 2단계: macOS 호스트
+
+맥미니 같은 macOS 컴퓨터에는 `/proc`가 없어서, 실시간 모드와 서버 정보가 리눅스 명령으로는 비어 나왔다. 원격 명령이 `uname`을 보고 macOS면 같은 형식의 출력을 macOS 도구로 만들어 낸다. 그래서 Java 파서는 거의 그대로다.
+
+| 항목 | Linux | macOS |
+|---|---|---|
+| CPU | `/proc/stat` 누적 카운터의 차이 | `iostat -n0 -c 2 -w 1`의 마지막 줄 us+sy를 `@cpu <퍼센트>` 줄로 (1초 걸리므로 루프는 1초 더 쉰다) |
+| 메모리 | MemTotal / MemAvailable | `hw.memsize`, `vm_stat`의 free + inactive + speculative + purgeable 페이지 × 페이지 크기 |
+| 네트워크 | `/proc/net/dev` | `netstat -ibn`의 `<Link#>` 줄을 `/proc/net/dev` 모양으로 바꿔 출력(lo 제외, 주소 칸이 빈 인터페이스도 처리) |
+| 업타임 | `/proc/uptime` | 현재 시각 − `kern.boottime`의 `sec` |
+| OS | `/etc/os-release` | `macOS <sw_vers -productVersion>` |
+| 디스크 | `df -Pk /` | `df -Pk /System/Volumes/Data` (`/`는 작은 봉인된 시스템 볼륨이다) |
+| 열린 포트 | `ss -tln` | `netstat -an -p tcp`. BSD 형식(`*.22`, `127.0.0.1.631`)도 파서가 읽는다 |
+
+- **Docker:** 비대화형 SSH의 macOS PATH에는 `/usr/local/bin`(Docker Desktop)과 `/opt/homebrew/bin`이 없다. 그래서 Docker 명령 앞에 PATH를 덧붙인다(리눅스에는 영향 없음).
+- **셸:** macOS의 로그인 셸은 zsh다. 명령은 POSIX sh와 zsh 양쪽에서 돈다.
+- **버그 수정(개발 중):** `kern.boottime` 출력의 `usec = …`까지 `sec =`로 잡혀서 업타임이 틀리게 나왔다. 줄 맨 앞의 `{ sec =`만 읽도록 고쳤다.
+- **테스트:** `MacHostStatsTest`는 macOS에서 실제 명령을 `/bin/zsh`로 실행하고 해석한다(업타임, macOS 버전, 디스크, 스냅샷 2개 → CPU·메모리 %). CI의 macOS 실행기에서도 돈다. `@cpu` 줄 해석과 BSD netstat 줄 해석은 모든 OS에서 테스트한다.
+
 ## 2026-09-28 · 직접 연결 서버 (맥미니 · 집 서버) 1단계
 
 클라우드 API 없이 SSH로 바로 접속하는 컴퓨터를 추가할 수 있게 했다(사용자 요청: 맥미니 같은 개인 서버).
@@ -31,8 +50,7 @@
 | 데모 | "맥미니"(`mac-mini`) 계정 추가. 가짜 연결 확인은 `offline`으로 시작하는 주소만 응답 없음 | 화면 확인용 |
 
 ### 남은 일 (다음 단계)
-- **macOS 서버 지원:** 맥미니는 `/proc`가 없어서 실시간 모드와 서버 정보(업타임·디스크·포트)가 리눅스 명령으로는 안 나온다. macOS용 수집(`sysctl`, `vm_stat`, `top -l`, `netstat -ib`, `df`, `lsof -iTCP -sTCP:LISTEN`)이 필요하다.
-- **Docker 경로:** macOS의 Docker Desktop이나 colima는 비대화형 SSH의 PATH에 `docker`가 없을 수 있다(`/usr/local/bin`, `/opt/homebrew/bin`).
+- ~~macOS 서버 지원~~, ~~Docker 경로~~ → 2단계(바로 위 항목)에서 해결.
 - Wake-on-LAN, 원격 재부팅.
 
 ## 2026-09-28 · 컨테이너 셸 · DB 콘솔

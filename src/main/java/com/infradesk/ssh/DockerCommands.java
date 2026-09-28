@@ -26,7 +26,8 @@ public final class DockerCommands {
     static final String PS = "@@ps";
     static final String STATS = "@@stats";
 
-    public static final String PRELUDE = "command -v docker >/dev/null 2>&1 || { echo " + NO_DOCKER + "; exit 0; }; "
+    // Non-interactive SSH on macOS has a minimal PATH; Docker Desktop and Homebrew install elsewhere.
+    public static final String PRELUDE = "PATH=\"$PATH:/usr/local/bin:/opt/homebrew/bin\"; command -v docker >/dev/null 2>&1 || { echo " + NO_DOCKER + "; exit 0; }; "
             + "D=docker; docker info >/dev/null 2>&1 || { sudo -n docker info >/dev/null 2>&1 && D='sudo -n docker'; } "
             + "|| { echo " + NO_ACCESS + "; exit 0; }; ";
 

@@ -17,10 +17,15 @@ import java.util.TreeSet;
 public record HostFacts(Duration uptime, String osName, long diskUsed, long diskTotal, List<Integer> ports) {
 
     /** POSIX sh; each section starts with a "@name" marker line. Works with busybox too. */
-    public static final String COMMAND = "echo @uptime; cat /proc/uptime 2>/dev/null; "
-            + "echo @os; (. /etc/os-release 2>/dev/null && echo \"$PRETTY_NAME\") || uname -sr; "
-            + "echo @disk; df -Pk / 2>/dev/null | tail -n 1; "
-            + "echo @ports; (ss -tln 2>/dev/null || netstat -tln 2>/dev/null)";
+    public static final String COMMAND = "echo @uptime; if [ -r /proc/uptime ]; then cat /proc/uptime; else "
+            // macOS: seconds since kern.boottime
+            + "b=$(sysctl -n kern.boottime 2>/dev/null | sed 's/^{ sec = \\([0-9]*\\).*/\\1/'); "
+            + "[ -n \"$b\" ] && echo $(( $(date +%s) - b )); fi; "
+            + "echo @os; (. /etc/os-release 2>/dev/null && echo \"$PRETTY_NAME\") "
+            + "|| { command -v sw_vers >/dev/null 2>&1 && echo \"macOS $(sw_vers -productVersion)\"; } || uname -sr; "
+            // macOS keeps user data on the Data volume; "/" is the small sealed system volume.
+            + "echo @disk; (df -Pk /System/Volumes/Data 2>/dev/null || df -Pk / 2>/dev/null) | tail -n 1; "
+            + "echo @ports; (ss -tln 2>/dev/null || netstat -an -p tcp 2>/dev/null | grep LISTEN || netstat -tln 2>/dev/null)";
 
     public HostFacts {
         ports = List.copyOf(ports);
@@ -84,6 +89,9 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
             return java.util.Optional.empty();
         }
         int colon = local.lastIndexOf(':');
+        if (colon < 0 && f[0].startsWith("tcp")) {
+            colon = local.lastIndexOf('.'); // BSD/macOS netstat: "*.22", "127.0.0.1.631"
+        }
         if (colon < 0) {
             return java.util.Optional.empty();
         }
