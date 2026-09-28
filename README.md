@@ -6,7 +6,7 @@
 
 <p align="center">
   여러 클라우드 계정의 서버를 한 곳에서 — 상태 모니터링, 전원 제어, SSH 터미널<br>
-  macOS · Windows 데스크톱 앱 (현재 Oracle Cloud 지원)
+  macOS · Windows 데스크톱 앱 
 </p>
 
 <p align="center">
@@ -48,7 +48,7 @@
 | 클라우드 | 상태 |
 |---|---|
 | Oracle Cloud (OCI) | ✅ 서버 목록·IP·그래프 / 🟡 시작·정지·재부팅 |
-| AWS, GCP | ⏳ (계정 추가 화면에 "준비 중"으로 표시) |
+| AWS, GCP | ⏳ 준비중 |
 
 **서버 OS** — 기능마다 필요한 게 달라요.
 
@@ -58,10 +58,10 @@
 | CPU·메모리·네트워크 그래프 | Oracle Cloud Agent (OCI 기본 이미지에 포함) | ✅ | 🟡 | 🟡 |
 | SSH 터미널 · 일괄 실행 | SSH 서버 | ✅ | 🟡 | 🟡 (OpenSSH 사용 시) |
 | SFTP | SSH 서버 (sftp 서브시스템) | 🟡 | 🟡 | 🟡 (OpenSSH 사용 시) |
-| 서버 정보 · 실시간 모니터링 | Linux `/proc`, `df`, `ss`/`netstat` | 🟡 | 🟡 | — |
+| 서버 정보 · 실시간 모니터링 | Linux `/proc`, `df`, `ss`/`netstat` | ✅ | 🟡 | — |
 | Docker 컨테이너 | `docker` + docker 그룹 또는 비밀번호 없는 `sudo` | ✅ | 🟡 | — |
 
-- **직접 연결한 macOS 컴퓨터(맥미니 등)** 🟡: 터미널·SFTP·일괄 실행은 그대로 되고, 실시간 모드와 서버 정보는 macOS 도구(`iostat`, `vm_stat`, `netstat`, `sysctl`, `sw_vers`)로 읽어요. Docker Desktop이나 Homebrew로 설치한 `docker`도 찾아요. 시스템 설정 → 일반 → 공유 → **원격 로그인**을 켜 주세요.
+- **직접 연결한 macOS 컴퓨터(맥미니 등)** ✅: 터미널·SFTP·일괄 실행은 그대로 되고, 실시간 모드와 서버 정보는 macOS 도구(`iostat`, `vm_stat`, `netstat`, `sysctl`, `sw_vers`)로 읽어요. Docker Desktop이나 Homebrew로 설치한 `docker`도 찾아요. 시스템 설정 → 일반 → 공유 → **원격 로그인**을 켜 주세요.
 - 서버 쪽 명령은 모두 표준 POSIX 셸로 작성해서 특정 배포판에 의존하지 않아요. OCI 기본 사용자 `ubuntu`(Ubuntu)와 `opc`(Oracle Linux)는 비밀번호 없이 `sudo`가 되므로 Docker도 바로 보여요.
 - ARM(Ampere A1)과 x86 인스턴스 모두 같은 방식으로 동작해요.
 - SSH 키는 RSA, ed25519 모두 지원해요.
@@ -71,7 +71,7 @@
 | OS | 상태 |
 |---|---|
 | macOS (Apple Silicon) | ✅ |
-| macOS (Intel) | ⏳ 지금 빌드는 Apple Silicon 전용 (Intel용은 별도 빌드 필요) |
+| macOS (Intel) | ⏳ 지금 빌드는 Apple Silicon 전용 |
 | Windows 10/11 | ✅ 실행·계정 추가 확인 |
 | Linux | 소스에서 `./gradlew run` (설치 파일 없음) |
 
