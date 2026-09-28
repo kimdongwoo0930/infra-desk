@@ -103,6 +103,21 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
     }
 
     @Override
+    public ShellSession open(SshTarget target, HostKeyPrompt prompt, int columns, int rows, String command) {
+        return withSession(target, prompt, session -> {
+            ChannelExec channel = session.createExecChannel(command);
+            channel.setUsePty(true);
+            channel.setPtyType("xterm-256color");
+            channel.setPtyColumns(columns);
+            channel.setPtyLines(rows);
+            channel.setEnv("LANG", "en_US.UTF-8");
+            channel.setRedirectErrorStream(true);
+            channel.open().verify(CONNECT_TIMEOUT);
+            return new MinaShellSession(session, channel, target.address());
+        });
+    }
+
+    @Override
     public ShellSession exec(SshTarget target, HostKeyPrompt prompt, String command) {
         return withSession(target, prompt, session -> {
             ChannelExec channel = session.createExecChannel(command);

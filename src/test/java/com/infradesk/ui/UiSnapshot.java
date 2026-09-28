@@ -197,6 +197,30 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
+        // MySQL console inside a demo container, opened like the containers panel's "MySQL 콘솔" button.
+        SwingUtilities.invokeAndWait(() -> terminalFrame[0].openContainerTerminal(inventory.get(1).servers().getFirst(),
+                new com.infradesk.ssh.Container("c".repeat(64), "mysql", "mysql:8.4", "running", "Up 14 days",
+                        "3306/tcp", 0.4, "412MiB / 23.4GiB", 1.7),
+                com.infradesk.ssh.DockerCommands.Console.MYSQL));
+        Thread.sleep(1500);
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> widgets = new java.util.ArrayList<>();
+            collect(terminalFrame[0].getContentPane(), "JediTermWidget", widgets);
+            var widget = (com.jediterm.terminal.ui.JediTermWidget) widgets.getLast();
+            try {
+                widget.getTtyConnector().write("show databases;\rselect count(*) from app.users;\r");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        Thread.sleep(1000);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(terminalFrame[0], terminalFrame[0].getContentPane(), 1280, 800, "terminal-mysql.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
         // SFTP browser on the demo file tree.
         JDialog[] sftp = new JDialog[1];
         SwingUtilities.invokeAndWait(() -> sftp[0] = new com.infradesk.ui.terminal.SftpDialog(terminalFrame[0],

@@ -47,6 +47,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `service.InventoryService` | `loadAll()` / `load(accounts)`(계정별 병렬, 실패는 계정 단위로 `AccountInventory.error`), `control`, `addAccount`, `removeAccount`, `testConnection` |
 | `service.ServerAction` | `START`, `STOP`, `REBOOT`. 확인 창이 필요한지(`needsConfirmation`) 포함 |
 | `service.TerminalService` | 서버별 SSH 설정·키 저장, 공인 IP로 셸 열기, 명령 실행(`run`: 제한 시간·출력 상한), SFTP 열기, 저장된 명령어 |
+| `ssh.DockerCommands.shell/console` | `docker exec -it`로 컨테이너 셸·DB 콘솔(이미지 이름으로 선택). `TerminalPanel.Exec`로 탭이 명령 하나를 PTY로 실행 (데모: `DemoContainerShell`) |
 | `ssh.RemoteFiles` / `RemoteFile` | SFTP 목록·업로드·다운로드·삭제 (MINA `sshd-sftp` / 데모 메모리 트리) |
 | `ssh.ShellConnector` / `ShellSession` | 셸 열기 / 입출력 스트림·크기 조정·종료 대기 |
 | `ssh.DockerCommands` / `Container` | SSH로 실행할 Docker 명령(ID만 허용)과 결과 파싱 |

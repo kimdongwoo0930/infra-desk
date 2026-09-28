@@ -45,13 +45,16 @@ public class ContainersPanel extends JPanel {
     private final CardLayout cards = new CardLayout();
     private final JPanel body = new JPanel(cards);
     private final JButton refresh = Buttons.icon("refresh", "컨테이너 새로고침", 28);
-    private final JButton logs = Buttons.secondary("로그", "terminal");
+    private final JButton logs = Buttons.secondary("로그", "file");
+    private final JButton shell = Buttons.secondary("셸", "terminal");
+    private final JButton console = Buttons.secondary("DB 콘솔", "database");
     private final JButton restart = Buttons.secondary("재시작", "refresh");
     private final JButton stop = Buttons.danger("정지", "stop");
     private final JButton start = Buttons.secondary("시작", "play");
     private Runnable onRefresh = () -> { };
     private BiConsumer<Container, DockerCommands.Action> onAction = (c, a) -> { };
     private Consumer<Container> onLogs = c -> { };
+    private BiConsumer<Container, DockerCommands.Console> onShell = (c, console) -> { };
     private boolean busy;
 
     public ContainersPanel() {
@@ -69,6 +72,8 @@ public class ContainersPanel extends JPanel {
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         right.setOpaque(false);
         right.add(logs);
+        right.add(shell);
+        right.add(console);
         right.add(restart);
         right.add(stop);
         right.add(start);
@@ -112,6 +117,9 @@ public class ContainersPanel extends JPanel {
 
         refresh.addActionListener(e -> onRefresh.run());
         logs.addActionListener(e -> selected().ifPresent(onLogs));
+        shell.addActionListener(e -> selected().ifPresent(c -> onShell.accept(c, null)));
+        console.addActionListener(e -> selected().ifPresent(c ->
+                DockerCommands.Console.forImage(c.image()).ifPresent(k -> onShell.accept(c, k))));
         restart.addActionListener(e -> selected().ifPresent(c -> onAction.accept(c, DockerCommands.Action.RESTART)));
         stop.addActionListener(e -> selected().ifPresent(c -> onAction.accept(c, DockerCommands.Action.STOP)));
         start.addActionListener(e -> selected().ifPresent(c -> onAction.accept(c, DockerCommands.Action.START)));
@@ -128,6 +136,11 @@ public class ContainersPanel extends JPanel {
 
     public void onLogs(Consumer<Container> c) {
         this.onLogs = c;
+    }
+
+    /** Opens a terminal inside the container: a shell ({@code console} null) or a database console. */
+    public void onShell(BiConsumer<Container, DockerCommands.Console> c) {
+        this.onShell = c;
     }
 
     public void showLoading() {
@@ -219,14 +232,22 @@ public class ContainersPanel extends JPanel {
         boolean has = c.isPresent() && !busy;
         boolean running = c.map(Container::isRunning).orElse(false);
         logs.setEnabled(has);
+        shell.setEnabled(has && running);
+        var db = c.flatMap(k -> DockerCommands.Console.forImage(k.image()));
+        console.setVisible(db.isPresent());
+        console.setEnabled(has && running && db.isPresent());
+        console.setText(db.map(k -> k.label + " 콘솔").orElse("DB 콘솔"));
         restart.setEnabled(has && running);
         stop.setVisible(!c.isPresent() || running);
         stop.setEnabled(has && running);
         start.setVisible(c.isPresent() && !running);
         start.setEnabled(has && !running);
         String hint = c.isPresent() ? null : "컨테이너를 선택하세요";
-        for (JButton b : new JButton[] {logs, restart, stop, start}) {
+        for (JButton b : new JButton[] {logs, shell, restart, stop, start}) {
             b.setToolTipText(b.isEnabled() ? null : hint);
+        }
+        if (c.isPresent() && !running) {
+            shell.setToolTipText("실행 중인 컨테이너에만 들어갈 수 있어요");
         }
     }
 

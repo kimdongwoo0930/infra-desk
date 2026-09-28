@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-09-28 · 컨테이너 셸 · DB 콘솔
+
+컨테이너 목록에서 컨테이너를 고르고 **셸**을 누르면, 새 터미널 탭에서 그 컨테이너 안의 셸이 열린다. MySQL·MariaDB·PostgreSQL·Redis·MongoDB 이미지면 **MySQL 콘솔** 같은 버튼이 하나 더 나오고, 누르면 DB 클라이언트가 바로 열린다. 탭 제목은 `서버 › 컨테이너 (MySQL)`.
+
+- **동작:** SSH exec 채널에 PTY를 붙여 `docker exec -it <id> sh -c '…'`를 실행한다(`ShellConnector.open(..., command)`). 로그인 셸 대신 이 명령이 탭의 세션이 되어서, `exit`하면 탭이 "종료됐어요"가 된다. 창 크기 변경도 그대로 전달된다.
+- **셸:** 컨테이너에 bash가 있으면 bash, 없으면 sh(alpine 등).
+- **DB 콘솔:** 이미지 이름의 마지막 부분(태그·다이제스트 제외)으로 고른다.
+
+  | 콘솔 | 이미지 이름 | 실행 |
+  |---|---|---|
+  | MySQL | mysql / mariadb / percona | `mariadb`나 `mysql`, `-u root -p` |
+  | PostgreSQL | postgres / postgis / timescale | `psql -U "${POSTGRES_USER:-postgres}"` |
+  | Redis | redis / valkey / keydb | `redis-cli` |
+  | MongoDB | mongo | `mongosh`, 없으면 `mongo` |
+
+  - exporter, express, commander, insight, admin, operator, proxy, backup, router가 들어간 이미지는 DB 본체가 아니므로 제외한다.
+  - 비밀번호는 저장하지 않는다. 클라이언트가 터미널에서 물어본다.
+- **보안:** 컨테이너 id는 기존처럼 16진수인지 검사한다. `sh -c` 안의 스크립트는 코드에 고정된 상수라, 서버에서 받은 이름이나 문자열은 셸에 들어가지 않는다. 작은따옴표로 감싸서 `$POSTGRES_USER`는 컨테이너 안에서 풀린다.
+- **데모:** 데모 서버마다 `mysql:8.4` 컨테이너가 생겼다. 가짜 컨테이너 셸과 MySQL·PostgreSQL·Redis·Mongo 콘솔이 몇 가지 명령에 답한다(`DemoContainerShell`).
+- **테스트:** 내장 MINA 서버로 PTY 명령에 `TERM=xterm-256color`가 붙고 일괄 실행(exec)에는 붙지 않는 것을 확인한다. 명령 문자열, 이미지 판별(exporter·관리 UI 제외), id 주입 거부도 확인한다. 스냅샷 `terminal-mysql.png`로 화면을 확인했다.
+
 ## 2026-09-28 · 실사용 확인 · 디스코드 "준비 중" · 보관 CI 수정
 
 - **실제 서버에서 확인:** SSH 터미널, 여러 서버 일괄 실행, Docker 컨테이너 목록·제어(Ubuntu). README 호환성 표를 ✅로 바꿨다.

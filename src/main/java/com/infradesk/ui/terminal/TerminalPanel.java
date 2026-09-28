@@ -33,7 +33,12 @@ public class TerminalPanel extends JPanel {
     private static final int INITIAL_COLUMNS = 120;
     private static final int INITIAL_ROWS = 32;
 
+    /** A tab that runs one command instead of a login shell, e.g. {@code docker exec -it}. */
+    public record Exec(String title, String command) {
+    }
+
     private final Server server;
+    private final Exec exec;
     private final TerminalService service;
     private final Consumer<Server> openSettings;
     private final CardLayout cards = new CardLayout();
@@ -51,8 +56,14 @@ public class TerminalPanel extends JPanel {
     private Runnable onStateChange = () -> { };
 
     public TerminalPanel(Server server, TerminalService service, Consumer<Server> openSettings) {
+        this(server, null, service, openSettings);
+    }
+
+    /** @param exec what to run instead of a login shell, or null for a normal shell */
+    public TerminalPanel(Server server, Exec exec, TerminalService service, Consumer<Server> openSettings) {
         super(new BorderLayout());
         this.server = server;
+        this.exec = exec;
         this.service = service;
         this.openSettings = openSettings;
         setBackground(Theme.TERMINAL_BG);
@@ -69,6 +80,16 @@ public class TerminalPanel extends JPanel {
         return server;
     }
 
+    /** True for a plain login shell (not a container shell or console). */
+    public boolean isLoginShell() {
+        return exec == null;
+    }
+
+    /** Tab title: the server, or "server › container". */
+    public String title() {
+        return exec == null ? server.name() : server.name() + " › " + exec.title();
+    }
+
     public State state() {
         return state;
     }
@@ -83,8 +104,11 @@ public class TerminalPanel extends JPanel {
         }
         disposeWidget();
         setState(State.CONNECTING, "연결하는 중…", null);
-        showMessage("연결하는 중…", server.name() + "에 SSH로 연결하고 있어요.", false);
-        Async.run(() -> service.open(server, new HostKeyDialog(this), INITIAL_COLUMNS, INITIAL_ROWS),
+        showMessage("연결하는 중…", exec == null ? server.name() + "에 SSH로 연결하고 있어요."
+                : server.name() + "에 연결해서 " + exec.title() + "을(를) 열고 있어요.", false);
+        Async.run(() -> exec == null
+                        ? service.open(server, new HostKeyDialog(this), INITIAL_COLUMNS, INITIAL_ROWS)
+                        : service.open(server, exec.command(), new HostKeyDialog(this), INITIAL_COLUMNS, INITIAL_ROWS),
                 this::attach,
                 err -> {
                     java.util.logging.Logger.getLogger(TerminalPanel.class.getName()).log(java.util.logging.Level.WARNING,
@@ -119,7 +143,7 @@ public class TerminalPanel extends JPanel {
             SwingUtilities.invokeLater(() -> {
                 if (session == shell) {
                     setState(State.DISCONNECTED, "연결 끊김", null);
-                    showMessage("연결이 끊겼어요", server.name() + " 세션이 종료됐어요.", false);
+                    showMessage(exec == null ? "연결이 끊겼어요" : "종료됐어요", title() + " 세션이 끝났어요.", false);
                 }
             });
         });

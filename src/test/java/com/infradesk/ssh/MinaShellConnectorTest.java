@@ -95,6 +95,7 @@ class MinaShellConnectorTest {
         server.setPublickeyAuthenticator((user, key, session) ->
                 user.equals("ubuntu") && KeyUtils.compareKeys(key, clientKey.getPublic()));
         server.setShellFactory(channel -> new EchoShell());
+        server.setCommandFactory((channel, command) -> new ReportCommand(command));
         server.start();
         return server.getPort();
     }
@@ -210,5 +211,64 @@ class MinaShellConnectorTest {
         SshException e = assertThrows(SshException.class, () -> connector.open(
                 new SshTarget("127.0.0.1", 22, "ubuntu", "not a key", null), (h, p, t, f) -> true, 80, 24));
         assertEquals(SshException.Kind.KEY_FORMAT, e.kind());
+    }
+
+    /** Exec command that prints what it was asked to run and the terminal type it got, then exits. */
+    private static final class ReportCommand implements org.apache.sshd.server.command.Command {
+        private final String command;
+        private java.io.OutputStream out;
+        private org.apache.sshd.server.ExitCallback exit;
+
+        ReportCommand(String command) {
+            this.command = command;
+        }
+
+        @Override
+        public void setInputStream(java.io.InputStream in) {
+        }
+
+        @Override
+        public void setOutputStream(java.io.OutputStream out) {
+            this.out = out;
+        }
+
+        @Override
+        public void setErrorStream(java.io.OutputStream err) {
+        }
+
+        @Override
+        public void setExitCallback(org.apache.sshd.server.ExitCallback callback) {
+            this.exit = callback;
+        }
+
+        @Override
+        public void start(ChannelSession channel, org.apache.sshd.server.Environment env) throws IOException {
+            String term = env.getEnv().getOrDefault("TERM", "none");
+            out.write(("ran:" + command + " term:" + term + "\n").getBytes(StandardCharsets.UTF_8));
+            out.flush();
+            exit.onExit(0);
+        }
+
+        @Override
+        public void destroy(ChannelSession channel) {
+        }
+    }
+
+    @Test
+    void commandWithPtyGetsATerminal() throws Exception {
+        KeyPair key = rsa();
+        int port = startServer(key, dir.resolve("host.ser"));
+        connector = new MinaShellConnector(dir.resolve("known_hosts"));
+        SshTarget target = new SshTarget("127.0.0.1", port, "ubuntu", pem(key), null);
+        try (ShellSession s = connector.open(target, (h, p, t, f) -> true, 100, 30, "docker exec -it abc sh")) {
+            String out = new String(s.output().readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue(out.contains("ran:docker exec -it abc sh"), out);
+            assertTrue(out.contains("term:xterm-256color"), out);
+            assertEquals(0, s.waitFor());
+        }
+        try (ShellSession s = connector.exec(target, (h, p, t, f) -> true, "plain")) {
+            String out = new String(s.output().readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue(out.contains("term:none"), "no PTY for batch commands: " + out);
+        }
     }
 }

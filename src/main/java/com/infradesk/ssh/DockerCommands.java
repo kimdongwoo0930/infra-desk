@@ -55,6 +55,77 @@ public final class DockerCommands {
         return PRELUDE + "$D logs --tail " + tail + " --timestamps " + checkedId(containerId) + " 2>&1";
     }
 
+    /** Interactive shell inside the container: bash when the image has it, else sh. Needs a PTY. */
+    public static String shell(String containerId) {
+        return exec(containerId, "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi");
+    }
+
+    /** The database client of a well-known image, run inside its container. Needs a PTY. */
+    public static String console(String containerId, Console console) {
+        return exec(containerId, console.script);
+    }
+
+    private static String exec(String containerId, String script) {
+        // The script is a fixed constant from this class; single quotes keep $VARS for the container's sh.
+        return PRELUDE + "exec $D exec -it " + checkedId(containerId) + " sh -c '" + script + "'";
+    }
+
+    /**
+     * Database consoles picked from the image name. Passwords are typed in the terminal (the
+     * clients prompt for them); nothing is stored.
+     */
+    public enum Console {
+        MYSQL("MySQL", "if command -v mariadb >/dev/null 2>&1; then exec mariadb -u root -p; else exec mysql -u root -p; fi",
+                "mysql", "mariadb", "percona"),
+        POSTGRES("PostgreSQL", "exec psql -U \"${POSTGRES_USER:-postgres}\"", "postgres", "postgis", "timescale"),
+        REDIS("Redis", "exec redis-cli", "redis", "valkey", "keydb"),
+        MONGO("MongoDB", "if command -v mongosh >/dev/null 2>&1; then exec mongosh; else exec mongo; fi", "mongo");
+
+        /** Images named after a database that aren't one: exporters, admin UIs, proxies. */
+        private static final String[] SIDECARS = {"exporter", "express", "commander", "insight", "admin", "operator",
+                "proxy", "backup", "router"};
+
+        public final String label;
+        final String script;
+        private final String[] imageNames;
+
+        Console(String label, String script, String... imageNames) {
+            this.label = label;
+            this.script = script;
+            this.imageNames = imageNames;
+        }
+
+        /** The console for an image like "mysql:8", "bitnami/postgresql:16" or "redis/redis-stack". */
+        public static java.util.Optional<Console> forImage(String image) {
+            if (image == null) {
+                return java.util.Optional.empty();
+            }
+            String name = image.toLowerCase(java.util.Locale.ROOT);
+            int digest = name.indexOf('@');
+            if (digest >= 0) {
+                name = name.substring(0, digest);
+            }
+            name = name.substring(name.lastIndexOf('/') + 1);
+            int tag = name.indexOf(':');
+            if (tag >= 0) {
+                name = name.substring(0, tag);
+            }
+            for (String tool : SIDECARS) {
+                if (name.contains(tool)) {
+                    return java.util.Optional.empty();
+                }
+            }
+            for (Console c : values()) {
+                for (String n : c.imageNames) {
+                    if (name.startsWith(n)) {
+                        return java.util.Optional.of(c);
+                    }
+                }
+            }
+            return java.util.Optional.empty();
+        }
+    }
+
     /** Rejects anything that isn't a Docker id, so nothing else reaches the shell. */
     static String checkedId(String id) {
         if (id == null || !ID.matcher(id).matches()) {

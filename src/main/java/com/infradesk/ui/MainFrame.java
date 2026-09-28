@@ -183,6 +183,7 @@ public class MainFrame extends JFrame {
         detail.onSsh(this::openSsh);
         detail.containers().onRefresh(() -> findServer(selectedServerId).ifPresent(s -> loadContainers(s, true)));
         detail.containers().onAction(this::containerAction);
+        detail.containers().onShell((c, console) -> findServer(selectedServerId).ifPresent(s -> openContainerTerminal(s, c, console)));
         detail.containers().onLogs(c -> findServer(selectedServerId).ifPresent(s ->
                 new com.infradesk.ui.containers.ContainerLogsDialog(this, containerService, s, c).setVisible(true)));
         sidebar.onSshSettings(this::editSshSettings);
@@ -765,6 +766,18 @@ public class MainFrame extends JFrame {
         screens.show(screenPanel, DASHBOARD);
         titleBar.setTerminalMode(false);
         live.resume();
+    }
+
+    /** A terminal tab inside a container: its shell, or the database console for its image. */
+    void openContainerTerminal(Server server, com.infradesk.ssh.Container container,
+                                       com.infradesk.ssh.DockerCommands.Console console) {
+        String title = console == null ? container.name() : container.name() + " (" + console.label + ")";
+        String command = console == null ? com.infradesk.ssh.DockerCommands.shell(container.id())
+                : com.infradesk.ssh.DockerCommands.console(container.id(), console);
+        LOG.info(() -> "Opening " + (console == null ? "shell" : console.label + " console") + " in container "
+                + container.name() + " on " + server.name());
+        showTerminal();
+        terminalView.open(server, new com.infradesk.ui.terminal.TerminalPanel.Exec(title, command));
     }
 
     /** Opens a terminal tab for the server without the settings check; for the snapshot tool. */

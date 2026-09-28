@@ -109,6 +109,11 @@ public class TerminalService {
         return connector.open(target(server), prompt, columns, rows);
     }
 
+    /** Runs {@code command} on the server with a PTY (e.g. a shell inside a container). */
+    public ShellSession open(Server server, String command, HostKeyPrompt prompt, int columns, int rows) {
+        return connector.open(target(server), prompt, columns, rows, command);
+    }
+
     /** Output kept per server for batch runs; the rest is dropped. */
     public static final int MAX_OUTPUT_BYTES = 256 * 1024;
 

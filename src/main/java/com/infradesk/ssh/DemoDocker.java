@@ -74,6 +74,7 @@ final class DemoDocker {
         String app = host.replace("demo:", "");
         add(m, app, app + ":latest", "0.0.0.0:8080->8080/tcp", true, "14 days");
         add(m, "redis", "redis:7-alpine", "6379/tcp", true, "14 days");
+        add(m, "mysql", "mysql:8.4", "3306/tcp, 33060/tcp", true, "14 days");
         add(m, "nginx", "nginx:1.27", "0.0.0.0:80->80/tcp, 0.0.0.0:443->443/tcp", true, "9 days");
         add(m, "watchtower", "containrrr/watchtower", "", false, "3 days");
         return m;

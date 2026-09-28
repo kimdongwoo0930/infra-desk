@@ -137,7 +137,7 @@ public class TerminalView extends JPanel {
     /** Selects the existing session for the server, or opens a new one. */
     public void openOrSelect(Server server) {
         for (TerminalPanel p : sessions) {
-            if (p.server().id().equals(server.id())) {
+            if (p.isLoginShell() && p.server().id().equals(server.id())) {
                 select(p);
                 if (p.state() == TerminalPanel.State.DISCONNECTED) {
                     p.connect();
@@ -150,7 +150,15 @@ public class TerminalView extends JPanel {
 
     /** Opens a new session tab for the server. */
     public void open(Server server) {
-        TerminalPanel panel = new TerminalPanel(server, service, openSettings);
+        add(new TerminalPanel(server, service, openSettings));
+    }
+
+    /** Opens a tab running {@code exec} on the server (a container shell or database console). */
+    public void open(Server server, TerminalPanel.Exec exec) {
+        add(new TerminalPanel(server, exec, service, openSettings));
+    }
+
+    private void add(TerminalPanel panel) {
         panel.onStateChange(this::rebuildTabs);
         sessions.add(panel);
         terminals.add(panel, Integer.toHexString(System.identityHashCode(panel)));
@@ -245,11 +253,11 @@ public class TerminalView extends JPanel {
             setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 2));
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-            JLabel label = new JLabel(panel.server().name(), new DotIcon(panel), JLabel.LEFT);
+            JLabel label = new JLabel(panel.title(), new DotIcon(panel), JLabel.LEFT);
             label.setIconTextGap(8);
             label.setForeground(selected ? Theme.TEXT : Theme.TEXT_MUTED);
             label.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
-            JButton close = Buttons.icon("x", panel.server().name() + " 세션 닫기", 22);
+            JButton close = Buttons.icon("x", panel.title() + " 세션 닫기", 22);
             close.setIcon(Icons.get("x", 12));
             close.addActionListener(e -> close(panel));
             JPanel closeWrap = new JPanel(new BorderLayout());

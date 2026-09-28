@@ -37,6 +37,17 @@ public class DemoShellConnector implements ShellConnector {
         return new DemoShellSession(target, hostnameOf(target));
     }
 
+    /** {@code docker exec -it} into a demo container: a fake shell or database console. */
+    @Override
+    public ShellSession open(SshTarget target, HostKeyPrompt prompt, int columns, int rows, String command) {
+        try {
+            Thread.sleep(latency);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return new DemoShellSession(target, hostnameOf(target), DemoContainerShell.modeFor(command));
+    }
+
     /**
      * {@link ProcStats#COMMAND} streams fake /proc snapshots; anything else gets the same canned
      * answer the interactive demo shell would print, then exits.
@@ -136,9 +147,21 @@ public class DemoShellConnector implements ShellConnector {
         private volatile boolean open = true;
         private volatile int columns = 80;
 
+        /** How a demo session greets, prompts and answers; {@code null} fields mean the host shell. */
+        record Mode(String banner, String prompt, java.util.function.Function<String, String> respond,
+                    java.util.Set<String> exitWords) {
+        }
+
+        private final Mode mode;
+
         DemoShellSession(SshTarget target, String hostname) {
+            this(target, hostname, null);
+        }
+
+        DemoShellSession(SshTarget target, String hostname, Mode mode) {
             this.target = target;
             this.hostname = hostname;
+            this.mode = mode;
             try {
                 toTerminal = new PipedInputStream(64 * 1024);
                 shellOut = new PipedOutputStream(toTerminal);
@@ -151,14 +174,18 @@ public class DemoShellConnector implements ShellConnector {
         }
 
         private String prompt() {
+            if (mode != null) {
+                return mode.prompt();
+            }
             return "\u001b[1;32m" + target.username() + "@" + hostname + "\u001b[0m:\u001b[1;34m~\u001b[0m$ ";
         }
 
         private void loop() {
             try {
-                write("Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 6.5.0-1020-oracle aarch64)\r\n\r\n"
+                write((mode != null ? mode.banner()
+                        : "Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 6.5.0-1020-oracle aarch64)\r\n\r\n"
                         + "  \u001b[33m데모 모드 가짜 셸이에요.\u001b[0m 'help'로 사용할 수 있는 명령을 볼 수 있어요.\r\n\r\n"
-                        + "Last login: Sun Sep 27 20:41:12 2026 from 198.51.100.7\r\n" + prompt());
+                        + "Last login: Sun Sep 27 20:41:12 2026 from 198.51.100.7\r\n") + prompt());
                 StringBuilder line = new StringBuilder();
                 var reader = new java.io.InputStreamReader(shellIn, StandardCharsets.UTF_8);
                 int c;
@@ -167,11 +194,11 @@ public class DemoShellConnector implements ShellConnector {
                         write("\r\n");
                         String cmd = line.toString().strip();
                         line.setLength(0);
-                        if (cmd.equals("exit") || cmd.equals("logout")) {
-                            write("logout\r\n");
+                        if (mode != null ? mode.exitWords().contains(cmd) : cmd.equals("exit") || cmd.equals("logout")) {
+                            write(mode != null ? "Bye\r\n" : "logout\r\n");
                             break;
                         }
-                        write(respond(cmd, target.username(), hostname));
+                        write(mode != null ? mode.respond().apply(cmd) : respond(cmd, target.username(), hostname));
                         write(prompt());
                     } else if (c == 0x7f || c == 0x08) {
                         if (!line.isEmpty()) {

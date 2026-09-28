@@ -57,4 +57,42 @@ class DockerCommandsTest {
         assertFalse(DockerCommands.list().contains("-H "), "no remote Docker host / TCP");
         assertFalse(DockerCommands.list().contains("2375"));
     }
+
+    @org.junit.jupiter.api.Test
+    void shellAndConsolesRunInsideTheContainerWithAPty() {
+        String id = "a".repeat(64);
+        String shell = DockerCommands.shell(id);
+        org.junit.jupiter.api.Assertions.assertTrue(shell.startsWith(DockerCommands.PRELUDE));
+        org.junit.jupiter.api.Assertions.assertTrue(shell.endsWith("exec $D exec -it " + id
+                + " sh -c 'if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi'"), shell);
+        String psql = DockerCommands.console(id, DockerCommands.Console.POSTGRES);
+        org.junit.jupiter.api.Assertions.assertTrue(psql.endsWith("sh -c 'exec psql -U \"${POSTGRES_USER:-postgres}\"'"), psql);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> DockerCommands.shell("abc; rm -rf /"));
+    }
+
+    @org.junit.jupiter.api.Test
+    void consoleIsPickedFromTheImageName() {
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.of(DockerCommands.Console.MYSQL),
+                DockerCommands.Console.forImage("mysql:8.4"));
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.of(DockerCommands.Console.MYSQL),
+                DockerCommands.Console.forImage("bitnami/mariadb:11"));
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.of(DockerCommands.Console.POSTGRES),
+                DockerCommands.Console.forImage("postgres:16-alpine"));
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.of(DockerCommands.Console.POSTGRES),
+                DockerCommands.Console.forImage("bitnami/postgresql@sha256:abc"));
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.of(DockerCommands.Console.REDIS),
+                DockerCommands.Console.forImage("redis/redis-stack-server:latest"));
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.of(DockerCommands.Console.MONGO),
+                DockerCommands.Console.forImage("mongo"));
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.empty(),
+                DockerCommands.Console.forImage("nginx:1.27"));
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.of(DockerCommands.Console.MYSQL),
+                DockerCommands.Console.forImage("mysql/mysql-server:8.0"));
+        for (String notADatabase : new String[] {"prom/mysqld-exporter", "oliver006/redis_exporter", "mongo-express",
+                "rediscommander/redis-commander", "redis/redisinsight", "bitnami/postgres-exporter"}) {
+            org.junit.jupiter.api.Assertions.assertEquals(java.util.Optional.empty(),
+                    DockerCommands.Console.forImage(notADatabase), notADatabase);
+        }
+    }
 }
