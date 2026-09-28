@@ -1,0 +1,49 @@
+name: delete beta archives
+
+# Run by hand (Actions → "delete beta archives" → Run workflow) when the beta is over.
+# Deletes every beta-N release and its tag. The rolling "beta" release is kept unless asked,
+# because installed apps look there for updates.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DELETE to delete every beta-N release and tag'
+        required: true
+      keep_from:
+        description: 'Keep builds with this number or higher (empty = delete all)'
+        required: false
+        default: ''
+      delete_rolling_beta:
+        description: 'Also delete the rolling "beta" release (installed apps stop seeing updates)'
+        type: boolean
+        default: false
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check confirmation
+        if: inputs.confirm != 'DELETE'
+        run: |
+          echo "::error::Type DELETE in the confirm field to run this."
+          exit 1
+      - name: Delete beta-N releases and tags
+        run: |
+          keep="${{ inputs.keep_from }}"
+          gh release list --limit 1000 --json tagName -q '.[].tagName' | grep -E '^beta-[0-9]+$' | while read -r tag; do
+            n=${tag#beta-}
+            if [ -n "$keep" ] && [ "$n" -ge "$keep" ]; then
+              echo "keep $tag"
+              continue
+            fi
+            echo "delete $tag"
+            gh release delete "$tag" --cleanup-tag --yes
+          done
+      - name: Delete the rolling beta
+        if: inputs.delete_rolling_beta
+        run: gh release delete beta --cleanup-tag --yes

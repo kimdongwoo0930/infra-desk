@@ -192,4 +192,4 @@ installDist → appImage (jpackage + jlink 필요한 모듈만) → selfTestAppI
 ```
 - JVM 옵션: `build.gradle.kts`의 `appJvmArgs`(SerialGC, `-Xms16m -Xmx256m`, 빈 힙 반환, C1 전용). `run`·`runDemo`·jpackage가 함께 쓴다. 근거는 DEVLOG "메모리 줄이기"
 - 아이콘: `src/packaging/macos/InfraDesk.icns`, `src/packaging/windows/InfraDesk.ico` (`tools.IconGenerator`가 생성)
-- CI (`.github/workflows/build.yml`): `main` 푸시 때만 macOS·Windows에서 테스트 → 패키징(자가 점검) → **`beta` 시험판 릴리스**의 `InfraDesk-beta-macOS.dmg`(첫 설치용) / `InfraDesk-beta-macOS.zip`(앱 안 업데이트용) / `InfraDesk-beta-windows.zip`과 `SHA256SUMS.txt`를 교체. 설명은 `.github/release-notes.md`.
+- CI (`.github/workflows/build.yml`): `main` 푸시 때만 macOS·Windows에서 테스트 → 패키징(자가 점검) → **`beta` 시험판 릴리스**의 `InfraDesk-beta-macOS.dmg`(첫 설치용) / `InfraDesk-beta-macOS.zip`(앱 안 업데이트용) / `InfraDesk-beta-windows.zip`과 `SHA256SUMS.txt`를 교체하고, 같은 파일을 빌드별 보관 릴리스 `beta-<번호>`(직전 빌드 이후 커밋 목록 포함)로도 올림. 보관 릴리스는 `delete-beta-archives.yml`을 손으로 실행해야 지워짐(확인란에 `DELETE` 입력). 설명은 `.github/release-notes.md`.

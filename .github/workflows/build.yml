@@ -70,6 +70,9 @@ jobs:
           path: out/*
           if-no-files-found: error
 
+  # Two kinds of release per build:
+  #   beta     rolling "latest" pointer: fixed download links, and what installed apps check for updates
+  #   beta-N   permanent archive of build N (kept until delete-beta-archives.yml is run by hand)
   beta-release:
     needs: package
     runs-on: ubuntu-latest
@@ -77,8 +80,11 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+      BUILD: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # tags and history for the change list
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -88,25 +94,52 @@ jobs:
           cd dist
           sha256sum InfraDesk-beta-* > SHA256SUMS.txt
           cat SHA256SUMS.txt
+      - name: Archive the build currently in "beta" if it has no beta-N release yet
+        run: |
+          prev=$(gh release view beta --json name -q .name 2>/dev/null | grep -o '빌드 [0-9]*' | grep -o '[0-9]*' || true)
+          if [ -n "$prev" ] && [ "$prev" != "$BUILD" ] && ! gh release view "beta-$prev" >/dev/null 2>&1; then
+            echo "Archiving build $prev as beta-$prev"
+            mkdir -p prev
+            gh release download beta -D prev
+            gh release view beta --json body -q .body > prev-notes.md
+            gh release create "beta-$prev" prev/* --target "$(git rev-parse 'beta^{commit}')" \
+              --title "InfraDesk 1.0.0 Beta (빌드 $prev)" --notes-file prev-notes.md --prerelease
+            git fetch --tags --force
+          fi
       - name: Release notes
         run: |
+          last=$(git tag -l 'beta-[0-9]*' --sort=-v:refname | grep -v "^beta-${BUILD}$" | head -1)
           {
-            echo "> ⚠️ **베타 버전**이에요. \`main\`에 푸시될 때마다 이 파일들이 최신 빌드로 바뀝니다."
+            echo "> ⚠️ **베타 버전**이에요. 빌드 #${BUILD} · 커밋 [\`${GITHUB_SHA::7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) · $(date -u '+%Y-%m-%d %H:%M UTC')"
             echo ">"
-            echo "> 빌드 #${GITHUB_RUN_NUMBER} · 커밋 [\`${GITHUB_SHA::7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) · $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo "> 최신 빌드는 [\`beta\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/beta), 지난 빌드는 \`beta-<번호>\` 릴리스에 모두 남아 있어요."
             echo
+            if [ -n "$last" ]; then
+              echo "## 바뀐 점 (${last} 이후)"
+              git log --no-merges --pretty='- %s ([`%h`]('"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"'/commit/%H))' "${last}..${GITHUB_SHA}"
+              echo
+            fi
             cat .github/release-notes.md
           } > notes.md
+          cat notes.md
       - name: Move the beta tag to this commit
         run: |
           git tag -f beta "$GITHUB_SHA"
           git push -f origin refs/tags/beta
-      - name: Publish
+      - name: Publish the rolling beta
         run: |
-          title="InfraDesk 1.0.0 Beta (빌드 ${GITHUB_RUN_NUMBER})"
+          title="InfraDesk 1.0.0 Beta (빌드 ${BUILD})"
           if gh release view beta >/dev/null 2>&1; then
             gh release edit beta --title "$title" --notes-file notes.md --prerelease
             gh release upload beta dist/* --clobber
           else
             gh release create beta dist/* --title "$title" --notes-file notes.md --prerelease
+          fi
+      - name: Archive this build as beta-N
+        run: |
+          if gh release view "beta-$BUILD" >/dev/null 2>&1; then
+            gh release upload "beta-$BUILD" dist/* --clobber
+          else
+            gh release create "beta-$BUILD" dist/* --target "$GITHUB_SHA" \
+              --title "InfraDesk 1.0.0 Beta (빌드 ${BUILD})" --notes-file notes.md --prerelease
           fi

@@ -74,7 +74,7 @@
 
 ## 다운로드 (베타)
 
-`main`에 변경이 올라올 때마다 자동으로 빌드되어 [Beta 릴리스](https://github.com/kimdongwoo0930/infra-desk/releases/tag/beta)에 올라가요. 앱이 새 빌드를 알아서 확인하고 메뉴 막대에 알려줘요.
+`main`에 변경이 올라올 때마다 자동으로 빌드되어 [Beta 릴리스](https://github.com/kimdongwoo0930/infra-desk/releases/tag/beta)에 올라가요. 앱이 새 빌드를 알아서 확인하고 메뉴 막대에 알려줘요. 지난 빌드는 빌드마다 `beta-<번호>` 릴리스로 [모두 남아 있어서](https://github.com/kimdongwoo0930/infra-desk/releases) 이전 버전으로 돌아갈 수 있어요.
 
 | OS | 파일 |
 |---|---|
