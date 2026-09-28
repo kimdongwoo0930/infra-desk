@@ -22,7 +22,9 @@ public final class DemoData {
         return List.of(
                 account("demo-a", "계정 A", "ap-chuncheon-1"),
                 account("demo-b", "계정 B", "ap-seoul-1"),
-                account("demo-c", "계정 C", "ap-seoul-1"));
+                account("demo-c", "계정 C", "ap-seoul-1"),
+                new Account("demo-mac", "맥미니", ProviderType.SSH, com.infradesk.core.SshHostProperties.REGION,
+                        com.infradesk.core.SshHostProperties.of("mac-mini", 22)));
     }
 
     /** Saved commands from the terminal mockup. */

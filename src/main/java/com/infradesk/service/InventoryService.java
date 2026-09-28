@@ -3,6 +3,7 @@ package com.infradesk.service;
 import com.infradesk.core.Account;
 import com.infradesk.core.AccountSecrets;
 import com.infradesk.core.CloudProvider;
+import com.infradesk.core.Server;
 import com.infradesk.core.CloudProviderException;
 import com.infradesk.core.ProviderType;
 import com.infradesk.storage.AccountStore;
@@ -130,10 +131,15 @@ public class InventoryService {
      * given fall back to the ones stored for the account (when editing an existing account).
      */
     public int testConnection(Account account, Map<String, String> secrets) {
+        return preview(account, secrets).size();
+    }
+
+    /** Lists the servers an unsaved account would have (e.g. whether a directly connected host answers). */
+    public List<Server> preview(Account account, Map<String, String> secrets) {
         Map<String, String> merged = new HashMap<>(secretsOf(account.id()));
         merged.putAll(secrets);
         try (CloudProvider p = registry.create(account, merged)) {
-            return p.listServers().size();
+            return p.listServers();
         }
     }
 

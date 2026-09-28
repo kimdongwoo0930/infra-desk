@@ -53,6 +53,11 @@ public class SshSettingsDialog extends JDialog {
     private String suggestion;
 
     public SshSettingsDialog(Window owner, TerminalService service, Server server) {
+        this(owner, service, server, null);
+    }
+
+    /** @param defaults user and port to start with when nothing is saved and ~/.ssh/config has no match */
+    public SshSettingsDialog(Window owner, TerminalService service, Server server, com.infradesk.ssh.SshSettings defaults) {
         super(owner, "SSH 설정 · " + server.name(), ModalityType.APPLICATION_MODAL);
         this.service = service;
         this.server = server;
@@ -62,7 +67,12 @@ public class SshSettingsDialog extends JDialog {
         service.settings(server.id()).ifPresentOrElse(s -> {
             username.setSelectedItem(s.username());
             port.setText(String.valueOf(s.port()));
-        }, () -> service.suggestFromSshConfig(server).ifPresent(this::applySuggestion));
+        }, () -> service.suggestFromSshConfig(server).ifPresentOrElse(this::applySuggestion, () -> {
+            if (defaults != null) {
+                username.setSelectedItem(defaults.username());
+                port.setText(String.valueOf(defaults.port()));
+            }
+        }));
         styleField(username);
         username.putClientProperty(FlatClientProperties.STYLE,
                 "background: #1E1F22; buttonStyle: button; buttonBackground: #1E1F22; buttonSeparatorWidth: 0;"

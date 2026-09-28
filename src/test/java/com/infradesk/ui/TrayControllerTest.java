@@ -73,6 +73,18 @@ class TrayControllerTest {
         assertTrue(entries.getFirst() instanceof TrayController.Entry.Label l && l.text().startsWith("InfraDesk · 실행 중 1 / 2대"));
     }
 
+    @Test
+    void directlyConnectedServersOfferNoPowerActions() {
+        TrayController.Actions noop = (TrayController.Actions) java.lang.reflect.Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[]{TrayController.Actions.class}, (o, m, a) -> null);
+        Account mac = new Account("m", "맥미니", ProviderType.SSH, "ssh", Map.of());
+        var entries = TrayController.entries(List.of(new AccountInventory(mac, List.of(server("mac", ServerStatus.RUNNING)), null)),
+                Map.of(), "", false, null, noop);
+        var sm = entries.stream().filter(e -> e instanceof TrayController.Entry.ServerMenu)
+                .map(e -> (TrayController.Entry.ServerMenu) e).findFirst().orElseThrow();
+        assertEquals(List.of("대시보드에서 보기", "SSH 열기"), itemTexts(sm.items()));
+    }
+
     private static List<String> itemTexts(List<TrayController.Entry> entries) {
         return entries.stream().filter(e -> e instanceof TrayController.Entry.Item)
                 .map(e -> ((TrayController.Entry.Item) e).text()).toList();

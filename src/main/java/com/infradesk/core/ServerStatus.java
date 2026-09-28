@@ -10,6 +10,8 @@ public enum ServerStatus {
     REBOOTING("재부팅 중"),
     TERMINATING("삭제 중"),
     TERMINATED("삭제됨"),
+    /** A directly connected machine that didn't answer (off, asleep, or network down). */
+    UNREACHABLE("응답 없음"),
     UNKNOWN("알 수 없음");
 
     private final String label;

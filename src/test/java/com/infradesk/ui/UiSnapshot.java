@@ -84,6 +84,19 @@ public final class UiSnapshot {
                         "add-account.png");
                 dialog.dispose();
 
+                // A directly connected machine (the demo Mac mini): its dialog and its dashboard.
+                JDialog addSsh = new AddSshServerDialog(frame, service, null);
+                write(addSsh, addSsh.getContentPane(), addSsh.getWidth(), addSsh.getContentPane().getPreferredSize().height,
+                        "add-ssh-server.png");
+                addSsh.dispose();
+                var mac = inventory.stream().filter(i -> i.account().provider() == com.infradesk.core.ProviderType.SSH)
+                        .findFirst().orElseThrow().servers().getFirst();
+                MainFrame sshFrame = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
+                sshFrame.setInventory(inventory);
+                sshFrame.showServer(mac);
+                write(sshFrame, sshFrame.getContentPane(), 1280, 800, "main-ssh.png");
+                sshFrame.dispose();
+
                 JDialog editAccount = new AddAccountDialog(frame, service, true, service.accounts().getFirst());
                 write(editAccount, editAccount.getContentPane(), editAccount.getWidth(),
                         editAccount.getContentPane().getPreferredSize().height, "edit-account.png");

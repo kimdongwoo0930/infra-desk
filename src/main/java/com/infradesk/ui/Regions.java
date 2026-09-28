@@ -6,6 +6,7 @@ import java.util.Map;
 public final class Regions {
 
     private static final Map<String, String> NAMES = Map.ofEntries(
+            Map.entry(com.infradesk.core.SshHostProperties.REGION, "SSH"),
             Map.entry("ap-chuncheon-1", "춘천"),
             Map.entry("ap-seoul-1", "서울"),
             Map.entry("ap-tokyo-1", "도쿄"),

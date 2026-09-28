@@ -222,7 +222,8 @@ public final class TrayController {
                     + inv.account().displayName() + " (" + Regions.shortName(inv.account().region()) + ")"
                     + (inv.failed() ? " — 연결 오류" : "")));
             for (Server s : inv.servers()) {
-                menu.add(new Entry.ServerMenu(s, cpu.get(s.id()), serverItems(s, actions)));
+                menu.add(new Entry.ServerMenu(s, cpu.get(s.id()),
+                        serverItems(s, inv.account().provider().hasPowerControl(), actions)));
             }
         }
 
@@ -235,15 +236,18 @@ public final class TrayController {
         return menu;
     }
 
-    private static List<Entry> serverItems(Server s, Actions actions) {
+    private static List<Entry> serverItems(Server s, boolean powerControl, Actions actions) {
         List<Entry> m = new java.util.ArrayList<>();
         m.add(new Entry.Item("대시보드에서 보기", false, () -> actions.showServer(s.id())));
         if (s.status() == ServerStatus.RUNNING) {
             m.add(new Entry.Item("SSH 열기", false, () -> actions.openSsh(s.id())));
+            if (!powerControl) {
+                return m;
+            }
             m.add(new Entry.Separator());
             m.add(new Entry.Item("재부팅…", false, () -> actions.runAction(s.id(), ServerAction.REBOOT)));
             m.add(new Entry.Item("정지…", false, () -> actions.runAction(s.id(), ServerAction.STOP)));
-        } else if (s.status().canStart()) {
+        } else if (powerControl && s.status().canStart()) {
             m.add(new Entry.Separator());
             m.add(new Entry.Item("시작", false, () -> actions.runAction(s.id(), ServerAction.START)));
         }

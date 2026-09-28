@@ -152,6 +152,9 @@ public class AddAccountDialog extends JDialog {
         row.setOpaque(false);
         ButtonGroup group = new ButtonGroup();
         for (ProviderType type : ProviderType.values()) {
+            if (!type.isCloud()) {
+                continue; // directly connected machines have their own dialog
+            }
             JToggleButton b = new JToggleButton(type.isSupported() ? type.displayName() : type.displayName() + " · 준비 중");
             b.setPreferredSize(new Dimension(0, 44));
             b.setEnabled(type.isSupported());

@@ -194,6 +194,7 @@ public class MainFrame extends JFrame {
 
         titleBar.refreshButton().addActionListener(e -> refresh());
         sidebar.onAddAccount(this::addAccount);
+        sidebar.onAddSshServer(this::addSshServer);
         sidebar.onRemoveAccount(this::removeAccount);
         sidebar.onEditAccount(this::editAccount);
         sidebar.onSelect(this::showServer);
@@ -445,6 +446,13 @@ public class MainFrame extends JFrame {
         if (account.isEmpty()) {
             return;
         }
+        if (!account.get().provider().hasCloudMetrics()) {
+            if (!liveActive()) {
+                metrics().showMessage("클라우드 모니터링 없음 · '실시간'을 켜 보세요");
+                metrics().setStatus(" ", false);
+            }
+            return;
+        }
         if (showLoading) {
             metrics().showLoading();
             metrics().setStatus("불러오는 중…", false);
@@ -632,7 +640,13 @@ public class MainFrame extends JFrame {
     }
 
     private void editSshSettings(Server server) {
-        if (new SshSettingsDialog(this, terminalService, server).showDialog()) {
+        // A directly connected machine: suggest its port and, as the user, the name on this computer.
+        com.infradesk.ssh.SshSettings defaults = accountOf(server)
+                .filter(a -> a.provider() == com.infradesk.core.ProviderType.SSH)
+                .map(a -> new com.infradesk.ssh.SshSettings(server.id(), System.getProperty("user.name"),
+                        com.infradesk.core.SshHostProperties.port(a)))
+                .orElse(null);
+        if (new SshSettingsDialog(this, terminalService, server, defaults).showDialog()) {
             terminalView.reconnect(server.id());
             if (server.id().equals(selectedServerId)) {
                 loadFacts(server, true);
@@ -867,7 +881,7 @@ public class MainFrame extends JFrame {
         }
     }
 
-    private void showServer(Server server) {
+    void showServer(Server server) {
         Optional<Account> account = accountOf(server);
         if (account.isEmpty()) {
             return;
@@ -895,7 +909,7 @@ public class MainFrame extends JFrame {
         boolean noAccounts = inventory.isEmpty();
         emptyTitle.setText(noAccounts ? "계정을 추가하세요" : "서버를 선택하세요");
         emptyHint.setText(noAccounts
-                ? "왼쪽 아래 '계정 추가'로 클라우드 계정을 등록하면 서버 목록이 표시돼요."
+                ? "왼쪽 아래 '계정·서버 추가'로 클라우드 계정이나 직접 연결할 서버를 등록하세요."
                 : "왼쪽 목록에서 서버를 고르면 상세 정보가 표시돼요.");
         cards.show(content, EMPTY);
     }
@@ -905,18 +919,38 @@ public class MainFrame extends JFrame {
     }
 
     private void editAccount(Account account) {
+        if (account.provider() == com.infradesk.core.ProviderType.SSH) {
+            new AddSshServerDialog(this, service, account).showDialog().ifPresent(a -> refresh());
+            return;
+        }
         new AddAccountDialog(this, service, demoMode, account).showDialog().ifPresent(a -> refresh());
+    }
+
+    /** Adds a directly connected machine, then asks for its SSH user and key right away. */
+    private void addSshServer() {
+        new AddSshServerDialog(this, service, null).showDialog().ifPresent(a -> {
+            refresh();
+            String host = com.infradesk.core.SshHostProperties.host(a);
+            editSshSettings(new Server(com.infradesk.core.SshHostProperties.serverId(a.id()), a.id(), a.displayName(),
+                    com.infradesk.core.ServerStatus.UNKNOWN, "SSH", host + ":" + com.infradesk.core.SshHostProperties.port(a),
+                    0, 0, host, null, null));
+        });
     }
 
     private void removeAccount(Account account) {
         int answer = JOptionPane.showConfirmDialog(this,
-                "'" + account.displayName() + "' 계정을 삭제할까요?\n저장된 API 키도 함께 지워져요. 클라우드의 서버는 그대로 남아요.",
+                account.provider().isCloud()
+                        ? "'" + account.displayName() + "' 계정을 삭제할까요?\n저장된 API 키도 함께 지워져요. 클라우드의 서버는 그대로 남아요."
+                        : "'" + account.displayName() + "'을(를) 목록에서 삭제할까요?\n저장된 SSH 설정과 키도 함께 지워져요. 그 컴퓨터에는 아무 변화가 없어요.",
                 "계정 삭제", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
         if (answer != JOptionPane.OK_OPTION) {
             return;
         }
         Async.run(() -> {
             service.removeAccount(account.id());
+            if (!account.provider().isCloud()) {
+                terminalService.forget(com.infradesk.core.SshHostProperties.serverId(account.id()));
+            }
             return null;
         }, ignored -> refresh(), err -> JOptionPane.showMessageDialog(this, Async.message(err),
                 "계정 삭제 실패", JOptionPane.WARNING_MESSAGE));

@@ -139,8 +139,9 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private void updateButtons() {
         ServerStatus status = server == null ? ServerStatus.UNKNOWN : server.status();
         boolean stopped = status == ServerStatus.STOPPED;
-        startButton.setVisible(stopped);
-        stopButton.setVisible(!stopped);
+        startButton.setVisible(powerControl && stopped);
+        stopButton.setVisible(powerControl && !stopped);
+        rebootButton.setVisible(powerControl);
         startButton.setEnabled(!busy && status.canStart());
         stopButton.setEnabled(!busy && status.canStop());
         rebootButton.setEnabled(!busy && status.canReboot());
@@ -153,9 +154,16 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         }
     }
 
+    /** False for directly connected machines, which the app can't power on or off. */
+    private boolean powerControl = true;
+
     public void show(Server server, Account account) {
         boolean sameServer = this.server != null && this.server.id().equals(server.id());
         this.server = server;
+        this.powerControl = account.provider().hasPowerControl();
+        if (ipLabel != null) {
+            ipLabel.setText(account.provider().isCloud() ? "공인 IP" : "주소");
+        }
         if (!sameServer) {
             busy = false;
             actionStatus.setText(" ");
@@ -165,7 +173,9 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         updateButtons();
         title.setText(server.name());
         badge.setStatus(server.status());
-        subtitle.setText(String.join(" · ", account.displayName(), nz(server.region()), nz(server.shape())));
+        subtitle.setText(account.provider().isCloud()
+                ? String.join(" · ", account.displayName(), nz(server.region()), nz(server.shape()))
+                : "직접 연결 (SSH) · " + nz(server.shape()));
 
         cpuMem.setText(server.cpuCount() > 0
                 ? trim(server.cpuCount()) + " OCPU · " + trim(server.memoryGb()) + " GB"
@@ -310,6 +320,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     /** Public IP cell: masked value, reveal toggle and copy (copies the real address). */
     private JPanel ipCell() {
         JPanel cell = cell("공인 IP", publicIp);
+        ipLabel = (JLabel) cell.getComponent(0);
         for (JButton b : new JButton[] {revealIp, copyIp}) {
             b.setIcon(com.infradesk.ui.Icons.get(b == revealIp ? "eye" : "copy", 14));
         }
@@ -336,6 +347,9 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         IpPrivacy.onChange(this::renderPublicIp);
         return cell;
     }
+
+    /** "공인 IP" for cloud servers, "주소" (host name or IP) for directly connected ones. */
+    private JLabel ipLabel;
 
     private void renderPublicIp() {
         publicIp.setText(publicIpValue == null ? NONE : IpPrivacy.display(publicIpValue));

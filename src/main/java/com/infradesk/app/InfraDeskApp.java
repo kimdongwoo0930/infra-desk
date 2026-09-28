@@ -162,6 +162,8 @@ public final class InfraDeskApp {
         for (ProviderType type : ProviderType.values()) {
             registry.register(type, factory);
         }
+        // Directly connected demo machines answer unless their address says otherwise.
+        registry.register(ProviderType.SSH, new com.infradesk.provider.ssh.SshHostProviderFactory((host, port) -> !host.startsWith("offline")));
         return new InventoryService(new InMemoryAccountStore(DemoData.accounts()), new InMemorySecretStore(), registry);
     }
 
@@ -170,7 +172,9 @@ public final class InfraDeskApp {
     }
 
     private static InventoryService realService(SecretStore secrets) {
-        ProviderRegistry registry = new ProviderRegistry().register(ProviderType.ORACLE, new OracleProviderFactory());
+        ProviderRegistry registry = new ProviderRegistry()
+                .register(ProviderType.ORACLE, new OracleProviderFactory())
+                .register(ProviderType.SSH, new com.infradesk.provider.ssh.SshHostProviderFactory());
         return new InventoryService(new JsonAccountStore(AppPaths.configDir()), secrets, registry);
     }
 }

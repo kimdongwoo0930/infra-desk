@@ -34,7 +34,9 @@ public class Sidebar extends JPanel {
 
     private final JTextField search = new JTextField();
     private final JPanel groups = new JPanel();
-    private final JButton addAccount = new DashedButton("계정 추가", "plus");
+    private final JButton addAccount = new DashedButton("계정·서버 추가", "plus");
+    private Runnable onAddCloud = () -> { };
+    private Runnable onAddSsh = () -> { };
     private final JButton settingsButton = Buttons.icon("settings", "설정", 34);
     private final List<ServerListItem> items = new ArrayList<>();
 
@@ -101,6 +103,7 @@ public class Sidebar extends JPanel {
                 BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.DIVIDER),
                 BorderFactory.createEmptyBorder(12, 12, 12, 12)));
         footer.add(addAccount, BorderLayout.CENTER);
+        addAccount.addActionListener(e -> showAddMenu());
         footer.add(settingsButton, BorderLayout.EAST);
 
         add(top, BorderLayout.NORTH);
@@ -109,8 +112,25 @@ public class Sidebar extends JPanel {
         rebuild();
     }
 
+    /** Cloud account (Oracle Cloud). */
     public void onAddAccount(Runnable action) {
-        addAccount.addActionListener(e -> action.run());
+        this.onAddCloud = action;
+    }
+
+    /** A machine reached directly over SSH. */
+    public void onAddSshServer(Runnable action) {
+        this.onAddSsh = action;
+    }
+
+    private void showAddMenu() {
+        javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+        javax.swing.JMenuItem cloud = new javax.swing.JMenuItem("클라우드 계정 (Oracle Cloud)", Icons.get("cloud", 16));
+        cloud.addActionListener(e -> onAddCloud.run());
+        javax.swing.JMenuItem ssh = new javax.swing.JMenuItem("직접 연결 서버 (SSH · 맥미니, 집 서버)", Icons.get("terminal", 16));
+        ssh.addActionListener(e -> onAddSsh.run());
+        menu.add(cloud);
+        menu.add(ssh);
+        menu.show(addAccount, 0, -menu.getPreferredSize().height - 4);
     }
 
     public void onSelect(Consumer<Server> listener) {

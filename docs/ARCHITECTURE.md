@@ -6,6 +6,7 @@
                  ┌──────────── app (InfraDeskApp: 조립, --demo 분기)
                  ▼
 ui/ ─────► service/ ─────► core/ ◄───── provider/oracle/   (OCI SDK는 여기서만)
+ │             │             ▲   ◄───── provider/ssh/      (직접 연결: TCP 응답 = 상태)
  │             │             ▲   ◄───── provider/demo/     (가짜 데이터)
  │             └──► storage/ ┘
  └──► ssh/  (MINA SSHD / 데모 셸)
@@ -14,6 +15,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 - **ui**: Swing 화면. `service`와 `core` 타입만 안다. 네트워크 작업은 `Async`로 EDT 밖에서.
 - **service**: `InventoryService`(계정·비밀값·provider 관리, 서버 조회), `ProviderRegistry`(`ProviderType` → 팩토리), `AccountValidation`.
 - **core**: 공통 모델과 인터페이스. 다른 패키지에 의존하지 않는다.
+- **provider/ssh**: `ProviderType.SSH` 계정 = 컴퓨터 한 대. `SshHostProvider`는 SSH 포트 TCP 접속 여부로 `RUNNING`/`UNREACHABLE`을 내고, 전원 제어·클라우드 메트릭은 없다(`ProviderType.hasPowerControl/hasCloudMetrics`로 UI가 숨김). 주소·포트는 `core.SshHostProperties`(계정 속성), 사용자·키는 기존 SSH 설정.
 - **provider/<cloud>**: `CloudProvider`·`CloudProviderFactory` 구현. SDK 타입을 `core` 모델로 변환해서 내보낸다.
 - **storage**: 계정 설정(JSON), 비밀값(OS 키체인).
 - **ssh**: 클라우드와 무관한 SSH 연결·세션. `ShellConnector`(MINA / 데모), `ShellSession`, `known_hosts` 검증.
@@ -32,7 +34,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | 저장된 명령어 | `JsonSavedCommandStore` | 목업 예시 4개 (메모리) |
 | 알림 | `DiscordNotifier` (웹훅) | 토스트 미리보기 (전송 안 함) |
 | 비밀값 | `VaultSecretStore` (키체인엔 마스터 키만) | `InMemorySecretStore` |
-| provider | `OracleProviderFactory` | `DemoProviderFactory` (모든 ProviderType) |
+| provider | `OracleProviderFactory`, `SshHostProviderFactory` | `DemoProviderFactory` (클라우드), SSH는 항상 응답하는 가짜 연결 확인 |
 | 네트워크 | OCI API | 없음 (지연 시간만 흉내) |
 
 ## 핵심 타입
