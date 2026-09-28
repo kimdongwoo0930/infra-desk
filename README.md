@@ -38,6 +38,40 @@
 
 > 스크린샷은 모두 [데모 모드](#데모-모드)의 가짜 데이터예요.
 
+## 호환성
+
+✅ 실제 환경에서 확인 · 🟡 지원하지만 아직 실사용 확인 전 · ⏳ 준비 중
+
+**클라우드**
+
+| 클라우드 | 상태 |
+|---|---|
+| Oracle Cloud (OCI) | ✅ 서버 목록·IP·그래프 / 🟡 시작·정지·재부팅 |
+| AWS, GCP | ⏳ (계정 추가 화면에 "준비 중"으로 표시) |
+
+**서버 OS** — 기능마다 필요한 게 달라요.
+
+| 기능 | 필요한 것 | Ubuntu | Oracle Linux · Debian · RHEL 계열 | Windows Server |
+|---|---|---|---|---|
+| 목록 · 시작/정지 · IP | OCI API만 | ✅ | 🟡 | 🟡 |
+| CPU·메모리·네트워크 그래프 | Oracle Cloud Agent (OCI 기본 이미지에 포함) | ✅ | 🟡 | 🟡 |
+| SSH 터미널 · SFTP · 일괄 실행 | SSH 서버 | 🟡 | 🟡 | 🟡 (OpenSSH 사용 시) |
+| 서버 정보 · 실시간 모니터링 | Linux `/proc`, `df`, `ss`/`netstat` | 🟡 | 🟡 | — |
+| Docker 컨테이너 | `docker` + docker 그룹 또는 비밀번호 없는 `sudo` | 🟡 | 🟡 | — |
+
+- 서버 쪽 명령은 모두 표준 POSIX 셸로 작성해서 특정 배포판에 의존하지 않아요. OCI 기본 사용자 `ubuntu`(Ubuntu)와 `opc`(Oracle Linux)는 비밀번호 없이 `sudo`가 되므로 Docker도 바로 보여요.
+- ARM(Ampere A1)과 x86 인스턴스 모두 같은 방식으로 동작해요.
+- SSH 키는 RSA, ed25519 모두 지원해요.
+
+**앱이 실행되는 PC**
+
+| OS | 상태 |
+|---|---|
+| macOS (Apple Silicon) | ✅ |
+| macOS (Intel) | 🟡 같은 빌드 |
+| Windows 10/11 | 🟡 CI에서 빌드·자가 점검 통과, 직접 실행은 확인 전 |
+| Linux | 소스에서 `./gradlew run` (설치 파일 없음) |
+
 ## 다운로드 (베타)
 
 `main`에 변경이 올라올 때마다 자동으로 빌드되어 [Beta 릴리스](https://github.com/kimdongwoo0930/infra-desk/releases/tag/beta)에 올라가요. 앱이 새 빌드를 알아서 확인하고 메뉴 막대에 알려줘요.
