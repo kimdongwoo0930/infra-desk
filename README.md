@@ -33,8 +33,8 @@
 | 모니터링 · 실시간 | SSH 터미널 |
 |---|---|
 | ![실시간 모니터링](docs/images/main-live.png) | ![SSH 터미널](docs/images/terminal.png) |
-| **SFTP 파일** | **Docker 컨테이너** |
-| ![SFTP](docs/images/sftp.png) | ![컨테이너](docs/images/containers.png) |
+| **SFTP 파일** | **설정 — 자동 실행 · 앱 정보 · 디스코드 알림** |
+| ![SFTP](docs/images/sftp.png) | ![설정](docs/images/settings.png) |
 
 > 스크린샷은 모두 [데모 모드](#데모-모드)의 가짜 데이터예요.
 
@@ -68,6 +68,8 @@ OCI 콘솔 → 오른쪽 위 프로필 → **내 프로필** → **API 키** →
 
 사이드바 **⊕ 계정 추가** → 값을 붙여넣고 개인 키(`.pem`) 선택 → **연결 테스트** → **저장하고 서버 불러오기**.
 나중에 바꾸려면 계정 이름을 우클릭 → **계정 설정…**.
+
+<img src="docs/images/add-account.png" width="420" alt="계정 추가 창">
 
 ### 3. SSH 설정 (터미널·실시간·SFTP를 쓰려면)
 

@@ -44,7 +44,7 @@ public final class UiSnapshot {
         MainFrame[] mainFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
-            mainFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
+            mainFrame[0] = new MainFrame(service, fastLiveTerminalService(), InfraDeskApp.demoAlertService(), true);
             mainFrame[0].setInventory(inventory);
         });
         Thread.sleep(800);
@@ -176,6 +176,14 @@ public final class UiSnapshot {
         pane.paint(g);
         g.dispose();
         ImageIO.write(img, "png", new File(DIR, name));
+    }
+
+    /** Demo terminal whose fake /proc stream ticks every 150 ms, so the live snapshot has a full chart. */
+    private static com.infradesk.service.TerminalService fastLiveTerminalService() {
+        return new com.infradesk.service.TerminalService(new com.infradesk.storage.InMemorySshSettingsStore(),
+                new com.infradesk.storage.InMemorySecretStore(),
+                new com.infradesk.ssh.DemoShellConnector(Duration.ZERO, Duration.ofMillis(150)),
+                new com.infradesk.storage.InMemorySavedCommandStore(com.infradesk.provider.demo.DemoData.savedCommands()), true);
     }
 
     private static void collect(Container c, String simpleName, List<java.awt.Component> out) {
