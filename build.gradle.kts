@@ -65,7 +65,7 @@ tasks.register<JavaExec>("snapshot") {
     description = "Renders screens with demo data off-screen to build/snapshots/*.png"
     classpath = sourceSets.test.get().runtimeClasspath
     mainClass = "com.infradesk.ui.UiSnapshot"
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "-Dinfradesk.noTray=true")
 }
 
 tasks.named<JavaExec>("run") {

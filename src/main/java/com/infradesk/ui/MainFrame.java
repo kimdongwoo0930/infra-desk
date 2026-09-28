@@ -63,6 +63,9 @@ public class MainFrame extends JFrame {
     /** OCI aggregates metrics per minute, so polling faster gains nothing. */
     private final Timer metricsTimer;
     private LiveStats liveStats;
+    private java.util.Optional<TrayController> tray = java.util.Optional.empty();
+    private java.util.Map<String, Double> lastCpu = java.util.Map.of();
+    private boolean hiddenNoticeShown;
     /** SSH-read facts per server id, reused for five minutes. */
     private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.HostFacts>> factsCache =
             new java.util.HashMap<>();
@@ -91,8 +94,17 @@ public class MainFrame extends JFrame {
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
-                live.stop();
-                terminalView.closeAll();
+                if (tray.isPresent()) {
+                    // Keep running in the menu bar; only pause what needs the window.
+                    live.pause();
+                    if (!hiddenNoticeShown) {
+                        hiddenNoticeShown = true;
+                        tray.get().notice("InfraDesk는 메뉴 막대에서 계속 실행 중이에요",
+                                "완전히 끄려면 메뉴 막대 아이콘 → 종료 또는 ⌘Q");
+                    }
+                } else {
+                    quit();
+                }
             }
 
             @Override
@@ -156,11 +168,88 @@ public class MainFrame extends JFrame {
         detail.onAction(this::runAction);
         showEmpty();
 
+        installTray();
+
         pollTimer = new Timer((int) RefreshPolicy.NORMAL_INTERVAL.toMillis(), e -> poll());
         pollTimer.setRepeats(false);
         metricsTimer = new Timer(60_000, e -> metricsTick());
         metricsTimer.start();
         detail.metrics().onLiveToggle(this::toggleLive);
+    }
+
+    /** Menu-bar icon; with it, closing the window hides to the menu bar instead of quitting. */
+    private void installTray() {
+        if (Boolean.getBoolean("infradesk.noTray")) {
+            return;
+        }
+        tray = TrayController.install(new TrayController.Actions() {
+            @Override
+            public void showWindow() {
+                bringToFront();
+            }
+
+            @Override
+            public void showServer(String serverId) {
+                bringToFront();
+                showDashboard();
+                findServer(serverId).ifPresent(MainFrame.this::showServer);
+            }
+
+            @Override
+            public void openSsh(String serverId) {
+                showServer(serverId);
+                MainFrame.this.openSsh();
+            }
+
+            @Override
+            public void runAction(String serverId, ServerAction action) {
+                showServer(serverId);
+                MainFrame.this.runAction(action);
+            }
+
+            @Override
+            public void refresh() {
+                MainFrame.this.refresh();
+            }
+
+            @Override
+            public void quit() {
+                MainFrame.this.quit();
+            }
+        }, demoMode);
+        setDefaultCloseOperation(tray.isPresent() ? HIDE_ON_CLOSE : EXIT_ON_CLOSE);
+
+        if (java.awt.Desktop.isDesktopSupported()) {
+            java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
+            if (desktop.isSupported(java.awt.Desktop.Action.APP_EVENT_REOPENED)) {
+                desktop.addAppEventListener((java.awt.desktop.AppReopenedListener) e ->
+                        javax.swing.SwingUtilities.invokeLater(this::bringToFront));
+            }
+            if (desktop.isSupported(java.awt.Desktop.Action.APP_QUIT_HANDLER)) {
+                desktop.setQuitHandler((e, response) -> javax.swing.SwingUtilities.invokeLater(this::quit));
+            }
+        }
+    }
+
+    private void bringToFront() {
+        if (!isVisible()) {
+            setVisible(true);
+        }
+        setExtendedState(getExtendedState() & ~ICONIFIED);
+        toFront();
+        requestFocus();
+        if (dashboardVisible) {
+            live.resume();
+        }
+    }
+
+    /** Closes sessions and exits. From the tray menu, ⌘Q, or closing the window without a tray. */
+    private void quit() {
+        live.stop();
+        terminalView.closeAll();
+        tray.ifPresent(TrayController::remove);
+        dispose();
+        System.exit(0);
     }
 
     private MetricsPanel metrics() {
@@ -170,6 +259,10 @@ public class MainFrame extends JFrame {
     /** Every minute: refresh the selected server's history (unless live) and sidebar CPU. */
     private void metricsTick() {
         if (!isShowing()) {
+            // Hidden in the menu bar: keep the sidebar/tray CPU and alerts fresh, skip charts.
+            if (tray.isPresent()) {
+                refreshCpu();
+            }
             return;
         }
         findServer(selectedServerId).ifPresent(s -> {
@@ -185,6 +278,8 @@ public class MainFrame extends JFrame {
         Async.run(() -> service.currentCpu(snapshot), cpu -> {
             sidebar.setCpu(cpu);
             alerts.onCpu(cpu);
+            lastCpu = cpu;
+            tray.ifPresent(t -> t.update(inventory, cpu));
         }, err -> { });
     }
 
@@ -505,6 +600,7 @@ public class MainFrame extends JFrame {
         refreshing = false;
         inventory = List.copyOf(loaded);
         alerts.onInventory(inventory);
+        tray.ifPresent(t -> t.update(inventory, lastCpu));
         titleBar.setRefreshing(false);
         titleBar.markRefreshed(LocalTime.now());
         titleBar.setCounts(inventory.stream().mapToInt(i -> i.servers().size()).sum(), inventory.size());

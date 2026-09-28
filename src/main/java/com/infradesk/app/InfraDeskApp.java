@@ -50,6 +50,8 @@ public final class InfraDeskApp {
             System.setProperty("apple.awt.application.name", "InfraDesk");
             System.setProperty("apple.awt.application.appearance", "NSAppearanceNameDarkAqua");
             System.setProperty("apple.laf.useScreenMenuBar", "true");
+            // Menu-bar icon as a template image: monochrome, follows the light/dark menu bar.
+            System.setProperty("apple.awt.enableTemplateImages", "true");
         }
         SwingUtilities.invokeLater(() -> {
             Theme.install();

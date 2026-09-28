@@ -143,6 +143,7 @@ MainFrame.setInventory → AlertService.onInventory → AlertMonitor (상태 변
 | `AddAccountDialog` | 계정 추가, 연결 테스트 |
 | `Async` | 가상 스레드에서 작업 → 결과는 EDT로 |
 | `SettingsDialog` | 설정 (디스코드 알림) |
+| `TrayController` | macOS 메뉴 막대 아이콘과 서버 상태 메뉴 (네이티브 메뉴). 창 닫기 시 메뉴 막대로 숨김 |
 | `IpPrivacy` | 공인 IP 가리기/보이기 (앱 전체, 기본 가림) |
 | `components.Toast` | 창 오른쪽 아래 잠깐 뜨는 알림 |
 | `metrics.MetricsPanel` | 모니터링 섹션: 카드 3개, 상태 문구, 실시간 토글 |
