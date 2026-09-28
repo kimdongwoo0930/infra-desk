@@ -218,6 +218,7 @@ Windows에서 실제 실행과 서버 추가가 확인됐지만, 작업 관리�
 
 - `build.gradle.kts`의 `appJvmArgs` 목록 하나를 `run`, `runDemo`, `installDist` 실행 스크립트, jpackage `--java-options`가 함께 쓴다.
 - 결과: 패키징된 앱(데모)의 footprint가 약 480MB에서 약 410MB(창이 보일 때)로, 그래픽을 뺀 나머지는 약 250MB에서 약 180MB로 줄었다. Windows에서는 기본 힙이 RAM에 비례해 컸던 만큼 효과가 더 클 것으로 보고, 사용자 측정을 기다린다.
+- **실제 환경(Windows, 빌드 14):** 작업 관리자 기준 약 500MB에서 약 200MB로 줄어 안정됐다(사용자 확인, 2026-09-29).
 - 참고로 JVM 기본값에서 옵션을 바꿔가며 잰 수치(데모, 25초): 기본 G1은 JVM 236MB, G1+`-Xmx192m`+주기적 GC는 141MB, SerialGC+`-Xmx160m`은 86MB, 여기에 C1 전용을 더하면 77MB.
 
 ## 2026-09-28 · Docker 컨테이너
