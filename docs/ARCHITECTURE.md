@@ -29,7 +29,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | SSH 연결 | `MinaShellConnector` + `known_hosts` | `DemoShellConnector` (가짜 셸) |
 | 저장된 명령어 | `JsonSavedCommandStore` | 목업 예시 4개 (메모리) |
 | 알림 | `DiscordNotifier` (웹훅) | 토스트 미리보기 (전송 안 함) |
-| 비밀값 | `KeychainSecretStore` | `InMemorySecretStore` |
+| 비밀값 | `VaultSecretStore` (키체인엔 마스터 키만) | `InMemorySecretStore` |
 | provider | `OracleProviderFactory` | `DemoProviderFactory` (모든 ProviderType) |
 | 네트워크 | OCI API | 없음 (지연 시간만 흉내) |
 
@@ -67,13 +67,14 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 |---|---|
 | `accounts.json` | 계정 설정 (OCID, fingerprint, 리전) |
 | `ssh-settings.json` | 서버별 SSH 사용자 이름·포트 |
+| `secrets.vault` | 모든 비밀값 (암호화) |
 | `commands.json` | 저장된 명령어 (이름, 명령) |
 | `alerts.json` | 알림 켜기/끄기, 종류, CPU 기준 |
 | `known_hosts` | 신뢰한 SSH 호스트 키 (OpenSSH 형식) |
 
-API 개인키, SSH 개인키, 키 암호는 파일이 아니라 OS 키체인(서비스 이름 `InfraDesk`)에 저장된다.
+비밀값(API 개인키, SSH 개인키·암호, 웹훅 URL)은 **`secrets.vault`**(AES-256-GCM 암호화, 권한 `rw-------`)에 저장되고, 그 **마스터 키 하나만** OS 키체인(서비스 이름 `InfraDesk`, 항목 `vault.masterKey`)에 있다. 키체인은 실행당 최대 한 번 읽는다. 아래 이름은 금고 안의 키 이름이다.
 
-| 키체인 항목 | 내용 |
+| 금고 키 이름 | 내용 |
 |---|---|
 | `account.<accountId>.privateKey` | OCI API 개인키 |
 | `server.<serverId>.sshKey` | SSH 개인키 |

@@ -26,6 +26,7 @@ import com.infradesk.storage.JsonSavedCommandStore;
 import com.infradesk.storage.JsonSshSettingsStore;
 import com.infradesk.storage.KeychainSecretStore;
 import com.infradesk.storage.SecretStore;
+import com.infradesk.storage.VaultSecretStore;
 import com.infradesk.ui.MainFrame;
 import com.infradesk.ui.Theme;
 import com.infradesk.ui.components.Toast;
@@ -66,7 +67,9 @@ public final class InfraDeskApp {
             if (demo) {
                 frame = new MainFrame(demoService(), demoTerminalService(), demoAlertService(), true);
             } else {
-                SecretStore secrets = new KeychainSecretStore();
+                // One keychain item (the vault's master key); every secret lives in the encrypted vault.
+                KeychainSecretStore keychain = new KeychainSecretStore();
+                SecretStore secrets = new VaultSecretStore(AppPaths.configDir(), keychain, keychain);
                 AlertService alerts = new AlertService(new JsonAlertSettingsStore(AppPaths.configDir()), secrets, null,
                         Clock.systemUTC());
                 frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, false);
