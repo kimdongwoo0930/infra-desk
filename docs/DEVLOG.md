@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-09-28 · 7단계: 패키징 · 앱 아이콘
+
+### 한 일
+- **앱 아이콘** (`tools.IconGenerator`, `./gradlew generateIcons`): 코드로 그림. 어두운 둥근 사각형(macOS Big Sur 그리드, 가장자리 여백·그림자) + 서버 두 대, LED 초록(실행 중)·파랑(포인트 색). 16px까지 알아볼 수 있게 작은 크기에서는 세부(LED 번짐, 슬롯) 생략.
+  - 산출물(커밋): `src/packaging/macos/InfraDesk.iconset` → `iconutil`로 `InfraDesk.icns`, `src/packaging/windows/InfraDesk.ico`(PNG 항목), 실행 중 Dock/창 아이콘용 `resources/com/infradesk/app/icon-*.png`, 미리보기 `src/packaging/InfraDesk-1024.png`.
+  - `./gradlew run`에서도 Dock에 커피잔 대신 앱 아이콘 (`app.AppIcon`, `Taskbar`).
+- **자가 점검** (`--self-test`): 창·설정·키체인·네트워크 없이 FlatLaf, SVG, 앱 아이콘, Jackson, OCI SDK(오프라인 서명 요청 준비), MINA SSHD + ed25519, SFTP, JediTerm, XChart, HTTP 클라이언트, 키체인 라이브러리, TLS, 한국어 로캘을 불러와 보고 결과 출력.
+- **jpackage** Gradle 작업:
+  - `appImage` → `build/jpackage/InfraDesk.app` (Java 런타임 포함, jlink로 필요한 모듈만, `--strip-debug --compress zip-6`)
+  - `selfTestAppImage` → 패키징된 앱의 실행 파일로 `--self-test` (줄인 런타임에 빠진 모듈이 있으면 여기서 실패)
+  - `dmg` → `build/dist/InfraDesk-1.0.0.dmg` (자가 점검 통과 후에만)
+  - `windowsZip` → Windows 앱 이미지(InfraDesk.exe + 런타임) zip. 설치 프로그램(WiX) 없이 동작.
+- **GitHub Actions** (`.github/workflows/build.yml`): macOS·Windows 매트릭스로 테스트 → 패키징(자가 점검 포함) → 산출물 업로드. 원격 저장소에 푸시해야 동작.
+- 버전 1.0.0 (macOS 번들 버전은 첫 자리가 0이면 안 됨).
+
+### 결정한 것
+| 항목 | 결정 | 이유 |
+|---|---|---|
+| 런타임 모듈 | jdeps 결과 + `jdk.localedata`, `jdk.crypto.ec`, `jdk.charsets`, `jdk.accessibility`, `jdk.zipfs` 등 | jdeps는 로캘 데이터·암호 제공자·리플렉션 사용을 못 봄. 자가 점검으로 확인 |
+| 압축 | `zip-6` | 설치 크기 144MB → 96MB. dmg는 68MB → 73MB로 조금 커지지만 설치 크기가 더 중요 |
+| 아이콘 제작 | 코드로 생성 | 디자인 토큰(색) 그대로 쓰고, 크기별 세부를 조절하고, 다시 만들기 쉬움 |
+| Windows | 앱 이미지 zip | 설치 프로그램은 WiX 설치가 필요. 우선 실행 가능한 형태로 |
+| 서명 | 안 함 | 직접 빌드한 앱은 격리 속성이 없어 그냥 열림. 다른 사람에게 배포하려면 Apple Developer 서명·공증 필요 |
+
+### 알아둘 것
+- 키체인 항목은 `./gradlew run`(java)으로 만들었으므로, 설치한 앱이 처음 읽을 때 macOS가 "InfraDesk가 키체인의 기밀 정보를 사용하려고 함"이라고 물음 → "항상 허용".
+- 설정 파일(`~/Library/Application Support/InfraDesk/`)은 그대로 공유되므로 등록한 계정이 그대로 보임.
+
+---
+
 ## 2026-09-28 · 실제 OCI 계정 연동 확인
 
 - 사용자가 실제 OCI 계정 1개(서버 1대)를 `./gradlew run`(실제 모드)으로 등록 → 연결 테스트와 서버 불러오기 성공.

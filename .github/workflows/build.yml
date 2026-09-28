@@ -1,0 +1,39 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            task: dmg
+            artifact: build/dist/*.dmg
+          - os: windows-latest
+            task: windowsZip
+            artifact: build/dist/*.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test
+        shell: bash
+        run: ./gradlew test
+      - name: Package (includes --self-test of the packaged app)
+        shell: bash
+        run: ./gradlew ${{ matrix.task }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: InfraDesk-${{ runner.os }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error

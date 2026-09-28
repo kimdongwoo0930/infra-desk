@@ -44,6 +44,9 @@ public final class InfraDeskApp {
     }
 
     public static void main(String[] args) {
+        if (Arrays.asList(args).contains("--self-test")) {
+            System.exit(SelfTest.run());
+        }
         boolean demo = Arrays.asList(args).contains("--demo") || Boolean.getBoolean("infradesk.demo");
         boolean debugInput = Arrays.asList(args).contains("--debug-input");
         if (SystemInfo.isMacOS) {
@@ -55,6 +58,7 @@ public final class InfraDeskApp {
         }
         SwingUtilities.invokeLater(() -> {
             Theme.install();
+            AppIcon.applyToTaskbar();
             if (debugInput) {
                 InputDiagnostics.install();
             }
@@ -67,6 +71,7 @@ public final class InfraDeskApp {
                         Clock.systemUTC());
                 frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, false);
             }
+            AppIcon.applyTo(frame);
             frame.setVisible(true);
             frame.refresh();
         });

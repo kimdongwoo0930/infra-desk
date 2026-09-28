@@ -1,7 +1,15 @@
 # infra-desk
 여러 클라우드 계정의 서버를 한 곳에서 관리하는 데스크톱 앱 — 상태 모니터링, 전원 제어, SSH 터미널
 
-## 실행
+## 설치 (macOS)
+
+```bash
+./gradlew dmg
+open build/dist/InfraDesk-1.0.0.dmg   # InfraDesk를 응용 프로그램 폴더로 끌어다 놓기
+```
+Java 런타임이 들어 있어 따로 설치할 필요가 없습니다. Windows는 `./gradlew windowsZip` (Windows에서 실행).
+
+## 개발 중 실행
 
 Java 25가 필요합니다. Gradle은 Wrapper가 포함돼 있어 따로 설치하지 않아도 됩니다.
 

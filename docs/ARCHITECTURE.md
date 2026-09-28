@@ -18,7 +18,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 - **storage**: 계정 설정(JSON), 비밀값(OS 키체인).
 - **ssh**: 클라우드와 무관한 SSH 연결·세션. `ShellConnector`(MINA / 데모), `ShellSession`, `known_hosts` 검증.
 - **alert**: 디스코드 알림. `AlertMonitor`(인벤토리·CPU 변화 → 알림, 순수 상태 기계), `DiscordNotifier`(웹훅 전송), `AlertService`(설정·웹훅 비밀값·전송 스레드).
-- **app**: 진입점. 실제 모드와 데모 모드의 구성 요소를 조립한다.
+- **app**: 진입점. 실제 모드와 데모 모드의 구성 요소를 조립한다. `AppIcon`(Dock/창 아이콘), `SelfTest`(`--self-test`), `InputDiagnostics`(`--debug-input`).
 
 ## 실제 모드 vs 데모 모드
 
@@ -166,4 +166,16 @@ MainFrame.setInventory → AlertService.onInventory → AlertMonitor (상태 변
 ./gradlew runDemo    # 데모 모드 (가짜 데이터, 키 불필요)
 ./gradlew test       # 테스트
 ./gradlew snapshot   # 데모 데이터로 화면을 build/snapshots/*.png로 렌더링 (개발용)
+./gradlew dmg        # macOS: build/dist/InfraDesk-<버전>.dmg (패키징된 앱 자가 점검 포함)
+./gradlew windowsZip # Windows: build/dist/InfraDesk-<버전>-windows.zip
+./gradlew generateIcons  # 앱 아이콘 다시 그리기 (src/packaging, 런타임 아이콘)
 ```
+
+## 패키징
+
+```
+installDist → appImage (jpackage + jlink 필요한 모듈만) → selfTestAppImage (앱 실행 파일로 --self-test)
+           → dmg (macOS) / windowsZip (Windows)
+```
+- 아이콘: `src/packaging/macos/InfraDesk.icns`, `src/packaging/windows/InfraDesk.ico` (`tools.IconGenerator`가 생성)
+- CI: `.github/workflows/build.yml` — macOS·Windows에서 테스트 후 패키징, 산출물 업로드
