@@ -29,7 +29,9 @@ class LaunchAtLoginTest {
         assertTrue(login.isEnabled());
         String plist = Files.readString(login.plist());
         assertTrue(plist.contains("<string>--minimized</string>"));
-        assertTrue(plist.contains("Apps &amp; Tools/InfraDesk.app"), "path is XML-escaped");
+        // Separator-agnostic: Windows paths use '\\'.
+        assertTrue(plist.contains(app.toString().replace("&", "&amp;")), "path is XML-escaped");
+        assertFalse(plist.contains("Apps & Tools"), "raw '&' would break the plist");
         var doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(login.plist().toFile());
         assertEquals("plist", doc.getDocumentElement().getTagName());
 
