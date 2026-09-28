@@ -24,7 +24,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /** Right-hand content for the selected server: header, actions, and the 4×2 info grid. */
-public class ServerDetailPanel extends JPanel {
+public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault());
     private static final String NONE = "—";
@@ -38,6 +38,7 @@ public class ServerDetailPanel extends JPanel {
     private final JButton startButton = Buttons.secondary("시작", "play");
     private final JLabel actionStatus = new JLabel(" ");
     private final com.infradesk.ui.metrics.MetricsPanel metrics = new com.infradesk.ui.metrics.MetricsPanel();
+    private final com.infradesk.ui.containers.ContainersPanel containers = new com.infradesk.ui.containers.ContainersPanel();
     private Consumer<ServerAction> onAction = a -> { };
     private Runnable onSsh = () -> { };
     private Server server;
@@ -67,6 +68,9 @@ public class ServerDetailPanel extends JPanel {
         metrics.setAlignmentX(Component.LEFT_ALIGNMENT);
         metrics.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, metrics.getPreferredSize().height));
         add(metrics);
+        add(Box.createVerticalStrut(24));
+        containers.setAlignmentX(Component.LEFT_ALIGNMENT);
+        add(containers);
         add(Box.createVerticalGlue());
 
         sshButton.addActionListener(e -> onSsh.run());
@@ -77,6 +81,36 @@ public class ServerDetailPanel extends JPanel {
 
     public com.infradesk.ui.metrics.MetricsPanel metrics() {
         return metrics;
+    }
+
+    public com.infradesk.ui.containers.ContainersPanel containers() {
+        return containers;
+    }
+
+    // Scrollable: fill the viewport width, scroll vertically when the containers table is long.
+    @Override
+    public java.awt.Dimension getPreferredScrollableViewportSize() {
+        return getPreferredSize();
+    }
+
+    @Override
+    public int getScrollableUnitIncrement(java.awt.Rectangle r, int orientation, int direction) {
+        return 24;
+    }
+
+    @Override
+    public int getScrollableBlockIncrement(java.awt.Rectangle r, int orientation, int direction) {
+        return r.height - 48;
+    }
+
+    @Override
+    public boolean getScrollableTracksViewportWidth() {
+        return true;
+    }
+
+    @Override
+    public boolean getScrollableTracksViewportHeight() {
+        return getParent() instanceof javax.swing.JViewport v && v.getHeight() > getPreferredSize().height;
     }
 
     public void onSsh(Runnable listener) {

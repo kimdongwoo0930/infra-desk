@@ -46,6 +46,9 @@ public class DemoShellConnector implements ShellConnector {
         if (command.equals(ProcStats.COMMAND)) {
             return new DemoStatsSession(target, hostnameOf(target), statsInterval);
         }
+        if (command.startsWith(DockerCommands.PRELUDE)) {
+            return new FinishedSession(target.address(), DemoDocker.run(hostnameOf(target), command), 0);
+        }
         if (command.equals(HostFacts.COMMAND)) {
             return new FinishedSession(target.address(), demoFacts(hostnameOf(target)), 0);
         }

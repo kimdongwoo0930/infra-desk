@@ -49,6 +49,8 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 | `service.TerminalService` | 서버별 SSH 설정·키 저장, 공인 IP로 셸 열기, 명령 실행(`run`: 제한 시간·출력 상한), SFTP 열기, 저장된 명령어 |
 | `ssh.RemoteFiles` / `RemoteFile` | SFTP 목록·업로드·다운로드·삭제 (MINA `sshd-sftp` / 데모 메모리 트리) |
 | `ssh.ShellConnector` / `ShellSession` | 셸 열기 / 입출력 스트림·크기 조정·종료 대기 |
+| `ssh.DockerCommands` / `Container` | SSH로 실행할 Docker 명령(ID만 허용)과 결과 파싱 |
+| `service.ContainerService` | 컨테이너 목록·시작/정지/재시작·로그 (SSH exec) |
 | `ssh.HostFacts` | SSH 한 번으로 업타임·OS·루트 디스크·열린 포트 읽기 (서버 상세 정보 칸) |
 | `ssh.SshConfig` | `~/.ssh/config` 읽기: 공인 IP → Host → 사용자·포트·키 파일 추천 |
 | `ssh.ProcStats` | 원격 `/proc` 스냅샷 명령, 파싱, 두 스냅샷 사이 사용률 계산 |
@@ -154,6 +156,8 @@ MainFrame.setInventory → AlertService.onInventory → AlertMonitor (상태 변
 | `IpPrivacy` | 공인 IP 가리기/보이기 (앱 전체, 기본 가림) |
 | `components.Toast` | 창 오른쪽 아래 잠깐 뜨는 알림 |
 | `metrics.MetricsPanel` | 모니터링 섹션: 카드 3개, 상태 문구, 실시간 토글 |
+| `containers.ContainersPanel` | 서버 상세의 컨테이너 표와 동작 버튼 |
+| `containers.ContainerLogsDialog` | 컨테이너 로그 창 |
 | `metrics.LiveController` | 실시간 모드 상태(OFF/CONNECTING/RUNNING/PAUSED), 일시정지·재개, 10분 자동 꺼짐 |
 | `metrics.MetricCard` | 스탯 타일: 현재값 + XChart 스파크라인 + 범례/설명 |
 | `metrics.HoverChartPanel` | 스파크라인 위 마우스 커서: 세로선 + 가장 가까운 시점의 시리즈별 값 툴팁 |

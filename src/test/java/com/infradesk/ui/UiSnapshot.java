@@ -56,6 +56,8 @@ public final class UiSnapshot {
 
                 MainFrame frame = mainFrame[0];
                 write(frame, frame.getContentPane(), 1280, 800, "main.png");
+                write(frame, frame.getContentPane(), 1280, 1080, "main-full.png");
+                frame.getContentPane().setSize(1280, 800);
 
                 // Hover: move the mouse over each chart (left, middle, right edge) and render.
                 List<java.awt.Component> charts = new java.util.ArrayList<>();

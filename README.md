@@ -25,6 +25,7 @@
 - **모니터링** — CPU·메모리·네트워크 최근 1시간 그래프(OCI Monitoring), SSH로 2초마다 읽는 실시간 모드.
 - **SSH 터미널** — 서버별 탭, 저장된 명령어, 여러 서버에 한 번에 명령 실행, SFTP 파일 탐색기. `~/.ssh/config`에서 사용자·키를 자동으로 가져와요.
 - **서버 정보** — 업타임, OS, 디스크 사용량, 열린 포트(SSH로 확인).
+- **Docker 컨테이너** — 컨테이너 목록·상태·CPU·메모리·포트, 로그 보기, 시작·정지·재시작. SSH로만 접근하고 Docker 포트는 열지 않아요.
 - **메뉴 막대 아이콘** — 창을 닫아도 메뉴 막대에서 서버 상태를 보고 바로 제어할 수 있어요. 로그인할 때 자동 실행도 가능.
 - **디스코드 알림** — 서버가 예상치 않게 멈추거나, 계정 연결이 끊기거나, CPU가 높게 유지될 때.
 - **안전하게** — 키·비밀번호는 암호화해서 이 PC에만 저장, 공인 IP는 기본으로 가려서 표시, 로그에서도 비밀값을 가려요.
@@ -32,8 +33,8 @@
 | 모니터링 · 실시간 | SSH 터미널 |
 |---|---|
 | ![실시간 모니터링](docs/images/main-live.png) | ![SSH 터미널](docs/images/terminal.png) |
-| **SFTP 파일** | **계정 추가** |
-| ![SFTP](docs/images/sftp.png) | ![계정 추가](docs/images/add-account.png) |
+| **SFTP 파일** | **Docker 컨테이너** |
+| ![SFTP](docs/images/sftp.png) | ![컨테이너](docs/images/containers.png) |
 
 > 스크린샷은 모두 [데모 모드](#데모-모드)의 가짜 데이터예요.
 
@@ -92,7 +93,7 @@ OCI 콘솔 → 오른쪽 위 프로필 → **내 프로필** → **API 키** →
 | API 개인키, SSH 키, 디스코드 웹훅 | 같은 폴더의 `secrets.vault` — **AES-256-GCM 암호화**. 암호화 키는 OS 키체인(macOS 키체인 / Windows 자격 증명 관리자)에만 |
 | 로그 | macOS `~/Library/Logs/InfraDesk/`, Windows `%LOCALAPPDATA%\InfraDesk\logs` — 키·웹훅·공인 IP·OCID는 가려서 기록 |
 
-- 서버 접속은 SSH만 써요. Docker 등 다른 포트를 열지 않아요.
+- 서버 접속은 SSH만 써요. Docker도 SSH로 `docker` 명령을 실행해서 다루고, Docker API 포트(2375)는 쓰지 않아요.
 - 처음 보는 서버의 호스트 키는 확인 후 기억하고, 바뀌면 연결을 막아요.
 - 공인 IP는 화면에서 기본으로 가려져 있어요(👁 버튼으로 보기).
 

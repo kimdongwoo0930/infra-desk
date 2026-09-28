@@ -47,6 +47,9 @@ public class MainFrame extends JFrame {
     private final TerminalService terminalService;
     private final com.infradesk.alert.AlertService alerts;
     private final com.infradesk.service.UpdateService updates;
+    private final com.infradesk.service.ContainerService containerService;
+    private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.DockerCommands.Listing>> containerCache =
+            new java.util.HashMap<>();
     private final com.infradesk.app.LaunchAtLogin launchAtLogin = com.infradesk.app.LaunchAtLogin.forCurrentOs();
     private SettingsDialog settingsDialog;
     private int notifiedUpdateBuild = -1;
@@ -99,6 +102,7 @@ public class MainFrame extends JFrame {
         this.terminalService = terminalService;
         this.alerts = alerts;
         this.updates = updates;
+        this.containerService = new com.infradesk.service.ContainerService(terminalService);
         this.terminalView = new TerminalView(terminalService, this::editSshSettings, this::allServers);
         this.live = new com.infradesk.ui.metrics.LiveController(new LiveHooks(), new SwingTimeout());
         this.demoMode = demoMode;
@@ -147,7 +151,11 @@ public class MainFrame extends JFrame {
 
         content.setBackground(Theme.APP_BG);
         content.add(emptyState(), EMPTY);
-        content.add(detail, DETAIL);
+        javax.swing.JScrollPane detailScroll = new javax.swing.JScrollPane(detail);
+        detailScroll.setBorder(null);
+        detailScroll.getViewport().setBackground(Theme.APP_BG);
+        detailScroll.getVerticalScrollBar().setUnitIncrement(24);
+        content.add(detailScroll, DETAIL);
 
         JPanel dashboard = new JPanel(new BorderLayout());
         dashboard.setBackground(Theme.APP_BG);
@@ -167,6 +175,10 @@ public class MainFrame extends JFrame {
         terminalView.onCountChange(titleBar::setSessionCount);
         terminalView.onEmpty(this::showDashboard);
         detail.onSsh(this::openSsh);
+        detail.containers().onRefresh(() -> findServer(selectedServerId).ifPresent(s -> loadContainers(s, true)));
+        detail.containers().onAction(this::containerAction);
+        detail.containers().onLogs(c -> findServer(selectedServerId).ifPresent(s ->
+                new com.infradesk.ui.containers.ContainerLogsDialog(this, containerService, s, c).setVisible(true)));
         sidebar.onSshSettings(this::editSshSettings);
         sidebar.settingsButton().addActionListener(e -> openSettings());
         alerts.onDeliveryFailure(message -> javax.swing.SwingUtilities.invokeLater(() ->
@@ -561,6 +573,7 @@ public class MainFrame extends JFrame {
                     return;
                 }
                 loadFacts(server, true);
+                loadContainers(server, true);
             }
             showTerminal();
             terminalView.openOrSelect(server);
@@ -572,8 +585,85 @@ public class MainFrame extends JFrame {
             terminalView.reconnect(server.id());
             if (server.id().equals(selectedServerId)) {
                 loadFacts(server, true);
+                loadContainers(server, true);
             }
         }
+    }
+
+    private static final java.time.Duration CONTAINERS_TTL = java.time.Duration.ofSeconds(30);
+
+    /** Docker containers over SSH for the detail section, cached briefly. */
+    private void loadContainers(Server server, boolean force) {
+        var panel = detail.containers();
+        if (server.status() != com.infradesk.core.ServerStatus.RUNNING) {
+            panel.showMessage("서버가 실행 중일 때 표시돼요", null);
+            return;
+        }
+        if (!terminalService.isConfigured(server.id())) {
+            panel.showMessage("SSH 설정 후 표시돼요", null);
+            return;
+        }
+        var cached = containerCache.get(server.id());
+        if (!force && cached != null && cached.getKey().plus(CONTAINERS_TTL).isAfter(java.time.Instant.now())) {
+            showListing(cached.getValue(), cached.getKey());
+            return;
+        }
+        panel.showLoading();
+        String id = server.id();
+        Async.run(() -> containerService.list(server, new HostKeyDialog(this)), listing -> {
+            var at = java.time.Instant.now();
+            containerCache.put(id, java.util.Map.entry(at, listing));
+            if (id.equals(selectedServerId)) {
+                showListing(listing, at);
+            }
+        }, err -> {
+            if (id.equals(selectedServerId)) {
+                panel.showMessage("컨테이너 정보를 읽지 못했어요", null);
+                panel.showError(Async.message(err));
+            }
+        });
+    }
+
+    private void showListing(com.infradesk.ssh.DockerCommands.Listing listing, java.time.Instant at) {
+        var panel = detail.containers();
+        if (listing.status() != com.infradesk.ssh.DockerCommands.Listing.Status.OK) {
+            panel.showMessage(listing.problem(), null);
+            return;
+        }
+        long running = listing.containers().stream().filter(com.infradesk.ssh.Container::isRunning).count();
+        panel.showContainers(listing.containers(), "실행 중 " + running + " / " + listing.containers().size() + " · "
+                + java.time.LocalTime.ofInstant(at, java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")) + " 기준");
+    }
+
+    private void containerAction(com.infradesk.ssh.Container c, com.infradesk.ssh.DockerCommands.Action action) {
+        Optional<Server> server = findServer(selectedServerId);
+        if (server.isEmpty()) {
+            return;
+        }
+        String label = switch (action) {
+            case START -> "시작";
+            case STOP -> "정지";
+            case RESTART -> "재시작";
+        };
+        if (action != com.infradesk.ssh.DockerCommands.Action.START) {
+            Object[] options = {label, "취소"};
+            int choice = JOptionPane.showOptionDialog(this,
+                    "'" + c.name() + "' 컨테이너를 " + label + "할까요?\n" + server.get().name() + " · " + c.image(),
+                    "컨테이너 " + label, JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[1]);
+            if (choice != 0) {
+                return;
+            }
+        }
+        var panel = detail.containers();
+        panel.setBusy(true, c.name() + " " + label + " 중…");
+        Server s = server.get();
+        Async.run(() -> {
+            containerService.act(s, c, action, new HostKeyDialog(this));
+            return null;
+        }, ignored -> loadContainers(s, true), err -> {
+            LOG.log(java.util.logging.Level.WARNING, "docker " + action + " failed for " + c.name(), err);
+            panel.showError(Async.message(err));
+        });
     }
 
     /** Reads uptime/OS/disk/ports over SSH for the detail grid, cached for a few minutes. */
@@ -726,9 +816,11 @@ public class MainFrame extends JFrame {
             live.stop();
             loadMetrics(server, true);
             loadFacts(server, false);
+            loadContainers(server, false);
         } else if (server.status() != metricsServerStatus) {
             loadMetrics(server, server.status() == com.infradesk.core.ServerStatus.RUNNING);
             loadFacts(server, true);
+            loadContainers(server, true);
         }
     }
 
