@@ -7,7 +7,7 @@ group = "com.infradesk"
 // so 1.0.1 … 1.0.9, then 1.1.0. MAJOR is bumped by hand (and RUN_OFFSET set to the last run) for big releases.
 // -PappVersion (release tags) overrides; local builds are 1.0.0.
 val majorVersion = 1
-val runOffset = 15
+val runOffset = 0
 version = providers.gradleProperty("appVersion").orNull
     ?: providers.gradleProperty("buildNumber").orNull?.toIntOrNull()?.let { run ->
         val n = maxOf(run - runOffset, 0)
