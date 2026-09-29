@@ -89,6 +89,10 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: App version from the run number (keep 0 = runOffset in build.gradle.kts)
+        run: |
+          n=$(( BUILD - 0 )); [ "$n" -lt 0 ] && n=0
+          echo "VERSION=1.$(( n / 10 )).$(( n % 10 ))" >> "$GITHUB_ENV"
       - name: Checksums (the app verifies its update download against these)
         run: |
           cd dist
@@ -116,9 +120,10 @@ jobs:
             target=$(git rev-list -n 1 beta)
             mkdir -p prev
             gh release download beta -D prev
+            prevTitle=$(gh release view beta --json name -q .name)
             gh release view beta --json body -q .body > prev-notes.md
             gh release create "beta-$prev" prev/* --target "$target" \
-              --title "InfraDesk 1.0.0 Beta (빌드 $prev)" --notes-file prev-notes.md --prerelease
+              --title "$prevTitle" --notes-file prev-notes.md --prerelease
             git fetch --tags --force
           }
           if ! (archive) > archive.log 2>&1; then
@@ -149,7 +154,7 @@ jobs:
           git push -f origin refs/tags/beta
       - name: Publish the rolling beta
         run: |
-          title="InfraDesk 1.0.0 Beta (빌드 ${BUILD})"
+          title="InfraDesk ${VERSION} Beta (빌드 ${BUILD})"
           if gh release view beta >/dev/null 2>&1; then
             gh release edit beta --title "$title" --notes-file notes.md --prerelease
             gh release upload beta dist/* --clobber
@@ -162,5 +167,5 @@ jobs:
             gh release upload "beta-$BUILD" dist/* --clobber
           else
             gh release create "beta-$BUILD" dist/* --target "$GITHUB_SHA" \
-              --title "InfraDesk 1.0.0 Beta (빌드 ${BUILD})" --notes-file notes.md --prerelease
+              --title "InfraDesk ${VERSION} Beta (빌드 ${BUILD})" --notes-file notes.md --prerelease
           fi
