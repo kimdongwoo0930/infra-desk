@@ -93,6 +93,7 @@ public class MainFrame extends JFrame {
     private List<AccountInventory> inventory = List.of();
     private String selectedServerId;
     private boolean refreshing;
+    private long reloadGeneration;
 
     private static final boolean MAC = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
     /** Where the status icon lives, in the words each OS uses. */
@@ -673,9 +674,11 @@ public class MainFrame extends JFrame {
      * @param userInitiated whether to surface failures in a dialog (timer failures stay quiet)
      */
     private void reload(Set<String> accountIds, boolean userInitiated) {
-        if (refreshing) {
+        if (refreshing && !userInitiated) {
             return;
         }
+        // A manual refresh always starts fresh, even if an earlier request is hung; its late result is dropped.
+        long generation = ++reloadGeneration;
         pollTimer.stop();
         refreshing = true;
         titleBar.setRefreshing(true);
@@ -684,8 +687,15 @@ public class MainFrame extends JFrame {
         List<Account> targets = full ? null : inventory.stream().map(AccountInventory::account)
                 .filter(a -> accountIds.contains(a.id())).toList();
         Async.run(() -> full ? service.loadAll() : service.load(targets),
-                loaded -> setInventory(full ? loaded : merge(loaded)),
+                loaded -> {
+                    if (generation == reloadGeneration) {
+                        setInventory(full ? loaded : merge(loaded));
+                    }
+                },
                 err -> {
+                    if (generation != reloadGeneration) {
+                        return;
+                    }
                     refreshing = false;
                     titleBar.setRefreshing(false);
                     sidebar.setLoading(false);

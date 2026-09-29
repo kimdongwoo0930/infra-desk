@@ -31,6 +31,8 @@ import java.util.Objects;
 
 /** {@link CloudProvider} backed by the OCI Java SDK. One instance per tenancy. */
 public class OracleProvider implements CloudProvider {
+    private static final int CONNECT_TIMEOUT_MS = 5_000;
+    private static final int READ_TIMEOUT_MS = 20_000;
 
     private final Account account;
     private final String compartmentId;
@@ -66,9 +68,14 @@ public class OracleProvider implements CloudProvider {
                 .privateKeySupplier(() -> new ByteArrayInputStream(keyBytes))
                 .build();
         this.compartmentId = Objects.requireNonNullElse(account.property(OracleProperties.COMPARTMENT_OCID), tenancy);
-        this.compute = ComputeClient.builder().build(auth);
-        this.network = VirtualNetworkClient.builder().build(auth);
-        this.monitoring = MonitoringClient.builder().build(auth);
+        // Without explicit timeouts a dead connection (sleep, Wi-Fi switch) can hang a request for a long time.
+        var timeouts = com.oracle.bmc.ClientConfiguration.builder()
+                .connectionTimeoutMillis(CONNECT_TIMEOUT_MS)
+                .readTimeoutMillis(READ_TIMEOUT_MS)
+                .build();
+        this.compute = ComputeClient.builder().configuration(timeouts).build(auth);
+        this.network = VirtualNetworkClient.builder().configuration(timeouts).build(auth);
+        this.monitoring = MonitoringClient.builder().configuration(timeouts).build(auth);
         if (endpointOverride != null) {
             compute.setEndpoint(endpointOverride);
             network.setEndpoint(endpointOverride);
