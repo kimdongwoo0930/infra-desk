@@ -4,6 +4,7 @@ import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.util.SystemInfo;
 import com.infradesk.core.Account;
 import com.infradesk.core.Server;
+import com.infradesk.core.ServerStatus;
 import com.infradesk.service.AccountInventory;
 import com.infradesk.service.InventoryService;
 import com.infradesk.service.LiveStats;
@@ -706,9 +707,15 @@ public class MainFrame extends JFrame {
                 });
     }
 
+    /** Last known servers of an account we can't reach: keep them listed, but don't claim a state. */
+    private static Server asUnreachable(Server s) {
+        return s.withStatus(ServerStatus.UNREACHABLE);
+    }
+
     /**
      * A failed load (e.g. a brief network drop) must not wipe the server list: keep the last known
-     * servers and just attach the error. The next poll replaces them once the connection is back.
+     * servers, shown as unreachable, and attach the error. The next poll replaces them once the
+     * connection is back.
      */
     private List<AccountInventory> keepLastKnownServers(List<AccountInventory> loaded) {
         List<AccountInventory> result = new ArrayList<>();
@@ -718,7 +725,7 @@ public class MainFrame extends JFrame {
                 kept = inventory.stream()
                         .filter(old -> old.account().id().equals(inv.account().id()) && !old.servers().isEmpty())
                         .findFirst()
-                        .map(old -> new AccountInventory(inv.account(), old.servers(), inv.error()))
+                        .map(old -> new AccountInventory(inv.account(), old.servers().stream().map(MainFrame::asUnreachable).toList(), inv.error()))
                         .orElse(inv);
             }
             result.add(kept);
