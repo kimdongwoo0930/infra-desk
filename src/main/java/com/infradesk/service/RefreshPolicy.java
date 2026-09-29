@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  */
 public class RefreshPolicy {
 
-    public static final Duration NORMAL_INTERVAL = Duration.ofSeconds(45);
+    public static final Duration NORMAL_INTERVAL = Duration.ofSeconds(30);
     public static final Duration FAST_INTERVAL = Duration.ofSeconds(5);
     public static final Duration ACTION_GRACE = Duration.ofSeconds(20);
     /** Stop fast polling eventually even if a server is stuck in a transitional state. */

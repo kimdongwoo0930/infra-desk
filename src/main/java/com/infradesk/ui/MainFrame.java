@@ -696,6 +696,26 @@ public class MainFrame extends JFrame {
                 });
     }
 
+    /**
+     * A failed load (e.g. a brief network drop) must not wipe the server list: keep the last known
+     * servers and just attach the error. The next poll replaces them once the connection is back.
+     */
+    private List<AccountInventory> keepLastKnownServers(List<AccountInventory> loaded) {
+        List<AccountInventory> result = new ArrayList<>();
+        for (AccountInventory inv : loaded) {
+            AccountInventory kept = inv;
+            if (inv.failed() && inv.servers().isEmpty()) {
+                kept = inventory.stream()
+                        .filter(old -> old.account().id().equals(inv.account().id()) && !old.servers().isEmpty())
+                        .findFirst()
+                        .map(old -> new AccountInventory(inv.account(), old.servers(), inv.error()))
+                        .orElse(inv);
+            }
+            result.add(kept);
+        }
+        return List.copyOf(result);
+    }
+
     /** Replaces the reloaded accounts in the current inventory, keeping order. */
     private List<AccountInventory> merge(List<AccountInventory> partial) {
         List<AccountInventory> merged = new ArrayList<>(inventory);
@@ -948,7 +968,7 @@ public class MainFrame extends JFrame {
     /** Applies loaded data. Public so the snapshot tool can inject data synchronously. */
     public void setInventory(List<AccountInventory> loaded) {
         refreshing = false;
-        inventory = List.copyOf(loaded);
+        inventory = keepLastKnownServers(loaded);
         if (com.infradesk.alert.AlertService.AVAILABLE) {
             alerts.onInventory(inventory);
         }
