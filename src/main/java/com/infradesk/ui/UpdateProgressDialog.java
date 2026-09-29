@@ -45,7 +45,7 @@ final class UpdateProgressDialog extends JDialog {
 
         JPanel body = new JPanel(new BorderLayout(0, 10));
         body.setBorder(BorderFactory.createEmptyBorder(20, 22, 16, 22));
-        JLabel title = new JLabel("새 베타 빌드 " + release.build() + " 설치");
+        JLabel title = new JLabel(release.label() + " 설치");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 15f));
         body.add(title, BorderLayout.NORTH);
         JPanel center = new JPanel(new BorderLayout(0, 8));

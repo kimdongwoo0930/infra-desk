@@ -37,6 +37,8 @@ class UpdateServiceTest {
         var json = new ObjectMapper().readTree(RELEASE);
         UpdateService.Release mac = UpdateService.parse(json, "InfraDesk-beta-macOS.dmg", "InfraDesk-beta-macOS.zip");
         assertEquals(7, mac.build());
+        assertEquals("1.0.0", mac.version());
+        assertEquals("InfraDesk 1.0.0 Beta", mac.label());
         assertEquals("abc1234", mac.commit());
         assertEquals("https://dl/mac.dmg", mac.downloadUrl());
         assertEquals("https://dl/mac.zip", mac.updateUrl());
@@ -55,6 +57,16 @@ class UpdateServiceTest {
         UpdateService.Release r = UpdateService.parse(json, "InfraDesk-beta-macOS.dmg", "InfraDesk-beta-macOS.zip");
         assertEquals(null, r.updateUrl());
         assertEquals(null, r.checksumsUrl());
+    }
+
+    @Test
+    void labelFallsBackToBuildWhenTitleHasNoVersion() throws Exception {
+        var json = new ObjectMapper().readTree("""
+                {"name": "InfraDesk Beta (빌드 5)", "html_url": "https://p", "body": "", "assets": []}
+                """);
+        UpdateService.Release r = UpdateService.parse(json, "a", "b");
+        assertEquals("", r.version());
+        assertEquals("베타 빌드 5", r.label());
     }
 
     @Test

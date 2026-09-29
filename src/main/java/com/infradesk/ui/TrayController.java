@@ -120,7 +120,7 @@ public final class TrayController {
     private java.time.LocalTime lastRefreshed;
     private com.infradesk.service.UpdateService.Release update;
 
-    /** Shows (or clears) the "새 베타 빌드 설치" item. Call on the EDT. */
+    /** Shows (or clears) the "새 버전 설치" item. Call on the EDT. */
     public void setUpdate(com.infradesk.service.UpdateService.Release release) {
         this.update = release;
         update(lastInventory, lastCpu, lastRefreshed);
@@ -210,7 +210,7 @@ public final class TrayController {
         menu.add(new Entry.Label("InfraDesk" + (demo ? " (데모)" : "") + " · " + Summary.of(inventory).headline() + updated));
         if (update != null) {
             com.infradesk.service.UpdateService.Release r = update;
-            menu.add(new Entry.Item("새 베타 빌드 " + r.build() + " 설치…", true, () -> actions.openUpdate(r)));
+            menu.add(new Entry.Item(r.label() + " 설치…", true, () -> actions.openUpdate(r)));
         }
         menu.add(new Entry.Separator());
 
