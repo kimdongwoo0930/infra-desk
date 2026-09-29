@@ -30,9 +30,20 @@ public class UpdateService {
      * @param downloadUrl  what a person downloads for this OS (dmg on macOS), or the release page
      * @param updateUrl    the archive the app installs itself from, or null when the release has none
      * @param checksumsUrl {@code SHA256SUMS.txt} of the release, or null when the release has none
+     * @param version      app version from the release title ("1.1.6"), or "" when the title has none
      */
     public record Release(int build, String commit, String pageUrl, String downloadUrl, String updateUrl,
-                          String checksumsUrl) {
+                          String checksumsUrl, String version) {
+
+        public Release(int build, String commit, String pageUrl, String downloadUrl, String updateUrl,
+                       String checksumsUrl) {
+            this(build, commit, pageUrl, downloadUrl, updateUrl, checksumsUrl, "");
+        }
+
+        /** "InfraDesk 1.1.6 Beta" for messages; "베타 빌드 16" when the title carries no version. */
+        public String label() {
+            return version.isEmpty() ? "베타 빌드 " + build : "InfraDesk " + version + " Beta";
+        }
     }
 
     public static final String CHECKSUMS_ASSET = "SHA256SUMS.txt";
@@ -40,6 +51,7 @@ public class UpdateService {
     public static final URI BETA_RELEASE_API =
             URI.create("https://api.github.com/repos/kimdongwoo0930/infra-desk/releases/tags/beta");
     private static final Pattern BUILD = Pattern.compile("빌드 #?(\\d+)");
+    private static final Pattern VERSION = Pattern.compile("(\\d+\\.\\d+\\.\\d+)");
     private static final Pattern COMMIT = Pattern.compile("커밋 \\[`([0-9a-f]{7,40})`]");
     private static final Logger LOG = Logger.getLogger(UpdateService.class.getName());
 
@@ -163,6 +175,8 @@ public class UpdateService {
                 checksums = url;
             }
         }
-        return new Release(Integer.parseInt(b.group(1)), c.find() ? c.group(1) : "", page, download, update, checksums);
+        Matcher v = VERSION.matcher(name);
+        return new Release(Integer.parseInt(b.group(1)), c.find() ? c.group(1) : "", page, download, update, checksums,
+                v.find() ? v.group(1) : "");
     }
 }

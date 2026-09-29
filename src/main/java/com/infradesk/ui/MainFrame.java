@@ -308,7 +308,7 @@ public class MainFrame extends JFrame {
                 : updateInstaller.blocker(release);
         if (blocked.isPresent()) {
             int answer = JOptionPane.showConfirmDialog(isShowing() ? this : null,
-                    "새 베타 빌드 " + release.build() + "는 앱에서 바로 설치할 수 없어요.\n" + blocked.get()
+                    release.label() + " 버전은 앱에서 바로 설치할 수 없어요.\n" + blocked.get()
                             + "\n\n다운로드 페이지를 열까요?",
                     "업데이트", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
             if (answer == JOptionPane.OK_OPTION) {
@@ -317,7 +317,7 @@ public class MainFrame extends JFrame {
             return;
         }
         int answer = JOptionPane.showConfirmDialog(isShowing() ? this : null,
-                "새 베타 빌드 " + release.build() + "를 설치할까요?\n\n"
+                release.label() + " 버전을 설치할까요?\n\n"
                         + "받은 파일을 확인하고 점검한 뒤 앱이 종료되고, 새 버전으로 바뀌어 다시 열려요.\n"
                         + "열려 있는 SSH 터미널은 닫혀요. 설정과 키는 그대로예요.",
                 "업데이트 설치", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
@@ -370,13 +370,13 @@ public class MainFrame extends JFrame {
             tray.ifPresent(t -> t.setUpdate(newer ? release : null));
             if (newer && notifiedUpdateBuild != release.build() && !manual) {
                 notifiedUpdateBuild = release.build();
-                com.infradesk.ui.components.Toast.show(this, "업데이트", "새 베타 빌드 " + release.build() + "가 있어요",
-                        TRAY_NAME + " 아이콘 → 새 베타 빌드 설치, 또는 설정 → 앱 정보 → 업데이트 확인", Theme.ACCENT);
+                com.infradesk.ui.components.Toast.show(this, "업데이트", release.label() + " 버전이 나왔어요",
+                        TRAY_NAME + " 아이콘 → 새 버전 설치, 또는 설정 → 앱 정보 → 업데이트 확인", Theme.ACCENT);
             }
             if (manual && settingsDialog != null) {
-                String message = newer ? "새 베타 빌드 " + release.build() + "가 있어요."
-                        : current.isBeta() ? "최신 빌드예요 (빌드 " + current.buildNumber() + ")."
-                        : "개발 빌드라 비교하지 않아요. 최신 베타는 빌드 " + release.build() + "예요.";
+                String message = newer ? release.label() + " 버전이 나왔어요."
+                        : current.isBeta() ? "최신 버전이에요 (" + current.version() + ")."
+                        : "개발 빌드라 비교하지 않아요. 최신 베타는 " + release.label() + "예요.";
                 settingsDialog.showUpdateResult(message, newer);
                 if (newer) {
                     offerUpdate(release);
