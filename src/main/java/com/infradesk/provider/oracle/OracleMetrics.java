@@ -39,11 +39,28 @@ final class OracleMetrics {
 
     /** Last hour of CPU, memory and network for one instance. Four queries. */
     Metrics forInstance(String instanceId) {
+        return forInstance(instanceId, WINDOW);
+    }
+
+    /** CPU, memory and network over {@code range}, at {@link #intervalFor(Duration)}. Four queries. */
+    Metrics forInstance(String instanceId, Duration range) {
+        String interval = intervalFor(range);
         return new Metrics(
-                series(query("CpuUtilization", instanceId, "mean")),
-                series(query("MemoryUtilization", instanceId, "mean")),
-                series(query("NetworksBytesIn", instanceId, "rate")),
-                series(query("NetworksBytesOut", instanceId, "rate")));
+                series(query("CpuUtilization", instanceId, "mean", range, interval)),
+                series(query("MemoryUtilization", instanceId, "mean", range, interval)),
+                series(query("NetworksBytesIn", instanceId, "rate", range, interval)),
+                series(query("NetworksBytesOut", instanceId, "rate", range, interval)));
+    }
+
+    /** Coarser points for longer ranges keep every chart to a few hundred points. */
+    static String intervalFor(Duration range) {
+        if (range.compareTo(Duration.ofHours(6)) <= 0) {
+            return "1m";
+        }
+        if (range.compareTo(Duration.ofHours(24)) <= 0) {
+            return "5m";
+        }
+        return "15m";
     }
 
     /** Latest CPU per instance in the compartment, one grouped query. */
@@ -66,21 +83,29 @@ final class OracleMetrics {
 
     /** MQL for one metric of one instance, e.g. {@code CpuUtilization[1m]{resourceId = "…"}.mean()}. */
     static String mql(String metric, String instanceId, String statistic) {
-        return metric + "[1m]{resourceId = \"" + instanceId.replace("\"", "") + "\"}." + statistic + "()";
+        return mql(metric, instanceId, statistic, "1m");
     }
 
-    private List<MetricData> query(String metric, String instanceId, String statistic) {
+    static String mql(String metric, String instanceId, String statistic, String interval) {
+        return metric + "[" + interval + "]{resourceId = \"" + instanceId.replace("\"", "") + "\"}." + statistic + "()";
+    }
+
+    private List<MetricData> query(String metric, String instanceId, String statistic, Duration range, String interval) {
         Instant end = clock.instant();
-        return summarize(mql(metric, instanceId, statistic), end.minus(WINDOW), end);
+        return summarize(mql(metric, instanceId, statistic, interval), end.minus(range), end, interval);
     }
 
     private List<MetricData> summarize(String mql, Instant start, Instant end) {
+        return summarize(mql, start, end, "1m");
+    }
+
+    private List<MetricData> summarize(String mql, Instant start, Instant end, String resolution) {
         SummarizeMetricsDataDetails details = SummarizeMetricsDataDetails.builder()
                 .namespace(NAMESPACE)
                 .query(mql)
                 .startTime(Date.from(start))
                 .endTime(Date.from(end))
-                .resolution("1m")
+                .resolution(resolution)
                 .build();
         return client.summarizeMetricsData(SummarizeMetricsDataRequest.builder()
                 .compartmentId(compartmentId)

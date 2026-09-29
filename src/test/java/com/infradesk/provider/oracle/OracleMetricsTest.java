@@ -19,6 +19,16 @@ class OracleMetricsTest {
     }
 
     @Test
+    void longerRangesUseCoarserIntervals() {
+        assertEquals("1m", OracleMetrics.intervalFor(java.time.Duration.ofHours(1)));
+        assertEquals("1m", OracleMetrics.intervalFor(java.time.Duration.ofHours(6)));
+        assertEquals("5m", OracleMetrics.intervalFor(java.time.Duration.ofHours(24)));
+        assertEquals("15m", OracleMetrics.intervalFor(java.time.Duration.ofDays(7)));
+        assertEquals("CpuUtilization[5m]{resourceId = \"x\"}.mean()",
+                OracleMetrics.mql("CpuUtilization", "x", "mean", "5m"));
+    }
+
+    @Test
     void quotesInIdsCannotBreakTheQuery() {
         assertEquals("CpuUtilization[1m]{resourceId = \"abc\"}.mean()",
                 OracleMetrics.mql("CpuUtilization", "a\"b\"c", "mean"));

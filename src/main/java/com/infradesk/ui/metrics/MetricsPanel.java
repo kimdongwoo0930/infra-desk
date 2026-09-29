@@ -6,7 +6,6 @@ import com.infradesk.ssh.ProcStats;
 import com.infradesk.ui.Theme;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
@@ -25,16 +24,11 @@ public class MetricsPanel extends JPanel {
 
     /** Keep five minutes of live samples. */
     private static final int LIVE_CAPACITY = 5 * 60 / ProcStats.INTERVAL_SECONDS;
-    private static final Color NET_IN = Theme.ACCENT;
-    private static final Color NET_OUT = new Color(0xD95926);
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
 
-    private final MetricCard cpu = new MetricCard("CPU", List.of(new MetricCard.Series("CPU", Theme.ACCENT)),
-            Formats::percent, 100.0);
-    private final MetricCard memory = new MetricCard("메모리", List.of(new MetricCard.Series("메모리", Theme.ACCENT)),
-            Formats::percent, 100.0);
-    private final MetricCard network = new MetricCard("네트워크",
-            List.of(new MetricCard.Series("수신", NET_IN), new MetricCard.Series("송신", NET_OUT)), Formats::rate, null);
+    private final MetricCard cpu = MetricCard.of(MetricKind.CPU);
+    private final MetricCard memory = MetricCard.of(MetricKind.MEMORY);
+    private final MetricCard network = MetricCard.of(MetricKind.NETWORK);
     private final JLabel status = new JLabel(" ");
     private final JToggleButton live = new JToggleButton("실시간 (SSH)");
     private final List<ProcStats.Sample> liveSamples = new ArrayList<>();
@@ -78,6 +72,13 @@ public class MetricsPanel extends JPanel {
 
         add(header, BorderLayout.NORTH);
         add(cards, BorderLayout.CENTER);
+    }
+
+    /** A card was clicked: the user wants a bigger, zoomable chart of that metric. */
+    public void onExpand(Consumer<MetricKind> listener) {
+        cpu.onClick(() -> listener.accept(MetricKind.CPU));
+        memory.onClick(() -> listener.accept(MetricKind.MEMORY));
+        network.onClick(() -> listener.accept(MetricKind.NETWORK));
     }
 
     public void onLiveToggle(Consumer<Boolean> listener) {

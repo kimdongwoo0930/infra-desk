@@ -22,4 +22,15 @@ class DemoMetricsTest {
         assertTrue(a.networkInBps().stream().allMatch(s -> s.value() >= 0));
         assertEquals(Instant.parse("2026-09-28T12:34:00Z"), a.cpuPercent().getLast().time());
     }
+
+    @Test
+    void longerRangesUseCoarserSteps() {
+        Instant now = Instant.parse("2026-09-28T12:34:56Z");
+        assertEquals(360, DemoMetrics.forServer("srv", now, java.time.Duration.ofHours(6)).cpuPercent().size());
+        Metrics day = DemoMetrics.forServer("srv", now, java.time.Duration.ofHours(24));
+        assertEquals(288, day.cpuPercent().size());
+        assertEquals(java.time.Duration.ofMinutes(5), java.time.Duration.between(
+                day.cpuPercent().get(0).time(), day.cpuPercent().get(1).time()));
+        assertEquals(672, DemoMetrics.forServer("srv", now, java.time.Duration.ofDays(7)).cpuPercent().size());
+    }
 }

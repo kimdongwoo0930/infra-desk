@@ -257,8 +257,85 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
+        // Zoomable metric chart: 24h network, then zoomed in with the hover tooltip.
+        var chartServer = inventory.getFirst().servers().getFirst();
+        var chartAccount = inventory.getFirst().account();
+        var chartDialog = new com.infradesk.ui.metrics.MetricChartDialog(terminalFrame[0], chartServer.name(),
+                com.infradesk.ui.metrics.MetricKind.NETWORK, true, range -> service.metrics(chartAccount, chartServer.id(), range));
+        SwingUtilities.invokeAndWait(chartDialog::startLoading);
+        Thread.sleep(1500);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart.png");
+                var panel = find(chartDialog.getContentPane(), "ZoomChartPanel");
+                for (int i = 0; i < 3; i++) {
+                    var e = new java.awt.event.MouseWheelEvent(panel, java.awt.event.MouseEvent.MOUSE_WHEEL,
+                            System.currentTimeMillis(), 0, 600, 200, 600, 200, 0, false,
+                            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL, 1, -3, -3.0);
+                    for (var l : panel.getMouseWheelListeners()) {
+                        l.mouseWheelMoved(e);
+                    }
+                }
+                var move = new java.awt.event.MouseEvent(panel, java.awt.event.MouseEvent.MOUSE_MOVED,
+                        System.currentTimeMillis(), 0, 500, 200, 0, false);
+                for (var l : panel.getMouseMotionListeners()) {
+                    l.mouseMoved(move);
+                }
+                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart-zoomed.png");
+                ((javax.swing.AbstractButton) findText(chartDialog.getContentPane(), "24시간")).doClick();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        Thread.sleep(1500);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart-24h.png");
+                ((javax.swing.AbstractButton) findText(chartDialog.getContentPane(), "7일")).doClick();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        Thread.sleep(1500);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart-7d.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
         System.out.println("Snapshots written to " + DIR.getAbsolutePath());
         System.exit(0);
+    }
+
+    private static java.awt.Component findText(Container root, String text) {
+        for (java.awt.Component c : root.getComponents()) {
+            if (c instanceof javax.swing.AbstractButton b && text.equals(b.getText())) {
+                return c;
+            }
+            if (c instanceof Container inner) {
+                var found = findText(inner, text);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static java.awt.Component find(Container root, String className) {
+        for (java.awt.Component c : root.getComponents()) {
+            if (c.getClass().getSimpleName().equals(className)) {
+                return c;
+            }
+            if (c instanceof Container inner) {
+                var found = find(inner, className);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     private static void write(Window window, Container pane, int width, int height, String name) throws IOException {

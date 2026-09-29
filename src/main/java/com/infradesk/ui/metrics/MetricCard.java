@@ -56,6 +56,10 @@ public class MetricCard extends RoundedPanel {
     private final CardLayout plotCards = new CardLayout();
     private final JPanel plot = new JPanel(plotCards);
 
+    public static MetricCard of(MetricKind kind) {
+        return new MetricCard(kind.title(), kind.series(), kind.format(), kind.yMax());
+    }
+
     /**
      * @param yMax fixed top of the y range (e.g. 100 for percentages), or null to fit the data
      */
@@ -72,7 +76,14 @@ public class MetricCard extends RoundedPanel {
         value.setForeground(Theme.TEXT);
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
-        header.add(titleLabel, BorderLayout.WEST);
+        JLabel expandHint = new JLabel("⤢");
+        expandHint.setForeground(Theme.TEXT_MUTED);
+        expandHint.setToolTipText("클릭하면 크게 보고 확대·축소할 수 있어요");
+        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        titleRow.setOpaque(false);
+        titleRow.add(titleLabel);
+        titleRow.add(expandHint);
+        header.add(titleRow, BorderLayout.WEST);
         header.add(value, BorderLayout.EAST);
 
         chart = new XYChartBuilder().width(300).height(56).build();
@@ -197,6 +208,22 @@ public class MetricCard extends RoundedPanel {
             legend.get(i).setText(series.get(i).name());
         }
         plotCards.show(plot, "empty");
+    }
+
+    /** Makes the card (chart and header) open the expanded chart when clicked. */
+    public void onClick(Runnable action) {
+        java.awt.event.MouseAdapter click = new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getButton() == java.awt.event.MouseEvent.BUTTON1) {
+                    action.run();
+                }
+            }
+        };
+        setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        addMouseListener(click);
+        chartPanel.addMouseListener(click);
+        chartPanel.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
     }
 
     @Override

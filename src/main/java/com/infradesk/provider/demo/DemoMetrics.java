@@ -14,12 +14,19 @@ import java.util.List;
  */
 final class DemoMetrics {
 
-    private static final int POINTS = 60;
+    private static final Duration HOUR = Duration.ofHours(1);
 
     private DemoMetrics() {
     }
 
     static Metrics forServer(String serverId, Instant now) {
+        return forServer(serverId, now, HOUR);
+    }
+
+    /** Longer ranges use coarser steps, like the real provider: 1m up to 6h, 5m up to 24h, else 15m. */
+    static Metrics forServer(String serverId, Instant now, Duration range) {
+        long stepMinutes = range.compareTo(Duration.ofHours(6)) <= 0 ? 1 : range.compareTo(Duration.ofHours(24)) <= 0 ? 5 : 15;
+        int points = (int) Math.max(2, range.toMinutes() / stepMinutes);
         int seed = serverId.hashCode();
         double cpuBase = 12 + Math.floorMod(seed, 30);
         double memBase = 35 + Math.floorMod(seed >> 3, 30);
@@ -30,8 +37,8 @@ final class DemoMetrics {
         List<Metrics.Sample> mem = new ArrayList<>();
         List<Metrics.Sample> in = new ArrayList<>();
         List<Metrics.Sample> out = new ArrayList<>();
-        for (int i = POINTS - 1; i >= 0; i--) {
-            Instant t = end.minus(Duration.ofMinutes(i));
+        for (int i = points - 1; i >= 0; i--) {
+            Instant t = end.minus(Duration.ofMinutes(i * stepMinutes));
             long minute = t.getEpochSecond() / 60;
             double n = noise(seed, minute);
             cpu.add(new Metrics.Sample(t, clamp(cpuBase + 9 * Math.sin(minute / 7.0 + seed) + 6 * n)));

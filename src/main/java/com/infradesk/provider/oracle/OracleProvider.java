@@ -156,6 +156,15 @@ public class OracleProvider implements CloudProvider {
     }
 
     @Override
+    public Metrics getMetrics(String serverId, java.time.Duration range) {
+        try {
+            return metrics.forInstance(serverId, range);
+        } catch (RuntimeException e) {
+            throw OracleMapper.error("메트릭 조회", e);
+        }
+    }
+
+    @Override
     public Map<String, Double> currentCpu(List<Server> servers) {
         try {
             return metrics.latestCpu(servers.stream().map(Server::id).toList());

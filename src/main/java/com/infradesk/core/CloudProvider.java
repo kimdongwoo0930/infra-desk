@@ -1,5 +1,6 @@
 package com.infradesk.core;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,14 @@ public interface CloudProvider extends AutoCloseable {
 
     /** Returns recent utilization at one-minute resolution, roughly the last hour. */
     Metrics getMetrics(String serverId);
+
+    /**
+     * Utilization over the last {@code range}. Providers that keep longer history override this
+     * and pick a resolution that fits the range; the default ignores the range.
+     */
+    default Metrics getMetrics(String serverId, Duration range) {
+        return getMetrics(serverId);
+    }
 
     /**
      * Latest CPU utilization (0–100) per server id, for the sidebar. Servers without data are

@@ -1,16 +1,11 @@
 package com.infradesk.ui.metrics;
 
 import com.infradesk.core.Metrics;
-import com.infradesk.ui.Theme;
 import org.knowm.xchart.XChartPanel;
 import org.knowm.xchart.XYChart;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
-import java.awt.FontMetrics;
 import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.time.Instant;
@@ -95,48 +90,7 @@ final class HoverChartPanel extends XChartPanel<XYChart> {
         }
         int lineX = INSET + (int) Math.round((at.toEpochMilli() - t0) / (double) Math.max(1, t1 - t0) * plotWidth);
 
-        Graphics2D g2 = (Graphics2D) g.create();
-        try {
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            g2.setColor(Theme.TEXT_MUTED);
-            g2.setStroke(new BasicStroke(1f));
-            g2.drawLine(lineX, 0, lineX, getHeight());
-
-            g2.setFont(getFont().deriveFont(11f));
-            FontMetrics fm = g2.getFontMetrics();
-            String header = timeFormat.format(at);
-            int swatch = 10;
-            int width = fm.stringWidth(header);
-            for (String l : lines) {
-                width = Math.max(width, swatch + 5 + fm.stringWidth(l));
-            }
-            int pad = 6;
-            int lineH = fm.getHeight();
-            int boxW = width + pad * 2;
-            int boxH = lineH * (lines.size() + 1) + pad;
-            int boxX = lineX + 8 + boxW <= getWidth() ? lineX + 8 : lineX - 8 - boxW;
-            boxX = Math.max(0, Math.min(boxX, getWidth() - boxW));
-            int boxY = 0;
-
-            g2.setColor(Theme.APP_BG);
-            g2.fillRoundRect(boxX, boxY, boxW, boxH, 8, 8);
-            g2.setColor(Theme.INPUT_BORDER);
-            g2.drawRoundRect(boxX, boxY, boxW - 1, boxH - 1, 8, 8);
-
-            int y = boxY + pad / 2 + fm.getAscent();
-            g2.setColor(Theme.TEXT_MUTED);
-            g2.drawString(header, boxX + pad, y);
-            for (int i = 0; i < lines.size(); i++) {
-                y += lineH;
-                g2.setColor(colors.get(i));
-                g2.fillRoundRect(boxX + pad, y - fm.getAscent() / 2 - 1, swatch, 3, 3, 3);
-                g2.setColor(Theme.TEXT);
-                g2.drawString(lines.get(i), boxX + pad + swatch + 5, y);
-            }
-        } finally {
-            g2.dispose();
-        }
+        ChartTooltip.draw(g, getFont(), getWidth(), lineX, 0, getHeight(), 0, timeFormat.format(at), lines, colors);
     }
 
     private static Metrics.Sample nearest(List<Metrics.Sample> samples, long target) {

@@ -41,7 +41,7 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 
 | 타입 | 역할 |
 |---|---|
-| `core.CloudProvider` | `listServers`, `start`, `stop`, `reboot`, `getMetrics`(최근 1시간, 1분 단위), `currentCpu`(사이드바용), `close`. 계정 1개당 1개. 모든 메서드는 블로킹 |
+| `core.CloudProvider` | `listServers`, `start`, `stop`, `reboot`, `getMetrics`(최근 1시간, 1분 단위), `getMetrics(id, range)`(기간별 조회, 기본 구현은 range를 무시), `currentCpu`(사이드바용), `close`. 계정 1개당 1개. 모든 메서드는 블로킹 |
 | `core.CloudProviderFactory` | `create(Account, secrets)`, `regions()` |
 | `core.Account` | id, 표시 이름, `ProviderType`, 리전, `properties`(비밀 아닌 설정). 비밀값 없음 |
 | `core.Server` / `ServerStatus` / `Metrics` | 공통 모델. 상태는 정규화된 enum |
@@ -128,6 +128,8 @@ ui/ ─────► service/ ─────► core/ ◄───── prov
 
 ```
 서버 선택 → Async: service.metrics(account, id) → MetricsPanel.showHistory (1시간, 1분 점)
+카드 클릭 → MetricChartDialog → Async: service.metrics(account, id, range) → ZoomChartPanel
+             (OCI 간격: 6시간 이하 1분, 24시간 이하 5분, 그 이상 15분. 직접 연결 서버는 기간 선택 없이 수집분만)
 1분 타이머 → 선택 서버 메트릭 + service.currentCpu(inventory) → 사이드바 CPU%
 [실시간 (SSH)] → LiveController → TerminalService.openStats (exec: ProcStats.COMMAND, 최대 310회)
              → LiveStats: '---' 블록마다 파싱 → 이전 스냅샷과 차이 → MetricsPanel.addLive (최근 5분)
@@ -165,6 +167,11 @@ MainFrame.setInventory → AlertService.onInventory → AlertMonitor (상태 변
 | `containers.ContainerLogsDialog` | 컨테이너 로그 창 |
 | `metrics.LiveController` | 실시간 모드 상태(OFF/CONNECTING/RUNNING/PAUSED), 일시정지·재개, 10분 자동 꺼짐 |
 | `metrics.MetricCard` | 스탯 타일: 현재값 + XChart 스파크라인 + 범례/설명 |
+| `metrics.MetricKind` | CPU/메모리/네트워크 정의(제목, 시리즈 색, 포맷, y 최댓값, `Metrics`에서 꺼내는 법). 카드와 확대 창이 같이 씀 |
+| `metrics.MetricChartDialog` | 카드를 클릭하면 열리는 확대 차트 창. 기간 버튼(1시간/6시간/24시간/7일), 1분마다 재조회, 끝까지 축소하면 다음 기간으로 |
+| `metrics.ZoomChartPanel` | 축이 있는 XChart 패널. 휠 확대·축소(커서 위치 기준), 드래그 이동, 더블클릭 초기화, 호버 툴팁 |
+| `metrics.ZoomWindow` | 보이는 시간 창 계산(확대/축소/이동/범위 제한). UI 없는 순수 로직이라 단위 테스트 있음 |
+| `metrics.ChartTooltip` | 세로선 + 시간·값 툴팁 그리기(스파크라인과 확대 차트가 공유) |
 | `metrics.HoverChartPanel` | 스파크라인 위 마우스 커서: 세로선 + 가장 가까운 시점의 시리즈별 값 툴팁 |
 | `terminal.TerminalView` | 세션 탭 모음, 새 세션 메뉴 |
 | `terminal.TerminalPanel` | 탭 하나: 연결, JediTerm 위젯, 상태바, 실패 안내 |

@@ -214,6 +214,7 @@ public class MainFrame extends JFrame {
         metricsTimer = new Timer(60_000, e -> metricsTick());
         metricsTimer.start();
         detail.metrics().onLiveToggle(this::toggleLive);
+        detail.metrics().onExpand(this::openMetricChart);
     }
 
     /** Menu-bar icon; with it, closing the window hides to the menu bar instead of quitting. */
@@ -484,6 +485,26 @@ public class MainFrame extends JFrame {
                 showDirectHistory(server.id());
             }
         }, err -> sampling.remove(server.id()));
+    }
+
+    /** A metric card was clicked: open the big zoomable chart for the selected server. */
+    private void openMetricChart(com.infradesk.ui.metrics.MetricKind kind) {
+        findServer(selectedServerId).ifPresent(server -> {
+            String id = server.id();
+            java.util.function.Function<java.time.Duration, com.infradesk.core.Metrics> loader;
+            boolean ranges = !isDirect(server);
+            if (ranges) {
+                Optional<Account> account = accountOf(server);
+                if (account.isEmpty()) {
+                    return;
+                }
+                Account a = account.get();
+                loader = range -> service.metrics(a, id, range);
+            } else {
+                loader = range -> sshMetrics.metrics(id);
+            }
+            new com.infradesk.ui.metrics.MetricChartDialog(this, server.name(), kind, ranges, loader).open();
+        });
     }
 
     private boolean isDirect(Server server) {

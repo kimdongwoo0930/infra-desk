@@ -98,6 +98,11 @@ public class InventoryService {
         return provider(account).getMetrics(serverId);
     }
 
+    /** Metrics for one server over the given range (the provider picks the resolution). */
+    public com.infradesk.core.Metrics metrics(Account account, String serverId, java.time.Duration range) {
+        return provider(account).getMetrics(serverId, range);
+    }
+
     /**
      * Latest CPU per server across all loaded accounts, fetched in parallel. Accounts that fail
      * are skipped (the sidebar just shows no percentage for them).
