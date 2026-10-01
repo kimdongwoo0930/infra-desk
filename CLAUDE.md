@@ -20,12 +20,17 @@
 
 ## 패키지 구조
 ```
-ui/               화면 (Swing). core 타입만 사용한다
+ui/               화면 (Swing). service, core 타입만 사용한다
+service/          화면이 쓰는 기능: 조회, 제어, 터미널, 업데이트
 core/             공통 모델과 인터페이스: Server, ServerStatus, Metrics, Account, CloudProvider
 provider/oracle/  OracleProvider (OCI SDK 사용은 이 패키지 안에서만)
+provider/ssh/     SSH 직접 연결 provider / provider/demo/ 데모용 가짜 provider
 ssh/              SSH 연결, 세션 관리, 명령 실행
 storage/          계정·서버 설정 저장, 암호화
+alert/            디스코드 알림
+app/              진입점, 구성 요소 조립
 ```
+계층 관계와 흐름은 `docs/ARCHITECTURE.md`를 따른다.
 
 ## 설계 원칙 (반드시 지킬 것)
 1. **클라우드 추상화**: UI와 서비스 코드는 `CloudProvider` 인터페이스만 호출한다.
