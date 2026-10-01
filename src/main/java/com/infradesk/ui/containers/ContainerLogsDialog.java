@@ -21,7 +21,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
-/** Recent log lines of one container. Non-modal; several can be open side by side. */
+/** 컨테이너 하나의 최근 로그 줄. 모달이 아니며 여러 개를 나란히 열 수 있다. */
 public class ContainerLogsDialog extends JDialog {
 
     private final ContainerService service;

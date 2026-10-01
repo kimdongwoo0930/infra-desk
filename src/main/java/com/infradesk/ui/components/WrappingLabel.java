@@ -8,16 +8,16 @@ import javax.swing.JTextArea;
 import javax.swing.UIManager;
 
 /**
- * Read-only text that wraps at spaces to a fixed width. Used for status and hint text in dialogs;
- * an HTML {@code width} on a JLabel came out wider than asked on macOS and got clipped, and
- * JTextArea's own word wrap breaks inside Korean words ("서/버"). Breaks are computed here, only at
- * spaces, falling back to a character break for a single token longer than the line.
+ * 고정 너비에서 공백 기준으로 줄바꿈하는 읽기 전용 텍스트. 다이얼로그의 상태와 안내 문구에 쓴다.
+ * JLabel에 HTML {@code width}를 주면 macOS에서 요청보다 넓게 나와 잘렸고, JTextArea 자체의
+ * 줄바꿈은 한글 단어 안에서 끊어진다("서/버"). 그래서 여기서 줄바꿈 위치를 계산하며, 공백에서만
+ * 끊고 한 토큰이 한 줄보다 길면 글자 단위로 끊는다.
  */
 public class WrappingLabel extends JTextArea {
 
     private final int wrapWidth;
 
-    /** @param sizeDelta font size relative to the default label font, e.g. -1 */
+    /** @param sizeDelta 기본 라벨 글꼴 대비 글꼴 크기. 예: -1 */
     public WrappingLabel(String text, int wrapWidth, float sizeDelta, Color color) {
         this.wrapWidth = wrapWidth;
         setLineWrap(false);
@@ -39,7 +39,7 @@ public class WrappingLabel extends JTextArea {
         revalidate();
     }
 
-    /** Greedy wrap at spaces; a token wider than the line is split by characters. */
+    /** 공백에서 탐욕적으로 줄바꿈한다. 한 줄보다 넓은 토큰은 글자 단위로 쪼갠다. */
     static String wrap(String text, java.awt.FontMetrics fm, int width) {
         StringBuilder out = new StringBuilder();
         for (String paragraph : text.split("\n", -1)) {

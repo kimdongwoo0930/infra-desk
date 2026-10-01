@@ -3,7 +3,7 @@ package com.infradesk.ui.metrics;
 import java.time.Duration;
 
 /**
- * State of the live (SSH) mode, separate from Swing so it can be tested.
+ * 실시간(SSH) 모드의 상태. 테스트할 수 있도록 Swing과 분리되어 있다.
  *
  * <pre>
  * OFF ──toggle on──► CONNECTING ──opened──► RUNNING ──(10 min)──► OFF
@@ -13,22 +13,22 @@ import java.time.Duration;
  *                       PAUSED ◄───────────────┘
  * </pre>
  *
- * Paused keeps the user's choice: the connection is closed while the dashboard is hidden or the
- * window is minimized, and reopened when it's visible again.
+ * 일시 중지는 사용자의 선택을 유지한다: 대시보드가 가려지거나 창이 최소화되어 있는 동안에는
+ * 연결을 닫고, 다시 보이면 다시 연다.
  */
 public final class LiveController {
 
-    /** How long live mode stays on before turning itself off. */
+    /** 실시간 모드가 스스로 꺼지기 전까지 켜져 있는 시간. */
     public static final Duration AUTO_OFF = Duration.ofMinutes(10);
 
     public enum State { OFF, CONNECTING, RUNNING, PAUSED }
 
-    /** Side effects, implemented by the UI. */
+    /** UI가 구현하는 부수 효과. */
     public interface Hooks {
-        /** Start connecting; report back with {@link #opened()} or {@link #failed(String)}. */
+        /** 연결을 시작한다. {@link #opened()} 또는 {@link #failed(String)}로 결과를 알린다. */
         void open();
 
-        /** Close the current connection, if any. */
+        /** 현재 연결이 있으면 닫는다. */
         void close();
 
         void showToggle(boolean on);
@@ -36,7 +36,7 @@ public final class LiveController {
         void showStatus(String text, boolean error);
     }
 
-    /** One-shot timer, so tests can fire it by hand. */
+    /** 한 번만 울리는 타이머. 테스트가 직접 울릴 수 있다. */
     public interface Timeout {
         void start(Duration delay, Runnable onExpire);
 
@@ -56,7 +56,7 @@ public final class LiveController {
         return state;
     }
 
-    /** The user flipped the toggle. */
+    /** 사용자가 토글을 켜거나 껐다. */
     public void userToggle(boolean on) {
         if (on && state == State.OFF) {
             connect();
@@ -65,7 +65,7 @@ public final class LiveController {
         }
     }
 
-    /** The connection is up. Returns false if it's no longer wanted; the caller then closes it. */
+    /** 연결이 되었다. 더 이상 필요하지 않으면 false를 돌려주며, 그러면 호출한 쪽이 연결을 닫는다. */
     public boolean opened() {
         if (state != State.CONNECTING) {
             return false;
@@ -75,14 +75,14 @@ public final class LiveController {
         return true;
     }
 
-    /** Connecting failed or the stream ended by itself. */
+    /** 연결에 실패했거나 스트림이 스스로 끝났다. */
     public void failed(String reason) {
         if (state == State.CONNECTING || state == State.RUNNING) {
             turnOff(reason);
         }
     }
 
-    /** The dashboard was hidden or the window minimized. */
+    /** 대시보드가 가려졌거나 창이 최소화되었다. */
     public void pause() {
         if (state == State.CONNECTING || state == State.RUNNING) {
             timeout.cancel();
@@ -92,14 +92,14 @@ public final class LiveController {
         }
     }
 
-    /** The dashboard is visible again. */
+    /** 대시보드가 다시 보인다. */
     public void resume() {
         if (state == State.PAUSED) {
             connect();
         }
     }
 
-    /** Turns off quietly, e.g. when another server is selected or this one stopped. */
+    /** 조용히 끈다. 예: 다른 서버를 선택했거나 이 서버가 정지했을 때. */
     public void stop() {
         if (state != State.OFF) {
             turnOff(null);

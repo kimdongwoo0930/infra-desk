@@ -15,8 +15,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /**
- * 40px top bar. The window uses full-window-content mode, so this bar doubles as the native title
- * bar and reserves space for the macOS traffic lights / Windows caption buttons.
+ * 높이 40px의 상단 바. 창이 전체 창 콘텐츠 모드를 쓰므로 이 바가 기본 제목 표시줄 역할을 겸하며,
+ * macOS 신호등 버튼 / Windows 캡션 버튼이 차지할 공간을 비워 둔다.
  */
 public class TitleBar extends JPanel {
 
@@ -93,7 +93,7 @@ public class TitleBar extends JPanel {
         return backButton;
     }
 
-    /** Switches between the dashboard header and the "← 대시보드 / SSH 터미널" breadcrumb. */
+    /** 대시보드 헤더와 "← 대시보드 / SSH 터미널" 이동 경로 표시를 전환한다. */
     public void setTerminalMode(boolean terminal) {
         dashboardLeft.setVisible(!terminal);
         terminalLeft.setVisible(terminal);
@@ -133,7 +133,7 @@ public class TitleBar extends JPanel {
         return p;
     }
 
-    /** Empty panel FlatLaf sizes to the window buttons on the given platform. */
+    /** FlatLaf가 해당 플랫폼의 창 버튼 크기에 맞추는 빈 패널. */
     private static JPanel placeholder(String options) {
         JPanel p = new JPanel();
         p.setOpaque(false);

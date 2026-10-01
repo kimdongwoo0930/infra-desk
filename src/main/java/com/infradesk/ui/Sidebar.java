@@ -29,7 +29,7 @@ import javax.swing.SwingConstants;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
-/** 260px left column: server search, account groups, and the add-account / settings footer. */
+/** 너비 260px의 왼쪽 열: 서버 검색, 계정 그룹, 계정 추가 / 설정 하단. */
 public class Sidebar extends JPanel {
 
     private final JTextField search = new JTextField();
@@ -112,12 +112,12 @@ public class Sidebar extends JPanel {
         rebuild();
     }
 
-    /** Cloud account (Oracle Cloud). */
+    /** 클라우드 계정(Oracle Cloud). */
     public void onAddAccount(Runnable action) {
         this.onAddCloud = action;
     }
 
-    /** A machine reached directly over SSH. */
+    /** SSH로 직접 닿는 기기. */
     public void onAddSshServer(Runnable action) {
         this.onAddSsh = action;
     }
@@ -165,7 +165,7 @@ public class Sidebar extends JPanel {
         rebuild();
     }
 
-    /** Latest CPU per server id, shown next to running servers. */
+    /** 서버 id별 최신 CPU. 실행 중인 서버 옆에 표시한다. */
     public void setCpu(java.util.Map<String, Double> cpu) {
         this.cpu = java.util.Map.copyOf(cpu);
         rebuild();

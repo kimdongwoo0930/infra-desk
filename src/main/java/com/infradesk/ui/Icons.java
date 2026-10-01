@@ -4,7 +4,7 @@ import com.formdev.flatlaf.extras.FlatSVGIcon;
 
 import java.awt.Color;
 
-/** Outline SVG icons from src/main/resources/com/infradesk/ui/icons, recolorable per use. */
+/** src/main/resources/com/infradesk/ui/icons의 윤곽선 SVG 아이콘. 사용할 때마다 색을 바꿀 수 있다. */
 public final class Icons {
 
     private Icons() {

@@ -23,7 +23,7 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-/** Right-hand content for the selected server: header, actions, and the 4×2 info grid. */
+/** 선택한 서버의 오른쪽 콘텐츠: 헤더, 동작 버튼, 4×2 정보 그리드. */
 public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault());
@@ -87,7 +87,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         return containers;
     }
 
-    // Scrollable: fill the viewport width, scroll vertically when the containers table is long.
+    // 스크롤 가능: 뷰포트 너비를 채우고, 컨테이너 표가 길면 세로로 스크롤한다.
     @Override
     public java.awt.Dimension getPreferredScrollableViewportSize() {
         return getPreferredSize();
@@ -121,7 +121,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         this.onAction = listener;
     }
 
-    /** Disables the power buttons while a request is in flight and shows a short message. */
+    /** 요청이 진행 중인 동안 전원 버튼을 비활성화하고 짧은 메시지를 보여준다. */
     public void setBusy(boolean busy, String message) {
         this.busy = busy;
         actionStatus.setText(message == null || message.isEmpty() ? " " : message);
@@ -154,7 +154,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         }
     }
 
-    /** False for directly connected machines, which the app can't power on or off. */
+    /** 앱이 전원을 켜거나 끌 수 없는 직접 연결 기기는 false. */
     private boolean powerControl = true;
 
     public void show(Server server, Account account) {
@@ -201,10 +201,10 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private boolean cloud = true;
     private JLabel cpuMemLabel;
 
-    /** Fills uptime, OS, boot volume and ports from an SSH read. */
+    /** SSH로 읽은 정보로 업타임, OS, 부팅 볼륨, 포트를 채운다. */
     public void setFacts(com.infradesk.ssh.HostFacts f) {
         if (!cloud && f.cpuCount() > 0) {
-            // No cloud shape for a directly connected machine: the server reports its own size.
+            // 직접 연결 기기에는 클라우드 사양이 없다: 서버가 자신의 크기를 알려준다.
             cpuMem.setText(f.cpuCount() + "코어 · " + trim(f.memoryKb() / 1024.0 / 1024.0) + " GB");
         }
         uptime.setText(f.uptime() == null ? NONE : formatUptime(f.uptime()));
@@ -223,7 +223,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         }
     }
 
-    /** Shows the same short text (e.g. "SSH 설정 후 표시") in the four SSH-only cells. */
+    /** SSH 전용 칸 네 개에 같은 짧은 텍스트(예: "SSH 설정 후 표시")를 보여준다. */
     public void setFactsMessage(String message) {
         for (JLabel l : new JLabel[] {uptime, os, bootVolume, ports}) {
             l.setText(message);
@@ -308,7 +308,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
                 g2.dispose();
             }
 
-            /** Clip the opaque cells so the outer corners stay rounded. */
+            /** 불투명한 칸을 잘라내서 바깥쪽 모서리가 둥글게 유지되게 한다. */
             @Override
             protected void paintChildren(java.awt.Graphics g) {
                 var g2 = (java.awt.Graphics2D) g.create();
@@ -335,7 +335,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         return grid;
     }
 
-    /** Public IP cell: masked value, reveal toggle and copy (copies the real address). */
+    /** 공인 IP 칸: 가려진 값, 보기 토글, 복사(실제 주소를 복사한다). */
     private JPanel ipCell() {
         JPanel cell = cell("공인 IP", publicIp);
         ipLabel = (JLabel) cell.getComponent(0);
@@ -367,7 +367,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         return cell;
     }
 
-    /** "공인 IP" for cloud servers, "주소" (host name or IP) for directly connected ones. */
+    /** 클라우드 서버는 "공인 IP", 직접 연결 서버는 "주소"(호스트 이름 또는 IP). */
     private JLabel ipLabel;
 
     private void renderPublicIp() {

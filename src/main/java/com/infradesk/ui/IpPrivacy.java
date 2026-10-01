@@ -6,11 +6,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Hides public IPv4 addresses on screen (for screenshots and screen sharing) until the user
- * reveals them. App-wide, starts hidden on every launch. Private addresses (10/8, 172.16/12,
- * 192.168/16, 127/8, 100.64/10) are shown as-is since they're not reachable from outside, except
- * the addresses of directly connected servers ({@link #protect}): those are the user's own
- * machines, so their host name or IP is hidden whatever it is.
+ * 사용자가 보이게 하기 전까지 화면의 공인 IPv4 주소를 숨긴다(스크린샷과 화면 공유용).
+ * 앱 전체에 적용되며 실행할 때마다 숨김 상태로 시작한다. 사설 주소(10/8, 172.16/12,
+ * 192.168/16, 127/8, 100.64/10)는 밖에서 접근할 수 없으므로 그대로 보여준다. 다만 직접 연결 서버의
+ * 주소({@link #protect})는 예외다. 그것은 사용자 자신의 기기이므로 호스트 이름이든 IP든
+ * 무엇이든 숨긴다.
  */
 public final class IpPrivacy {
 
@@ -26,7 +26,7 @@ public final class IpPrivacy {
         return revealed;
     }
 
-    /** Must be called on the EDT; notifies listeners so every place re-renders. */
+    /** EDT에서 호출해야 한다. 모든 곳이 다시 그려지도록 리스너에 알린다. */
     public static void setRevealed(boolean value) {
         revealed = value;
         for (Runnable r : LISTENERS) {
@@ -38,12 +38,12 @@ public final class IpPrivacy {
         LISTENERS.add(listener);
     }
 
-    /** One address for display: "•••.•••.•••.104" while hidden. */
+    /** 표시용 주소 하나: 숨김 상태이면 "•••.•••.•••.104". */
     public static String display(String ip) {
         return ip == null ? null : mask(ip);
     }
 
-    /** Always hide this address (a directly connected server's host name or IP) until revealed. */
+    /** 보이게 하기 전까지 이 주소(직접 연결 서버의 호스트 이름이나 IP)를 항상 숨긴다. */
     public static void protect(String host) {
         if (host != null && host.length() >= 2) {
             PROTECTED.add(host);
@@ -59,12 +59,12 @@ public final class IpPrivacy {
         return host.charAt(0) + "•••••";
     }
 
-    /** Masks every public IPv4 and protected address inside a longer text (e.g. "ubuntu@203.0.113.24:22"). */
+    /** 긴 텍스트 안의 모든 공인 IPv4와 보호 대상 주소를 가린다(예: "ubuntu@203.0.113.24:22"). */
     public static String mask(String text) {
         if (text == null || revealed) {
             return text;
         }
-        // Longest first, so "mac-mini.tail.ts.net" wins over "mac-mini".
+        // 긴 것부터 처리해서 "mac-mini.tail.ts.net"이 "mac-mini"보다 우선하게 한다.
         for (String host : PROTECTED.stream().sorted((a, b) -> b.length() - a.length()).toList()) {
             if (text.contains(host)) {
                 text = text.replace(host, hide(host));

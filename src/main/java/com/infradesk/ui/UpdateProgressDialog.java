@@ -21,9 +21,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 /**
- * Downloads, verifies and self-tests an update with a progress bar, then hands the prepared update
- * to {@code onReady} (which starts the swap and quits). Cancel stops the download; failures are
- * shown in place and leave the installed app untouched.
+ * 진행 막대와 함께 업데이트를 내려받고, 검증하고, 자가 점검한 뒤 준비된 업데이트를
+ * {@code onReady}에 넘긴다(그쪽에서 교체를 시작하고 종료한다). 취소하면 다운로드를 멈춘다.
+ * 실패는 그 자리에 표시하고 설치된 앱은 건드리지 않는다.
  */
 final class UpdateProgressDialog extends JDialog {
 
@@ -75,7 +75,7 @@ final class UpdateProgressDialog extends JDialog {
         setLocationRelativeTo(owner);
     }
 
-    /** Starts the work and shows the dialog (blocks until it closes, like any modal dialog). */
+    /** 작업을 시작하고 다이얼로그를 보여준다(다른 모달 다이얼로그처럼 닫힐 때까지 블로킹된다). */
     void start() {
         Async.run(() -> installer.prepare(release, this::progress, cancelled::get), prepared -> {
             status.setText("설치하는 중이에요. 잠시 뒤 새 버전이 열려요.");
@@ -114,7 +114,7 @@ final class UpdateProgressDialog extends JDialog {
         });
     }
 
-    /** Shows a progress state without downloading; for the UI snapshot tool. */
+    /** 다운로드 없이 진행 상태를 보여준다. UI 스냅샷 도구용. */
     void previewProgress(long done, long total) {
         bar.setValue((int) (done * 1000 / total));
         status.setText(String.format("받는 중… %.1f / %.1f MB", done / 1e6, total / 1e6));

@@ -21,7 +21,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-/** One 40px server row in the sidebar. Focusable; Enter/Space selects. */
+/** 사이드바의 높이 40px 서버 행 하나. 포커스를 받을 수 있으며 Enter/Space로 선택한다. */
 class ServerListItem extends JPanel {
 
     private static final Color HOVER_BG = new Color(0x323438);

@@ -25,7 +25,7 @@ import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
 
-/** Shows per-server results of a batch command as they arrive. Non-modal. */
+/** 일괄 명령의 서버별 결과를 도착하는 대로 보여준다. 모달이 아니다. */
 final class BatchResultDialog extends JDialog {
 
     private record Row(Server server, ExecResult result) {
@@ -84,7 +84,7 @@ final class BatchResultDialog extends JDialog {
         list.setSelectedIndex(0);
     }
 
-    /** Call on the EDT when one server finishes. */
+    /** 서버 하나가 끝나면 EDT에서 호출한다. */
     void setResult(Server server, ExecResult result) {
         Integer i = index.get(server.id());
         if (i == null) {
@@ -158,7 +158,7 @@ final class BatchResultDialog extends JDialog {
         }
     }
 
-    /** Status dot + text in the row: green success, red failure, amber running. Never color alone. */
+    /** 행의 상태 점 + 텍스트: 초록은 성공, 빨강은 실패, 호박색은 실행 중. 색만으로 구분하지 않는다. */
     private record StatusMark(ExecResult result) implements javax.swing.Icon {
         @Override
         public void paintIcon(Component c, java.awt.Graphics g, int x, int y) {

@@ -33,7 +33,7 @@ import javax.swing.SwingConstants;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
-/** "컨테이너" section of the server detail: Docker containers over SSH with log/restart/stop/start. */
+/** 서버 상세의 "컨테이너" 섹션: SSH로 보는 Docker 컨테이너와 로그/재시작/정지/시작. */
 public class ContainersPanel extends JPanel {
 
     private static final int ROW = 30;
@@ -138,7 +138,7 @@ public class ContainersPanel extends JPanel {
         this.onLogs = c;
     }
 
-    /** Opens a terminal inside the container: a shell ({@code console} null) or a database console. */
+    /** 컨테이너 안에서 터미널을 연다: 셸({@code console}이 null) 또는 데이터베이스 콘솔. */
     public void onShell(BiConsumer<Container, DockerCommands.Console> c) {
         this.onShell = c;
     }
@@ -152,7 +152,7 @@ public class ContainersPanel extends JPanel {
         }
     }
 
-    /** @param statusText short text next to the title, or null */
+    /** @param statusText 제목 옆의 짧은 텍스트. 없으면 null */
     public void showMessage(String text, String statusText) {
         model.set(List.of());
         message.setText(text);
@@ -203,7 +203,7 @@ public class ContainersPanel extends JPanel {
         revalidate();
     }
 
-    /** Keep the section as tall as its content; BoxLayout would otherwise stretch it to fill the page. */
+    /** 섹션을 내용 높이만큼만 유지한다. 그렇지 않으면 BoxLayout이 페이지를 채우도록 늘린다. */
     @Override
     public Dimension getMaximumSize() {
         return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
@@ -288,7 +288,7 @@ public class ContainersPanel extends JPanel {
         }
     }
 
-    /** "0.0.0.0:80->80/tcp, :::80->80/tcp" → "80→80"; duplicates from IPv4/IPv6 removed. */
+    /** "0.0.0.0:80->80/tcp, :::80->80/tcp" → "80→80". IPv4/IPv6 중복은 제거한다. */
     static String compactPorts(String ports) {
         java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
         for (String p : ports.split(",\\s*")) {

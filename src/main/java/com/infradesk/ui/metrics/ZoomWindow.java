@@ -1,8 +1,8 @@
 package com.infradesk.ui.metrics;
 
 /**
- * The visible time window of a chart: a view inside the full data range. Zoom keeps the time under
- * the cursor fixed, pan slides the view, and the view never leaves the data. Times are epoch millis.
+ * 차트의 보이는 시간 창: 전체 데이터 범위 안의 한 구간. 확대는 커서 아래의 시각을 고정하고,
+ * 이동은 구간을 밀며, 구간은 데이터 밖으로 나가지 않는다. 시각은 epoch 밀리초다.
  */
 final class ZoomWindow {
 
@@ -42,7 +42,7 @@ final class ZoomWindow {
         viewMax = fullMax;
     }
 
-    /** New data arrived: a full view follows it, a zoomed view stays where it is (clamped to the data). */
+    /** 새 데이터가 도착했다: 전체 보기는 따라가고, 확대한 보기는 그대로 둔다(데이터 범위로 제한). */
     void setFull(double newMin, double newMax, double newMinSpan) {
         boolean wasFull = isFull();
         fullMin = newMin;
@@ -58,9 +58,9 @@ final class ZoomWindow {
     }
 
     /**
-     * @param factor  below 1 zooms in, above 1 zooms out
-     * @param anchor  time that stays under the cursor
-     * @return false when asked to zoom out while already showing everything (the caller may widen the range)
+     * @param factor  1보다 작으면 확대, 크면 축소
+     * @param anchor  커서 아래에 고정되는 시각
+     * @return 이미 전체를 보여주는 상태에서 축소를 요청하면 false(호출한 쪽이 기간을 넓힐 수 있다)
      */
     boolean zoom(double factor, double anchor) {
         if (factor > 1 && isFull()) {
@@ -78,7 +78,7 @@ final class ZoomWindow {
         return true;
     }
 
-    /** Slides the view by {@code delta} millis (positive = later), stopping at the data's edges. */
+    /** 구간을 {@code delta} 밀리초만큼 민다(양수 = 이후). 데이터의 끝에서 멈춘다. */
     void pan(double delta) {
         moveTo(viewMin + delta, span());
     }

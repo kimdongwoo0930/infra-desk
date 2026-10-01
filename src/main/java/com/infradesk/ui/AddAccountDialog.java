@@ -43,7 +43,7 @@ import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
-/** Modal dialog for registering a cloud account (docs/design/add-account.html). */
+/** 클라우드 계정을 등록하는 모달 다이얼로그(docs/design/add-account.html). */
 public class AddAccountDialog extends JDialog {
 
     private static final long MAX_KEY_BYTES = 16 * 1024;
@@ -63,14 +63,14 @@ public class AddAccountDialog extends JDialog {
 
     private String privateKeyPem;
     private Account result;
-    /** Account being edited, or null when adding a new one. */
+    /** 편집 중인 계정. 새로 추가하는 경우는 null. */
     private final Account existing;
 
     public AddAccountDialog(Window owner, InventoryService service, boolean demoMode) {
         this(owner, service, demoMode, null);
     }
 
-    /** @param existing account to edit; its API key is kept unless a new key file is chosen */
+    /** @param existing 편집할 계정. 새 키 파일을 고르지 않으면 기존 API 키를 유지한다 */
     public AddAccountDialog(Window owner, InventoryService service, boolean demoMode, Account existing) {
         super(owner, existing == null ? "계정 추가" : "계정 설정 · " + existing.displayName(), ModalityType.APPLICATION_MODAL);
         this.service = service;
@@ -112,7 +112,7 @@ public class AddAccountDialog extends JDialog {
         setLocationRelativeTo(owner);
     }
 
-    /** Shows the dialog and returns the saved account, if any. */
+    /** 다이얼로그를 보여주고, 저장된 계정이 있으면 돌려준다. */
     public Optional<Account> showDialog() {
         setVisible(true);
         return Optional.ofNullable(result);
@@ -153,7 +153,7 @@ public class AddAccountDialog extends JDialog {
         ButtonGroup group = new ButtonGroup();
         for (ProviderType type : ProviderType.values()) {
             if (!type.isCloud()) {
-                continue; // directly connected machines have their own dialog
+                continue; // 직접 연결 기기는 자체 다이얼로그가 있다
             }
             JToggleButton b = new JToggleButton(type.isSupported() ? type.displayName() : type.displayName() + " · 준비 중");
             b.setPreferredSize(new Dimension(0, 44));
@@ -385,7 +385,7 @@ public class AddAccountDialog extends JDialog {
         f.setPreferredSize(new Dimension(0, Theme.BUTTON_HEIGHT));
         if (mono) {
             f.setFont(Theme.monoFont(12f));
-            // ASCII-only values: keep the Korean input method out of the way.
+            // ASCII 값만 받는다: 한글 입력기가 끼어들지 않게 한다.
             f.enableInputMethods(false);
         }
         return f;

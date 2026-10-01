@@ -25,7 +25,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
-/** One terminal tab: connects, shows the JediTerm widget, and a status bar. */
+/** 터미널 탭 하나: 연결하고, JediTerm 위젯과 상태 표시줄을 보여준다. */
 public class TerminalPanel extends JPanel {
 
     public enum State { CONNECTING, CONNECTED, DISCONNECTED }
@@ -33,7 +33,7 @@ public class TerminalPanel extends JPanel {
     private static final int INITIAL_COLUMNS = 120;
     private static final int INITIAL_ROWS = 32;
 
-    /** A tab that runs one command instead of a login shell, e.g. {@code docker exec -it}. */
+    /** 로그인 셸 대신 명령 하나를 실행하는 탭. 예: {@code docker exec -it}. */
     public record Exec(String title, String command) {
     }
 
@@ -59,7 +59,7 @@ public class TerminalPanel extends JPanel {
         this(server, null, service, openSettings);
     }
 
-    /** @param exec what to run instead of a login shell, or null for a normal shell */
+    /** @param exec 로그인 셸 대신 실행할 것. 일반 셸이면 null */
     public TerminalPanel(Server server, Exec exec, TerminalService service, Consumer<Server> openSettings) {
         super(new BorderLayout());
         this.server = server;
@@ -80,12 +80,12 @@ public class TerminalPanel extends JPanel {
         return server;
     }
 
-    /** True for a plain login shell (not a container shell or console). */
+    /** 순수한 로그인 셸이면 true(컨테이너 셸이나 콘솔이 아님). */
     public boolean isLoginShell() {
         return exec == null;
     }
 
-    /** Tab title: the server, or "server › container". */
+    /** 탭 제목: 서버, 또는 "서버 › 컨테이너". */
     public String title() {
         return exec == null ? server.name() : server.name() + " › " + exec.title();
     }
@@ -149,7 +149,7 @@ public class TerminalPanel extends JPanel {
         });
     }
 
-    /** Closes the session. Safe to call more than once. */
+    /** 세션을 닫는다. 여러 번 호출해도 안전하다. */
     public void close() {
         ShellSession s = session;
         session = null;
@@ -159,7 +159,7 @@ public class TerminalPanel extends JPanel {
         }
     }
 
-    /** Types a command line into the shell and presses Enter. False if not connected. */
+    /** 명령줄을 셸에 입력하고 Enter를 누른다. 연결되어 있지 않으면 false. */
     public boolean send(String commandLine) {
         if (widget == null || state != State.CONNECTED || widget.getTtyConnector() == null) {
             return false;
@@ -203,7 +203,7 @@ public class TerminalPanel extends JPanel {
         onStateChange.run();
     }
 
-    /** @param offerSettings true when fixing SSH settings is the likely fix; the settings button gets focus */
+    /** @param offerSettings SSH 설정을 고치는 것이 해결책일 가능성이 높으면 true. 설정 버튼이 포커스를 받는다 */
     private void showMessage(String title, String body, boolean offerSettings) {
         messageTitle.setText(title);
         messageBody.setText("<html><div style='text-align:center'>" + escape(com.infradesk.ui.IpPrivacy.mask(body)) + "</div></html>");
@@ -261,7 +261,7 @@ public class TerminalPanel extends JPanel {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
-    /** Tab dot color for the current state. */
+    /** 현재 상태에 맞는 탭 점 색. */
     public Color stateColor() {
         return switch (state) {
             case CONNECTED -> Theme.RUNNING_DOT;

@@ -32,12 +32,12 @@ import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
 /**
- * Stat tile: title, current value, and a sparkline of recent values (XChart) with a hover
- * crosshair. One or two series; two series get a legend row whose entries carry the values.
+ * 통계 타일: 제목, 현재 값, 최근 값의 스파크라인(XChart)과 호버 십자선. 시리즈는 한두 개이며,
+ * 두 개이면 항목마다 값이 적힌 범례 줄이 붙는다.
  */
 public class MetricCard extends RoundedPanel {
 
-    /** One line on the chart. */
+    /** 차트의 선 하나. */
     public record Series(String name, Color color) {
     }
 
@@ -61,7 +61,7 @@ public class MetricCard extends RoundedPanel {
     }
 
     /**
-     * @param yMax fixed top of the y range (e.g. 100 for percentages), or null to fit the data
+     * @param yMax y 범위의 고정된 상단(예: 백분율은 100). 데이터에 맞추려면 null
      */
     public MetricCard(String title, List<Series> series, DoubleFunction<String> format, Double yMax) {
         super(new BorderLayout(0, 8), Theme.PANEL_BG, Theme.DIVIDER, Theme.ARC_CARD);
@@ -162,9 +162,9 @@ public class MetricCard extends RoundedPanel {
     }
 
     /**
-     * Shows data. {@code data} holds one list per series, in constructor order.
+     * 데이터를 보여준다. {@code data}에는 시리즈마다 목록 하나가 생성자 순서대로 들어 있다.
      *
-     * @param secondsResolution true for live samples (tooltip shows seconds)
+     * @param secondsResolution 실시간 샘플이면 true(툴팁에 초가 표시된다)
      */
     public void show(List<List<Metrics.Sample>> data, String captionText, boolean secondsResolution, String emptyText) {
         caption.setText(captionText);
@@ -210,7 +210,7 @@ public class MetricCard extends RoundedPanel {
         plotCards.show(plot, "empty");
     }
 
-    /** Makes the card (chart and header) open the expanded chart when clicked. */
+    /** 카드(차트와 헤더)를 클릭하면 확대 차트가 열리게 한다. */
     public void onClick(Runnable action) {
         java.awt.event.MouseAdapter click = new java.awt.event.MouseAdapter() {
             @Override
@@ -231,7 +231,7 @@ public class MetricCard extends RoundedPanel {
         super.setAlignmentX(Component.LEFT_ALIGNMENT);
     }
 
-    /** Legend swatch: the series color carries identity, the label text stays in text ink. */
+    /** 범례 견본: 시리즈 색이 구분을 담당하고, 라벨 글자는 본문 색을 유지한다. */
     private record Dot(Color color) implements Icon {
         @Override
         public void paintIcon(Component c, Graphics g, int x, int y) {

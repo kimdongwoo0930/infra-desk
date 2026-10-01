@@ -34,7 +34,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
-/** 300px right panel of the terminal screen: saved commands, batch run, SFTP. */
+/** 터미널 화면의 오른쪽 300px 패널: 저장된 명령어, 일괄 실행, SFTP. */
 final class TerminalSidePanel extends JPanel {
 
     private static final Duration BATCH_TIMEOUT = Duration.ofSeconds(60);
@@ -89,7 +89,7 @@ final class TerminalSidePanel extends JPanel {
         return sftpButton;
     }
 
-    /** Rebuilds the batch checkboxes from the current server list; keeps previous choices. */
+    /** 현재 서버 목록으로 일괄 실행 체크박스를 다시 만든다. 이전 선택은 유지한다. */
     void refreshServers() {
         List<String> checked = checks.stream().filter(JCheckBox::isSelected)
                 .map(c -> (String) c.getClientProperty("serverId")).toList();
@@ -241,7 +241,7 @@ final class TerminalSidePanel extends JPanel {
     }
 
     private JButton commandButton(SavedCommand c) {
-        // Two labels instead of HTML so long commands end in "…" instead of widening the panel.
+        // HTML 대신 라벨 두 개를 써서, 긴 명령어가 패널을 넓히지 않고 "…"로 끝나게 한다.
         JButton b = new JButton();
         b.setLayout(new BorderLayout(0, 2));
         JLabel name = new JLabel(c.name());
@@ -278,7 +278,7 @@ final class TerminalSidePanel extends JPanel {
         return b;
     }
 
-    /** Column that always fits the viewport width, so nothing scrolls sideways. */
+    /** 항상 뷰포트 너비에 맞는 열. 가로로 스크롤되는 것이 없게 한다. */
     private static final class WidthTrackingPanel extends JPanel implements javax.swing.Scrollable {
         @Override
         public Dimension getPreferredScrollableViewportSize() {

@@ -32,9 +32,9 @@ import javax.swing.SwingConstants;
 import javax.swing.Timer;
 
 /**
- * Big, zoomable chart of one metric of one server, opened by clicking a metric card. Cloud servers
- * can switch between ranges (1h to 7d); zooming out past the loaded range steps to the next one.
- * Reloads once a minute while open.
+ * 메트릭 카드를 클릭해서 여는, 서버 하나의 메트릭 하나에 대한 크고 확대 가능한 차트. 클라우드 서버는
+ * 기간(1시간~7일)을 바꿀 수 있고, 불러온 기간 밖으로 축소하면 다음 기간으로 넘어간다.
+ * 열려 있는 동안 1분마다 다시 불러온다.
  */
 public final class MetricChartDialog extends JDialog {
 
@@ -67,9 +67,9 @@ public final class MetricChartDialog extends JDialog {
     private long request;
 
     /**
-     * @param serverName title prefix
-     * @param ranges     whether the source can serve other ranges; false shows only what it has (e.g. SSH-collected samples)
-     * @param loader     blocking metrics source for a range; runs off the EDT
+     * @param serverName 제목 접두어
+     * @param ranges     소스가 다른 기간도 제공할 수 있는지. false면 가진 것만 보여준다(예: SSH로 수집한 샘플)
+     * @param loader     기간에 대한 블로킹 메트릭 소스. EDT 밖에서 실행된다
      */
     public MetricChartDialog(Frame owner, String serverName, MetricKind kind, boolean ranges, Function<Duration, Metrics> loader) {
         super(owner, serverName + " · " + kind.title(), false);
@@ -111,13 +111,13 @@ public final class MetricChartDialog extends JDialog {
         setLocationRelativeTo(owner);
     }
 
-    /** Shows the dialog and starts loading. */
+    /** 다이얼로그를 보여주고 불러오기를 시작한다. */
     public void open() {
         setVisible(true);
         startLoading();
     }
 
-    /** Loads the first data and keeps reloading every minute. Public so the snapshot tool can use it without showing the window. */
+    /** 첫 데이터를 불러오고 1분마다 계속 다시 불러온다. 스냅샷 도구가 창을 띄우지 않고 쓸 수 있도록 public. */
     public void startLoading() {
         load(true);
         refreshTimer.start();
@@ -185,14 +185,14 @@ public final class MetricChartDialog extends JDialog {
         load(true);
     }
 
-    /** Zoomed out past everything loaded: show the next longer range, if there is one. */
+    /** 불러온 전체보다 더 축소했다: 더 긴 기간이 있으면 그것을 보여준다. */
     private void widenRange() {
         if (ranges && rangeIndex + 1 < RANGES.size()) {
             selectRange(rangeIndex + 1);
         }
     }
 
-    /** @param showLoading replace the chart with "loading" (range change) instead of updating in place (refresh) */
+    /** @param showLoading 제자리 갱신(새로고침) 대신 차트를 "불러오는 중"으로 바꾼다(기간 변경) */
     private void load(boolean showLoading) {
         long id = ++request;
         Duration range = RANGES.get(rangeIndex).duration();

@@ -9,8 +9,8 @@ import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
 
 /**
- * Catches exceptions nobody handled (on any thread, including the EDT), logs them with the stack
- * trace, and tells the user once in a while instead of failing silently.
+ * 아무도 처리하지 않은 예외(EDT를 포함한 모든 스레드)를 잡아서 스택 트레이스와 함께 로그에 남기고,
+ * 조용히 실패하는 대신 가끔 사용자에게 알린다.
  */
 public final class ErrorReporter {
 
@@ -52,7 +52,7 @@ public final class ErrorReporter {
         return null;
     }
 
-    /** Opens the log folder in Finder / Explorer. */
+    /** 로그 폴더를 Finder / 탐색기에서 연다. */
     public static void openLogFolder(java.nio.file.Path dir) {
         try {
             java.nio.file.Files.createDirectories(dir);

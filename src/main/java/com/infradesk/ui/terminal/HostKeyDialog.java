@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
-/** Asks on the EDT whether to trust a new host key; callable from any thread. */
+/** 새 호스트 키를 신뢰할지 EDT에서 묻는다. 어느 스레드에서든 호출할 수 있다. */
 public final class HostKeyDialog implements HostKeyPrompt {
 
     private final Component parent;

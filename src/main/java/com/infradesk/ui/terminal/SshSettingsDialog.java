@@ -33,7 +33,7 @@ import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 
-/** Registers the SSH user, port and private key for one server. */
+/** 서버 하나의 SSH 사용자, 포트, 개인키를 등록한다. */
 public class SshSettingsDialog extends JDialog {
 
     private static final long MAX_KEY_BYTES = 32 * 1024;
@@ -56,7 +56,7 @@ public class SshSettingsDialog extends JDialog {
         this(owner, service, server, null);
     }
 
-    /** @param defaults user and port to start with when nothing is saved and ~/.ssh/config has no match */
+    /** @param defaults 저장된 것이 없고 ~/.ssh/config에도 맞는 항목이 없을 때 시작할 사용자와 포트 */
     public SshSettingsDialog(Window owner, TerminalService service, Server server, com.infradesk.ssh.SshSettings defaults) {
         super(owner, "SSH 설정 · " + server.name(), ModalityType.APPLICATION_MODAL);
         this.service = service;
@@ -103,7 +103,7 @@ public class SshSettingsDialog extends JDialog {
         setLocationRelativeTo(owner);
     }
 
-    /** Pre-fills from ~/.ssh/config. The key is only read here; it's stored when the user saves. */
+    /** ~/.ssh/config로 미리 채운다. 키는 여기서 읽기만 하고, 사용자가 저장할 때 보관한다. */
     private void applySuggestion(com.infradesk.ssh.SshConfig.Suggestion s) {
         if (s.user() != null) {
             username.setSelectedItem(s.user());
@@ -123,13 +123,13 @@ public class SshSettingsDialog extends JDialog {
                     }
                 }
             } catch (IOException ignored) {
-                // Leave the key for the user to pick.
+                // 키는 사용자가 고르도록 비워 둔다.
             }
         }
         suggestion = source + ". 맞는지 확인하고 저장하세요.";
     }
 
-    /** Shows the dialog; true when settings were saved. */
+    /** 다이얼로그를 보여준다. 설정을 저장했으면 true. */
     public boolean showDialog() {
         setVisible(true);
         return saved;

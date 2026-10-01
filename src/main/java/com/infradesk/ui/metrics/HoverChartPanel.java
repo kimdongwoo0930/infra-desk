@@ -15,13 +15,13 @@ import java.util.List;
 import java.util.function.DoubleFunction;
 
 /**
- * XChart panel with our own hover: a vertical line at the nearest sample and one tooltip naming
- * the time and each series' value at that time. XChart's built-in cursor lists every point near
- * the mouse ("18%, 18%, 18%") and has no series names, so it's replaced.
+ * 자체 호버가 있는 XChart 패널: 가장 가까운 샘플에 세로선을 긋고, 그 시각과 각 시리즈의 값을
+ * 적은 툴팁 하나를 보여준다. XChart의 기본 커서는 마우스 근처의 모든 점을 나열하고("18%, 18%, 18%")
+ * 시리즈 이름이 없어서 대체했다.
  */
 final class HoverChartPanel extends XChartPanel<XYChart> {
 
-    /** Plot inset used by the chart styler (plot margin); axes are hidden so the plot fills the panel. */
+    /** 차트 스타일러가 쓰는 플롯 안쪽 여백(플롯 마진). 축은 숨겨서 플롯이 패널을 가득 채운다. */
     private static final int INSET = 2;
 
     private final List<MetricCard.Series> series;

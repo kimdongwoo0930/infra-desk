@@ -16,13 +16,13 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
-/** Small form for adding or editing a saved command. */
+/** 저장된 명령어를 추가하거나 편집하는 작은 폼. */
 final class CommandEditDialog {
 
     private CommandEditDialog() {
     }
 
-    /** @param existing command to edit, or null to add a new one */
+    /** @param existing 편집할 명령어. 새로 추가하는 경우는 null */
     static Optional<SavedCommand> show(Component parent, SavedCommand existing) {
         JTextField name = new JTextField(existing == null ? "" : existing.name(), 28);
         JTextField command = new JTextField(existing == null ? "" : existing.command(), 28);

@@ -21,12 +21,12 @@ import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 
 /**
- * The tray menu on Windows, drawn with Swing/FlatLaf. Native AWT menus there render Hangul
- * as "???" and can't show emoji, so this replaces {@code TrayIcon.setPopupMenu}.
+ * Windows의 트레이 메뉴. Swing/FlatLaf로 그린다. 그곳의 네이티브 AWT 메뉴는 한글을
+ * "???"로 그리고 이모지를 표시하지 못하므로, 이것이 {@code TrayIcon.setPopupMenu}를 대체한다.
  *
- * <p>A JPopupMenu needs an invoker window: a tiny undecorated dialog is shown at the cursor
- * while the menu is open. When that dialog loses focus (a click anywhere else) the menu closes,
- * which is how native tray menus behave.
+ * <p>JPopupMenu에는 invoker 창이 필요하다. 메뉴가 열려 있는 동안 커서 위치에 장식 없는 작은
+ * 다이얼로그를 띄운다. 이 다이얼로그가 포커스를 잃으면(다른 곳을 클릭하면) 메뉴가 닫히며,
+ * 네이티브 트레이 메뉴도 그렇게 동작한다.
  */
 final class SwingTrayMenu {
 
@@ -51,7 +51,7 @@ final class SwingTrayMenu {
         });
     }
 
-    /** Opens the menu just above the cursor (the taskbar is usually at the bottom). */
+    /** 커서 바로 위에 메뉴를 연다(작업 표시줄은 보통 아래에 있다). */
     void show(List<TrayController.Entry> entries) {
         SwingUtilities.invokeLater(() -> {
             if (popup != null) {
@@ -79,7 +79,7 @@ final class SwingTrayMenu {
             anchor.setVisible(true);
             anchor.toFront();
             anchor.requestFocus();
-            // JPopupMenu moves itself back on screen if this would overflow.
+            // 이대로면 화면을 벗어나더라도 JPopupMenu가 스스로 화면 안으로 옮긴다.
             popup.show(anchor, -size.width, -size.height);
         });
     }
@@ -91,7 +91,7 @@ final class SwingTrayMenu {
         anchor.dispose();
     }
 
-    /** The popup for these entries; package-private for the UI snapshot tool. */
+    /** 이 항목들의 팝업. UI 스냅샷 도구를 위해 package-private. */
     static JPopupMenu build(List<TrayController.Entry> entries) {
         JPopupMenu menu = new JPopupMenu();
         add(menu, entries);
@@ -132,8 +132,8 @@ final class SwingTrayMenu {
     }
 
     /**
-     * Whether the Windows taskbar uses the light theme, so the tray glyph can be drawn dark.
-     * Missing value (older Windows 10) means the default dark taskbar.
+     * Windows 작업 표시줄이 밝은 테마인지. 트레이 글리프를 어둡게 그릴 수 있도록 확인한다.
+     * 값이 없으면(오래된 Windows 10) 기본값인 어두운 작업 표시줄이다.
      */
     static boolean lightTaskbar() {
         try {

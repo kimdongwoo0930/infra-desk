@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
-/** Adapts a {@link ShellSession} to JediTerm. */
+/** {@link ShellSession}을 JediTerm에 맞게 변환한다. */
 final class ShellTtyConnector implements TtyConnector {
 
     private final ShellSession session;

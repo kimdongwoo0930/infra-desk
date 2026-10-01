@@ -9,7 +9,7 @@ import java.awt.RenderingHints;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.JPanel;
 
-/** Panel with a rounded background and optional 1px border. */
+/** 둥근 배경과 선택적인 1px 테두리가 있는 패널. */
 public class RoundedPanel extends JPanel {
 
     private final int arc;
