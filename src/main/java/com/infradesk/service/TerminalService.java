@@ -28,8 +28,8 @@ import com.infradesk.storage.SshSettingsStore;
 import java.util.Optional;
 
 /**
- * SSH settings per server and opening shells. Independent of {@link com.infradesk.core.CloudProvider}:
- * it only needs a server's address. Blocking; call off the EDT.
+ * 서버별 SSH 설정과 셸 열기. {@link com.infradesk.core.CloudProvider}와는 무관하다.
+ * 서버의 주소만 있으면 된다. 블로킹이므로 EDT 밖에서 호출한다.
  */
 public class TerminalService {
 
@@ -52,7 +52,7 @@ public class TerminalService {
         this.demo = demo;
     }
 
-    /** Tests: read a different config. */
+    /** 테스트용: 다른 설정을 읽는다. */
     void setSshConfigSource(java.util.function.Supplier<SshConfig> source) {
         this.sshConfig = source;
     }
@@ -61,14 +61,14 @@ public class TerminalService {
         return settingsStore.get(serverId);
     }
 
-    /** Whether the server can be connected to without asking for settings first. */
+    /** 설정을 먼저 묻지 않고도 서버에 연결할 수 있는지. */
     public boolean isConfigured(String serverId) {
         return demo || (settingsStore.get(serverId).isPresent() && secretStore.get(serverKey(serverId, SSH_KEY)).isPresent());
     }
 
     /**
-     * Settings suggested by {@code ~/.ssh/config} for the server's public IP (or its name as a Host
-     * alias). Always empty in demo mode, which never reads real configuration.
+     * 서버의 공인 IP(또는 Host 별칭으로서의 서버 이름)에 대해 {@code ~/.ssh/config}가 추천하는 설정.
+     * 실제 설정을 읽지 않는 데모 모드에서는 항상 비어 있다.
      */
     public Optional<SshConfig.Suggestion> suggestFromSshConfig(Server server) {
         if (demo || server.publicIp() == null) {
@@ -82,7 +82,7 @@ public class TerminalService {
     }
 
     /**
-     * Saves settings. {@code privateKeyPem} null keeps the stored key; an empty passphrase removes it.
+     * 설정을 저장한다. {@code privateKeyPem}이 null이면 저장된 키를 유지하고, 빈 암호는 암호를 삭제한다.
      */
     public void save(SshSettings settings, String privateKeyPem, String passphrase) {
         if (privateKeyPem != null) {
@@ -104,22 +104,22 @@ public class TerminalService {
         secretStore.delete(serverKey(serverId, SSH_PASSPHRASE));
     }
 
-    /** Opens a shell to the server's public IP with its saved settings. */
+    /** 저장된 설정으로 서버의 공인 IP에 셸을 연다. */
     public ShellSession open(Server server, HostKeyPrompt prompt, int columns, int rows) {
         return connector.open(target(server), prompt, columns, rows);
     }
 
-    /** Runs {@code command} on the server with a PTY (e.g. a shell inside a container). */
+    /** 서버에서 {@code command}를 PTY와 함께 실행한다(예: 컨테이너 안의 셸). */
     public ShellSession open(Server server, String command, HostKeyPrompt prompt, int columns, int rows) {
         return connector.open(target(server), prompt, columns, rows, command);
     }
 
-    /** Output kept per server for batch runs; the rest is dropped. */
+    /** 일괄 실행에서 서버별로 보관하는 출력. 나머지는 버린다. */
     public static final int MAX_OUTPUT_BYTES = 256 * 1024;
 
     /**
-     * Runs a command without a PTY and waits for it. Never throws: connection and timeout
-     * failures come back as {@link ExecResult#failure}.
+     * PTY 없이 명령을 실행하고 끝날 때까지 기다린다. 예외를 던지지 않는다. 연결 실패와 시간 초과는
+     * {@link ExecResult#failure}로 돌려준다.
      */
     public ExecResult run(Server server, String command, HostKeyPrompt prompt, Duration timeout) {
         ShellSession session;
@@ -135,7 +135,7 @@ public class TerminalService {
                 timedOut.set(true);
                 session.close();
             } catch (InterruptedException ignored) {
-                // Finished in time.
+                // 제한 시간 안에 끝났다.
             }
         });
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -169,7 +169,7 @@ public class TerminalService {
         }
     }
 
-    /** Reads uptime, OS, disk and listening ports over SSH (one short exec). */
+    /** SSH로 업타임, OS, 디스크, 수신 대기 포트를 읽는다(짧은 exec 한 번). */
     public HostFacts facts(Server server, HostKeyPrompt prompt) {
         ExecResult r = run(server, HostFacts.COMMAND, prompt, Duration.ofSeconds(20));
         if (r.error() != null) {
@@ -178,7 +178,7 @@ public class TerminalService {
         return HostFacts.parse(r.output());
     }
 
-    /** Opens SFTP to the server with its saved SSH settings. */
+    /** 저장된 SSH 설정으로 서버에 SFTP를 연다. */
     public RemoteFiles openFiles(Server server, HostKeyPrompt prompt) {
         return connector.sftp(target(server), prompt);
     }
@@ -191,7 +191,7 @@ public class TerminalService {
         commandStore.save(commands);
     }
 
-    /** Starts streaming /proc snapshots from the server (see {@link ProcStats#COMMAND}). */
+    /** 서버에서 /proc 스냅샷 스트리밍을 시작한다({@link ProcStats#COMMAND} 참고). */
     public ShellSession openStats(Server server, HostKeyPrompt prompt) {
         return connector.exec(target(server), prompt, ProcStats.COMMAND);
     }

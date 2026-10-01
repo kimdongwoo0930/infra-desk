@@ -29,16 +29,16 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Installs a beta build over the running app:
+ * 실행 중인 앱 위에 베타 빌드를 설치한다:
  * <ol>
- *   <li>downloads the release's app archive and checks it against the release's {@code SHA256SUMS.txt};</li>
- *   <li>unpacks it into a staging folder next to the installed app (same volume, so the swap is a rename);</li>
- *   <li>runs the new app's {@code --self-test}, so a broken build never replaces a working one;</li>
- *   <li>{@link #startSwap} hands over to a small script that waits for this process to exit, swaps the
- *       folders (putting the old one back if anything fails) and starts the new version.</li>
+ *   <li>릴리스의 앱 아카이브를 내려받아 릴리스의 {@code SHA256SUMS.txt}와 대조한다;</li>
+ *   <li>설치된 앱 옆의 임시 폴더에 풀어 놓는다(같은 볼륨이므로 교체가 이름 변경으로 끝난다);</li>
+ *   <li>새 앱의 {@code --self-test}를 실행해서, 고장 난 빌드가 멀쩡한 앱을 대체하지 못하게 한다;</li>
+ *   <li>{@link #startSwap}이 작은 스크립트에 넘긴다. 스크립트는 이 프로세스가 끝나길 기다렸다가
+ *       폴더를 교체하고(무언가 실패하면 이전 폴더를 되돌린다) 새 버전을 시작한다.</li>
  * </ol>
- * Files the app downloads itself carry no quarantine flag, so macOS opens the new build without the
- * {@code xattr} step a browser download needs. Blocking; call off the EDT.
+ * 앱이 직접 내려받은 파일에는 격리(quarantine) 플래그가 없으므로, macOS는 브라우저로 받은 파일에
+ * 필요한 {@code xattr} 단계 없이 새 빌드를 연다. 블로킹이므로 EDT 밖에서 호출한다.
  */
 public class UpdateInstaller {
 
@@ -46,11 +46,11 @@ public class UpdateInstaller {
         MAC, WINDOWS
     }
 
-    /** A verified, unpacked and self-tested update waiting for {@link #startSwap}. */
+    /** 검증, 압축 해제, 자가 점검을 마치고 {@link #startSwap}을 기다리는 업데이트. */
     public record Prepared(UpdateService.Release release, Path newApp) {
     }
 
-    /** Download progress; {@code total} is -1 when the server doesn't say. Called off the EDT. */
+    /** 다운로드 진행률. 서버가 알려주지 않으면 {@code total}은 -1이다. EDT 밖에서 호출된다. */
     public interface Progress {
         void bytes(long done, long total);
     }
@@ -66,10 +66,10 @@ public class UpdateInstaller {
     private final boolean selfTest;
 
     /**
-     * @param installedApp the .app bundle (macOS) or the folder holding InfraDesk.exe (Windows)
-     * @param workDir      where the archive and the swap script go
-     * @param logFile      where the swap script writes what it did
-     * @param selfTest     run the new app's --self-test before accepting it (off only in tests)
+     * @param installedApp .app 번들(macOS) 또는 InfraDesk.exe가 있는 폴더(Windows)
+     * @param workDir      아카이브와 교체 스크립트가 놓이는 곳
+     * @param logFile      교체 스크립트가 한 일을 기록하는 파일
+     * @param selfTest     받아들이기 전에 새 앱의 --self-test를 실행한다(테스트에서만 끈다)
      */
     public UpdateInstaller(HttpClient http, Platform platform, Path installedApp, Path workDir, Path logFile,
                            boolean selfTest) {
@@ -81,7 +81,7 @@ public class UpdateInstaller {
         this.selfTest = selfTest;
     }
 
-    /** For the running packaged app; empty when running from Gradle or on another OS. */
+    /** 실행 중인 패키징된 앱용. Gradle로 실행하거나 다른 OS이면 빈 값. */
     public static Optional<UpdateInstaller> forRunningApp(Path workDir, Path logFile) {
         String appPath = System.getProperty("jpackage.app-path");
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
@@ -91,13 +91,13 @@ public class UpdateInstaller {
         }
         return installedApp(platform, Path.of(appPath).toAbsolutePath()).map(app -> new UpdateInstaller(
                 HttpClient.newBuilder()
-                        .followRedirects(HttpClient.Redirect.NORMAL) // GitHub assets redirect to a CDN
+                        .followRedirects(HttpClient.Redirect.NORMAL) // GitHub 에셋은 CDN으로 리디렉트된다
                         .connectTimeout(Duration.ofSeconds(15))
                         .build(),
                 platform, app, workDir, logFile, true));
     }
 
-    /** .../InfraDesk.app/Contents/MacOS/InfraDesk → the bundle; ...\InfraDesk\InfraDesk.exe → its folder. */
+    /** .../InfraDesk.app/Contents/MacOS/InfraDesk → 번들, ...\InfraDesk\InfraDesk.exe → 그 폴더. */
     static Optional<Path> installedApp(Platform platform, Path launcher) {
         if (platform == Platform.MAC) {
             Path macOs = launcher.getParent();
@@ -112,7 +112,7 @@ public class UpdateInstaller {
         return installedApp;
     }
 
-    /** Why this release can't be installed in place (a Korean sentence), or empty when it can. */
+    /** 이 릴리스를 제자리에 설치할 수 없는 이유(한국어 문장). 설치할 수 있으면 빈 값. */
     public Optional<String> blocker(UpdateService.Release release) {
         if (release.updateUrl() == null || release.checksumsUrl() == null) {
             return Optional.of("이 빌드에는 자동 설치용 파일이 없어요.");
@@ -128,7 +128,7 @@ public class UpdateInstaller {
         return Optional.empty();
     }
 
-    /** Downloads, verifies, unpacks and self-tests the update. Throws with a Korean message on failure. */
+    /** 업데이트를 내려받고, 검증하고, 풀고, 자가 점검한다. 실패하면 한국어 메시지와 함께 예외를 던진다. */
     public Prepared prepare(UpdateService.Release release, Progress progress, BooleanSupplier cancelled) {
         blocker(release).ifPresent(reason -> {
             throw new IllegalStateException(reason);
@@ -152,9 +152,9 @@ public class UpdateInstaller {
             Files.createDirectories(staging);
             if (platform == Platform.WINDOWS) {
                 try {
-                    Files.setAttribute(staging, "dos:hidden", true); // a leading dot doesn't hide it there
+                    Files.setAttribute(staging, "dos:hidden", true); // 앞에 점이 있어도 여기서는 숨겨지지 않는다
                 } catch (IOException | UnsupportedOperationException ignored) {
-                    // Cosmetic only.
+                    // 보기 좋게 하려는 것일 뿐이다.
                 }
             }
             extract(archive, staging);
@@ -177,14 +177,14 @@ public class UpdateInstaller {
     }
 
     /**
-     * Starts the script that swaps in {@code prepared} once this process exits, then relaunches.
-     * The caller must quit right after. Returns the script process (tests wait on it).
+     * 이 프로세스가 끝나면 {@code prepared}로 교체하고 다시 실행하는 스크립트를 시작한다.
+     * 호출한 쪽은 곧바로 종료해야 한다. 스크립트 프로세스를 돌려준다(테스트가 기다린다).
      */
     public Process startSwap(Prepared prepared) {
         return startSwap(prepared, ProcessHandle.current().pid(), true);
     }
 
-    /** @param waitFor pid to wait for; @param launch start the app afterwards (off in tests) */
+    /** @param waitFor 기다릴 pid; @param launch 끝난 뒤 앱을 시작할지(테스트에서는 끔) */
     Process startSwap(Prepared prepared, long waitFor, boolean launch) {
         try {
             Files.createDirectories(workDir);
@@ -215,9 +215,9 @@ public class UpdateInstaller {
     }
 
     /**
-     * The swap script must not run with its current directory inside the app: Windows refuses to
-     * rename a folder that any process is "in", and the app's own working directory usually is its
-     * folder (double-click in Explorer). That left build 10 in place on Windows.
+     * 교체 스크립트는 현재 디렉터리가 앱 안에 있는 채로 실행하면 안 된다. Windows는 어떤 프로세스든
+     * 그 안에 "들어가 있는" 폴더의 이름을 바꾸지 못하는데, 앱의 작업 디렉터리는 보통 앱 폴더다
+     * (탐색기에서 더블클릭한 경우). 그 때문에 Windows에서 빌드 10이 그대로 남은 적이 있다.
      */
     ProcessBuilder swapProcess(List<String> command) {
         return new ProcessBuilder(command)
@@ -227,8 +227,8 @@ public class UpdateInstaller {
     }
 
     /**
-     * The swap script's last message if it gave up recently (the old version was started again).
-     * Checked at startup so a failed update doesn't look like nothing happened.
+     * 교체 스크립트가 최근에 포기했다면 그 마지막 메시지(이전 버전이 다시 시작되었다).
+     * 업데이트가 실패했는데 아무 일도 없었던 것처럼 보이지 않도록 시작할 때 확인한다.
      */
     public static Optional<String> recentSwapFailure(Path logFile, java.time.Instant now) {
         try {
@@ -251,12 +251,12 @@ public class UpdateInstaller {
         return Optional.empty();
     }
 
-    /** Removes a staged update that was never swapped in (cancelled, or the app was quit another way). */
+    /** 교체되지 못한 준비된 업데이트(취소했거나 앱을 다른 방법으로 종료한 경우)를 지운다. */
     public void discard(Prepared prepared) {
         deleteTree(prepared.newApp().getParent());
     }
 
-    // ---- steps ----
+    // ---- 단계 ----
 
     private String fetchText(String url) throws IOException, InterruptedException {
         HttpResponse<String> response = http.send(request(url), HttpResponse.BodyHandlers.ofString());
@@ -266,7 +266,7 @@ public class UpdateInstaller {
         return response.body();
     }
 
-    /** Streams to {@code target} and returns the SHA-256 of what was written. */
+    /** {@code target}으로 스트리밍하고, 쓴 내용의 SHA-256을 돌려준다. */
     private String download(String url, Path target, Progress progress, BooleanSupplier cancelled)
             throws IOException, InterruptedException {
         HttpResponse<InputStream> response = http.send(request(url), HttpResponse.BodyHandlers.ofInputStream());
@@ -298,7 +298,7 @@ public class UpdateInstaller {
 
     private void extract(Path archive, Path dest) throws IOException, InterruptedException {
         if (platform == Platform.MAC) {
-            // ditto keeps what a .app needs: symlinks, exec bits and the code signature.
+            // ditto는 .app에 필요한 것을 보존한다: 심볼릭 링크, 실행 비트, 코드 서명.
             Process p = new ProcessBuilder("ditto", "-x", "-k", archive.toString(), dest.toString())
                     .redirectErrorStream(true).start();
             String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
@@ -333,9 +333,9 @@ public class UpdateInstaller {
                 : app.resolve("InfraDesk.exe");
     }
 
-    // ---- helpers (package-private for tests) ----
+    // ---- 헬퍼 (테스트를 위해 package-private) ----
 
-    /** The hash for {@code fileName} in {@code sha256sum} output ("hex  name" or "hex *name"). */
+    /** {@code sha256sum} 출력에서 {@code fileName}의 해시("hex  name" 또는 "hex *name"). */
     static Optional<String> expectedHash(String sums, String fileName) {
         for (String line : sums.split("\\R")) {
             String[] parts = line.strip().split("\\s+", 2);
@@ -349,7 +349,7 @@ public class UpdateInstaller {
         return Optional.empty();
     }
 
-    /** Plain unzip that refuses entries escaping {@code dest} ("zip slip"). */
+    /** {@code dest} 밖으로 나가는 항목("zip slip")은 거부하는 단순 unzip. */
     static void unzip(Path archive, Path dest) throws IOException {
         Path root = dest.toAbsolutePath().normalize();
         try (ZipInputStream zip = new ZipInputStream(Files.newInputStream(archive))) {

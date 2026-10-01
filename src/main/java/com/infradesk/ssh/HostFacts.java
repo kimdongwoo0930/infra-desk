@@ -6,15 +6,15 @@ import java.util.List;
 import java.util.TreeSet;
 
 /**
- * Facts about a server that only the server itself knows, read once over SSH: uptime, OS name,
- * root disk usage and listening TCP ports reachable from outside (not bound to loopback).
+ * 서버 자신만 아는 정보를 SSH로 한 번 읽은 것: 업타임, OS 이름, 루트 디스크 사용량,
+ * 외부에서 접근 가능한(loopback에 바인딩되지 않은) 수신 대기 TCP 포트.
  *
- * @param uptime    null when unknown
- * @param osName    e.g. "Ubuntu 22.04.4 LTS", null when unknown
- * @param diskUsed  bytes used on /, -1 when unknown
- * @param diskTotal bytes on /, -1 when unknown
- * @param cpuCount  logical CPUs, 0 when unknown
- * @param memoryKb  total memory in KiB, 0 when unknown
+ * @param uptime    알 수 없으면 null
+ * @param osName    예: "Ubuntu 22.04.4 LTS". 알 수 없으면 null
+ * @param diskUsed  /의 사용 바이트. 알 수 없으면 -1
+ * @param diskTotal /의 전체 바이트. 알 수 없으면 -1
+ * @param cpuCount  논리 CPU 수. 알 수 없으면 0
+ * @param memoryKb  전체 메모리(KiB). 알 수 없으면 0
  */
 public record HostFacts(Duration uptime, String osName, long diskUsed, long diskTotal, List<Integer> ports,
                         int cpuCount, long memoryKb) {
@@ -23,14 +23,14 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
         this(uptime, osName, diskUsed, diskTotal, ports, 0, 0);
     }
 
-    /** POSIX sh; each section starts with a "@name" marker line. Works with busybox too. */
+    /** POSIX sh. 각 섹션은 "@name" 표식 줄로 시작한다. busybox에서도 동작한다. */
     public static final String COMMAND = "echo @uptime; if [ -r /proc/uptime ]; then cat /proc/uptime; else "
-            // macOS: seconds since kern.boottime
+            // macOS: kern.boottime 이후 경과한 초
             + "b=$(sysctl -n kern.boottime 2>/dev/null | sed 's/^{ sec = \\([0-9]*\\).*/\\1/'); "
             + "[ -n \"$b\" ] && echo $(( $(date +%s) - b )); fi; "
             + "echo @os; (. /etc/os-release 2>/dev/null && echo \"$PRETTY_NAME\") "
             + "|| { command -v sw_vers >/dev/null 2>&1 && echo \"macOS $(sw_vers -productVersion)\"; } || uname -sr; "
-            // macOS keeps user data on the Data volume; "/" is the small sealed system volume.
+            // macOS는 사용자 데이터를 Data 볼륨에 두고, "/"는 작은 봉인된 시스템 볼륨이다.
             + "echo @disk; (df -Pk /System/Volumes/Data 2>/dev/null || df -Pk / 2>/dev/null) | tail -n 1; "
             + "echo @cpus; (nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null); "
             + "echo @memkb; (awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null "
@@ -65,7 +65,7 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
                         double seconds = Double.parseDouble(line.split("\\s+")[0]);
                         uptime = Duration.ofSeconds((long) seconds);
                     } catch (NumberFormatException ignored) {
-                        // Leave unknown.
+                        // 알 수 없는 상태로 둔다.
                     }
                 }
                 case "@os" -> os = os == null ? line.replace("\"", "") : os;
@@ -77,7 +77,7 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
                             total = Long.parseLong(f[1]) * 1024;
                             used = Long.parseLong(f[2]) * 1024;
                         } catch (NumberFormatException ignored) {
-                            // Header or odd format.
+                            // 헤더이거나 형식이 이상한 줄.
                         }
                     }
                 }
@@ -98,7 +98,7 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
         }
     }
 
-    /** Port from an `ss -tln` or `netstat -tln` line, if it listens on a non-loopback address. */
+    /** `ss -tln` 또는 `netstat -tln` 줄에서 뽑은 포트. loopback이 아닌 주소에서 수신 대기할 때만. */
     static java.util.Optional<Integer> listeningPort(String line) {
         String[] f = line.split("\\s+");
         String local = null;

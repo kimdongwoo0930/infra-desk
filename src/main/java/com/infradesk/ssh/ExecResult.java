@@ -1,11 +1,11 @@
 package com.infradesk.ssh;
 
 /**
- * Outcome of running one command on one server.
+ * 서버 하나에서 명령 하나를 실행한 결과.
  *
- * @param exitCode exit status, or -1 when unknown (timeout, connection failure)
- * @param output   combined stdout/stderr, possibly truncated
- * @param error    user-facing failure message, or null if the command ran
+ * @param exitCode 종료 코드. 알 수 없으면 -1(시간 초과, 연결 실패)
+ * @param output   stdout/stderr를 합친 출력. 잘렸을 수 있다
+ * @param error    사용자에게 보여줄 실패 메시지. 명령이 실행됐다면 null
  */
 public record ExecResult(int exitCode, String output, String error, boolean truncated) {
 

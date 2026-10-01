@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Fake Docker for demo mode: per-host containers whose state changes with start/stop/restart. */
+/** 데모 모드용 가짜 Docker: 호스트별 컨테이너가 있고, 시작/정지/재시작에 따라 상태가 바뀐다. */
 final class DemoDocker {
 
     private record Box(String id, String name, String image, String ports, boolean running, String since) {
@@ -19,7 +19,7 @@ final class DemoDocker {
     private DemoDocker() {
     }
 
-    /** Output for a {@link DockerCommands} command, as the real shell would print it. */
+    /** {@link DockerCommands} 명령의 출력. 실제 셸이 출력하는 것과 같은 형태. */
     static String run(String host, String command) {
         Map<String, Box> boxes = HOSTS.computeIfAbsent(host, DemoDocker::seed);
         if (command.contains(DockerCommands.PS)) {

@@ -5,37 +5,36 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Turns successive {@code /proc} snapshots into utilization. A snapshot block is the output of
- * {@link #COMMAND} between two {@code ---} lines: the {@code cpu} line of /proc/stat, MemTotal and
- * MemAvailable from /proc/meminfo, and the interface lines of /proc/net/dev.
+ * 연속된 {@code /proc} 스냅샷을 사용률로 바꾼다. 스냅샷 블록은 {@link #COMMAND}의 출력 중
+ * {@code ---} 줄 두 개 사이 부분으로, /proc/stat의 {@code cpu} 줄, /proc/meminfo의 MemTotal과
+ * MemAvailable, /proc/net/dev의 인터페이스 줄로 이루어진다.
  */
 public final class ProcStats {
 
-    /** Seconds between snapshots on the server. */
+    /** 서버에서 스냅샷을 찍는 간격(초). */
     public static final int INTERVAL_SECONDS = 2;
 
     /**
-     * Upper bound on snapshots per session. The client turns live mode off after ten minutes; this
-     * cap makes the remote loop end on its own shortly after, even if the connection died without
-     * the server noticing (e.g. the laptop went to sleep).
+     * 세션당 스냅샷 수의 상한. 클라이언트는 10분 뒤 실시간 모드를 끄지만, 서버가 연결 끊김을
+     * 알아채지 못한 경우(예: 노트북이 잠자기에 들어감)에도 이 상한 덕분에 원격 루프가 곧 스스로 끝난다.
      */
     public static final int MAX_SNAPSHOTS = 10 * 60 / INTERVAL_SECONDS + 10;
 
-    /** Remote loop printing one snapshot block every {@link #INTERVAL_SECONDS}. POSIX sh (also zsh). */
+    /** {@link #INTERVAL_SECONDS}마다 스냅샷 블록 하나를 출력하는 원격 루프. POSIX sh(zsh에서도 동작). */
     public static final String COMMAND = command(MAX_SNAPSHOTS, INTERVAL_SECONDS);
 
     /**
-     * Two snapshots one second apart, then exit: one utilization sample for the once-a-minute
-     * collection on directly connected servers. Parse with {@link #parseOneShot}.
+     * 1초 간격으로 스냅샷 두 개를 찍고 종료한다. 직접 연결 서버의 분당 수집에서 사용률 샘플 하나를
+     * 얻기 위한 것이다. {@link #parseOneShot}으로 파싱한다.
      */
     public static final String ONE_SHOT = command(2, 1);
 
     /**
-     * Linux reads the real /proc files. macOS has no /proc, so the same block is written from its
-     * own tools: CPU busy % over one second from iostat (as an "@cpu" line), memory from hw.memsize
-     * and vm_stat (free + inactive + speculative + purgeable pages count as available), and
-     * per-interface byte counters from netstat -ib in /proc/net/dev layout. iostat itself takes a
-     * second, so the macOS loop sleeps one second less.
+     * Linux는 실제 /proc 파일을 읽는다. macOS에는 /proc이 없으므로 같은 블록을 자체 도구로 만든다.
+     * CPU 사용률은 iostat로 1초 동안 측정하고("@cpu" 줄), 메모리는 hw.memsize와 vm_stat에서
+     * (free + inactive + speculative + purgeable 페이지를 가용으로 센다), 인터페이스별 바이트
+     * 카운터는 netstat -ib에서 /proc/net/dev 형식으로 만든다. iostat 자체가 1초 걸리므로
+     * macOS 루프는 1초 덜 잔다.
      */
     private static String command(int snapshots, int intervalSeconds) {
         String linux = "i=0; while [ $i -lt " + snapshots + " ]; do head -n 1 /proc/stat; "
@@ -53,13 +52,13 @@ public final class ProcStats {
         return "if [ \"$(uname)\" = Darwin ]; then " + mac + "; else " + linux + "; fi";
     }
 
-    /** The sample from {@link #ONE_SHOT} output, stamped {@code now}; empty if the output is incomplete. */
+    /** {@link #ONE_SHOT} 출력에서 얻은 샘플에 {@code now}를 찍는다. 출력이 불완전하면 빈 값. */
     public static Optional<Sample> parseOneShot(String output, Instant now) {
         List<Snapshot> snapshots = new java.util.ArrayList<>();
         List<String> block = new java.util.ArrayList<>();
         for (String line : output.split("\\R")) {
             if (line.strip().equals("---")) {
-                // One second apart on the server; the exact gap only matters for network rates.
+                // 서버에서 1초 간격. 정확한 간격은 네트워크 속도 계산에만 영향을 준다.
                 parse(block, now.minusSeconds(snapshots.isEmpty() ? 1 : 0)).ifPresent(snapshots::add);
                 block.clear();
             } else {
@@ -72,18 +71,18 @@ public final class ProcStats {
         return Optional.of(between(snapshots.get(snapshots.size() - 2), snapshots.getLast()));
     }
 
-    /** One parsed snapshot. Counters are cumulative since boot. */
+    /** 파싱한 스냅샷 하나. 카운터는 부팅 이후 누적값이다. */
     public record Snapshot(Instant time, long cpuBusy, long cpuTotal, long memTotalKb, long memAvailableKb,
                            long rxBytes, long txBytes, double cpuPercent) {
 
-        /** Counter-based snapshot (Linux); CPU % comes from the difference to the previous one. */
+        /** 카운터 기반 스냅샷(Linux). CPU %는 이전 스냅샷과의 차이로 계산한다. */
         public Snapshot(Instant time, long cpuBusy, long cpuTotal, long memTotalKb, long memAvailableKb,
                         long rxBytes, long txBytes) {
             this(time, cpuBusy, cpuTotal, memTotalKb, memAvailableKb, rxBytes, txBytes, -1);
         }
     }
 
-    /** Utilization between two snapshots. */
+    /** 두 스냅샷 사이의 사용률. */
     public record Sample(Instant time, double cpuPercent, double memoryPercent, double rxBytesPerSec,
                          double txBytesPerSec) {
     }
@@ -91,7 +90,7 @@ public final class ProcStats {
     private ProcStats() {
     }
 
-    /** Parses one block (lines between separators). Empty if the block is incomplete. */
+    /** 블록 하나(구분자 사이의 줄들)를 파싱한다. 블록이 불완전하면 빈 값. */
     public static Optional<Snapshot> parse(List<String> lines, Instant time) {
         long busy = -1;
         long total = -1;
@@ -108,7 +107,7 @@ public final class ProcStats {
                     busy = 0;
                     total = 0;
                 } catch (NumberFormatException ignored) {
-                    // Leave CPU unknown; the block is dropped below.
+                    // CPU는 알 수 없는 상태로 둔다. 이 블록은 아래에서 버려진다.
                 }
             } else if (line.startsWith("cpu ")) {
                 String[] f = line.split("\\s+");
@@ -145,7 +144,7 @@ public final class ProcStats {
         return Optional.of(new Snapshot(time, busy, total, memTotal, memAvail, rx, tx, cpuPercent));
     }
 
-    /** Utilization from {@code prev} to {@code next}. */
+    /** {@code prev}에서 {@code next}까지의 사용률. */
     public static Sample between(Snapshot prev, Snapshot next) {
         double dTotal = next.cpuTotal() - prev.cpuTotal();
         double cpu = next.cpuPercent() >= 0 ? next.cpuPercent()

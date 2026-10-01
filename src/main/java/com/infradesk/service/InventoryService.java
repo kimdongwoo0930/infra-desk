@@ -22,7 +22,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Accounts, their credentials and providers. All methods may block on I/O; call them off the EDT.
+ * 계정, 그 자격 증명, provider. 모든 메서드가 I/O에서 블로킹될 수 있으므로 EDT 밖에서 호출한다.
  */
 public class InventoryService {
 
@@ -48,12 +48,12 @@ public class InventoryService {
         return registry.regions(type);
     }
 
-    /** Loads every account's servers in parallel. A failing account doesn't fail the others. */
+    /** 모든 계정의 서버를 병렬로 불러온다. 한 계정이 실패해도 다른 계정은 영향받지 않는다. */
     public List<AccountInventory> loadAll() {
         return load(accounts());
     }
 
-    /** Loads one account's servers; failures are reported in the result, not thrown. */
+    /** 계정 하나의 서버를 불러온다. 실패는 던지지 않고 결과에 담아 알린다. */
     public AccountInventory load(Account account) {
         try {
             return new AccountInventory(account, provider(account).listServers(), null);
@@ -63,7 +63,7 @@ public class InventoryService {
         }
     }
 
-    /** Loads only the given accounts, in parallel. */
+    /** 주어진 계정만 병렬로 불러온다. */
     public List<AccountInventory> load(java.util.Collection<Account> accounts) {
         try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<AccountInventory>> futures = new ArrayList<>();
@@ -83,7 +83,7 @@ public class InventoryService {
         }
     }
 
-    /** Starts, stops or reboots a server. Returns once the provider accepted the request. */
+    /** 서버를 시작, 정지, 재부팅한다. provider가 요청을 받아들이면 반환한다. */
     public void control(Account account, String serverId, ServerAction action) {
         CloudProvider p = provider(account);
         switch (action) {
@@ -93,19 +93,19 @@ public class InventoryService {
         }
     }
 
-    /** Last hour of metrics for one server. */
+    /** 서버 하나의 최근 1시간 메트릭. */
     public com.infradesk.core.Metrics metrics(Account account, String serverId) {
         return provider(account).getMetrics(serverId);
     }
 
-    /** Metrics for one server over the given range (the provider picks the resolution). */
+    /** 서버 하나의 주어진 기간 메트릭(해상도는 provider가 정한다). */
     public com.infradesk.core.Metrics metrics(Account account, String serverId, java.time.Duration range) {
         return provider(account).getMetrics(serverId, range);
     }
 
     /**
-     * Latest CPU per server across all loaded accounts, fetched in parallel. Accounts that fail
-     * are skipped (the sidebar just shows no percentage for them).
+     * 불러온 모든 계정에 걸쳐 서버별 최신 CPU를 병렬로 가져온다. 실패한 계정은 건너뛴다
+     * (사이드바에는 그 서버의 퍼센트가 표시되지 않을 뿐이다).
      */
     public Map<String, Double> currentCpu(List<AccountInventory> inventory) {
         Map<String, Double> result = new ConcurrentHashMap<>();
@@ -126,20 +126,20 @@ public class InventoryService {
         return result;
     }
 
-    /** Cached provider for a saved account. */
+    /** 저장된 계정의 캐시된 provider. */
     public CloudProvider provider(Account account) {
         return providers.computeIfAbsent(account.id(), id -> registry.create(account, secretsOf(id)));
     }
 
     /**
-     * Connects with unsaved settings and lists servers. Returns the server count. Secrets not
-     * given fall back to the ones stored for the account (when editing an existing account).
+     * 저장하지 않은 설정으로 연결해서 서버를 조회한다. 서버 수를 돌려준다. 주어지지 않은 비밀값은
+     * 계정에 저장된 값으로 대체한다(기존 계정을 편집할 때).
      */
     public int testConnection(Account account, Map<String, String> secrets) {
         return preview(account, secrets).size();
     }
 
-    /** Lists the servers an unsaved account would have (e.g. whether a directly connected host answers). */
+    /** 저장하지 않은 계정이 가질 서버를 조회한다(예: 직접 연결 호스트가 응답하는지). */
     public List<Server> preview(Account account, Map<String, String> secrets) {
         Map<String, String> merged = new HashMap<>(secretsOf(account.id()));
         merged.putAll(secrets);
@@ -149,8 +149,8 @@ public class InventoryService {
     }
 
     /**
-     * Replaces an existing account's settings, keeping its id and position. Only the secrets
-     * given are replaced; others stay as stored.
+     * 기존 계정의 설정을 id와 위치를 유지한 채 바꾼다. 주어진 비밀값만 교체하고 나머지는
+     * 저장된 그대로 둔다.
      */
     public void updateAccount(Account account, Map<String, String> newSecrets) {
         newSecrets.forEach((name, value) -> secretStore.put(SecretStore.accountKey(account.id(), name), value));

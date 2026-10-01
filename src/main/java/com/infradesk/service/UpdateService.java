@@ -18,18 +18,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Checks the rolling "beta" GitHub release for a newer build, and stores whether to check
- * automatically ({@code <configDir>/app-settings.json}). Sends nothing but a plain GET to the public
- * GitHub API. Blocking; call off the EDT.
+ * 롤링 "beta" GitHub 릴리스에 더 새로운 빌드가 있는지 확인하고, 자동으로 확인할지 여부를
+ * 저장한다({@code <configDir>/app-settings.json}). 공개 GitHub API에 단순 GET 요청만 보내고
+ * 다른 것은 보내지 않는다. 블로킹이므로 EDT 밖에서 호출한다.
  */
 public class UpdateService {
 
     /**
-     * The latest published beta.
+     * 공개된 최신 베타.
      *
-     * @param downloadUrl  what a person downloads for this OS (dmg on macOS), or the release page
-     * @param updateUrl    the archive the app installs itself from, or null when the release has none
-     * @param checksumsUrl {@code SHA256SUMS.txt} of the release, or null when the release has none
+     * @param downloadUrl  이 OS에서 사람이 내려받는 것(macOS는 dmg) 또는 릴리스 페이지
+     * @param updateUrl    앱이 스스로 설치할 때 쓰는 아카이브. 릴리스에 없으면 null
+     * @param checksumsUrl 릴리스의 {@code SHA256SUMS.txt}. 릴리스에 없으면 null
      */
     public record Release(int build, String commit, String pageUrl, String downloadUrl, String updateUrl,
                           String checksumsUrl) {
@@ -51,8 +51,8 @@ public class UpdateService {
     private final ObjectMapper mapper = new ObjectMapper();
 
     /**
-     * @param settingsFile where the auto-check preference lives, or null to keep it in memory (demo)
-     * @param assetName    download for this OS, e.g. "InfraDesk-beta-macOS.dmg"
+     * @param settingsFile 자동 확인 설정이 저장되는 파일. null이면 메모리에만 둔다(데모)
+     * @param assetName    이 OS용 다운로드. 예: "InfraDesk-beta-macOS.dmg"
      */
     public UpdateService(HttpClient http, URI releaseApi, String assetName, Path settingsFile) {
         this(http, releaseApi, assetName, updateAssetForCurrentOs(), settingsFile);
@@ -66,12 +66,12 @@ public class UpdateService {
         this.settingsFile = settingsFile;
     }
 
-    /** Asset name of the beta download for the running OS. */
+    /** 실행 중인 OS용 베타 다운로드의 에셋 이름. */
     public static String assetForCurrentOs() {
         return windows() ? "InfraDesk-beta-windows.zip" : "InfraDesk-beta-macOS.dmg";
     }
 
-    /** Asset the app installs itself from: a zip of the app (the .app bundle on macOS). */
+    /** 앱이 스스로 설치할 때 쓰는 에셋: 앱을 담은 zip(macOS는 .app 번들). */
     public static String updateAssetForCurrentOs() {
         return windows() ? "InfraDesk-beta-windows.zip" : "InfraDesk-beta-macOS.zip";
     }
@@ -110,7 +110,7 @@ public class UpdateService {
         }
     }
 
-    /** Fetches the latest beta release. Throws with a Korean message on failure. */
+    /** 최신 베타 릴리스를 가져온다. 실패하면 한국어 메시지와 함께 예외를 던진다. */
     public Release latest() {
         HttpRequest request = HttpRequest.newBuilder(releaseApi)
                 .timeout(Duration.ofSeconds(10))
@@ -134,7 +134,7 @@ public class UpdateService {
         }
     }
 
-    /** Package-private for tests. */
+    /** 테스트를 위해 package-private. */
     static Release parse(JsonNode json, String assetName, String updateAssetName) {
         String name = json.path("name").asText("");
         String body = json.path("body").asText("");

@@ -4,7 +4,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Demo answers for {@code docker exec -it}: a container shell or a database console. */
+/** {@code docker exec -it}에 대한 데모 응답: 컨테이너 셸 또는 데이터베이스 콘솔. */
 final class DemoContainerShell {
 
     private static final Pattern ID = Pattern.compile("exec -it ([0-9a-f]{12,64}) ");

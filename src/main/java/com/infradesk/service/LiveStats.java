@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Reads {@link ProcStats#COMMAND} output from a session on a background thread and reports one
- * {@link ProcStats.Sample} per interval. The first block only primes the counters.
+ * 백그라운드 스레드에서 세션의 {@link ProcStats#COMMAND} 출력을 읽고 간격마다
+ * {@link ProcStats.Sample} 하나를 알린다. 첫 블록은 카운터를 준비하는 용도로만 쓴다.
  */
 public final class LiveStats implements AutoCloseable {
 
@@ -26,8 +26,8 @@ public final class LiveStats implements AutoCloseable {
     }
 
     /**
-     * @param onSample called on the reader thread for each sample
-     * @param onEnd    called on the reader thread once when the stream ends; null if closed by us
+     * @param onSample 샘플마다 리더 스레드에서 호출된다
+     * @param onEnd    스트림이 끝나면 리더 스레드에서 한 번 호출된다. 우리가 닫았으면 null
      */
     public static LiveStats start(ShellSession session, Clock clock, Consumer<ProcStats.Sample> onSample,
                                   Consumer<String> onEnd) {

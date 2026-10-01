@@ -12,21 +12,21 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Decides when to poll next and which accounts to poll. Normal polling reloads every account;
- * fast polling reloads only accounts with a server in transition or a recent action.
+ * 다음에 언제 조회할지와 어느 계정을 조회할지 결정한다. 일반 폴링은 모든 계정을 다시 불러오고,
+ * 빠른 폴링은 전이 중인 서버가 있거나 최근에 동작을 보낸 계정만 다시 불러온다.
  *
- * <p>After an action, OCI may keep reporting the old state for a few seconds, so the account stays
- * in fast mode for {@link #ACTION_GRACE} even if nothing looks transitional yet.
+ * <p>동작을 보낸 뒤에는 OCI가 몇 초 동안 이전 상태를 계속 알려줄 수 있으므로, 아직 전이처럼
+ * 보이지 않아도 {@link #ACTION_GRACE} 동안은 그 계정을 빠른 모드로 유지한다.
  */
 public class RefreshPolicy {
 
     public static final Duration NORMAL_INTERVAL = Duration.ofSeconds(30);
     public static final Duration FAST_INTERVAL = Duration.ofSeconds(5);
     public static final Duration ACTION_GRACE = Duration.ofSeconds(20);
-    /** Stop fast polling eventually even if a server is stuck in a transitional state. */
+    /** 서버가 전이 상태에서 멈춰 있더라도 빠른 폴링은 결국 멈춘다. */
     public static final Duration FAST_LIMIT = Duration.ofMinutes(10);
 
-    /** What to do next. {@code accountIds} empty means "all accounts". */
+    /** 다음에 할 일. {@code accountIds}가 비어 있으면 "모든 계정"을 뜻한다. */
     public record Plan(Duration delay, Set<String> accountIds) {
 
         public boolean isFull() {
@@ -42,14 +42,14 @@ public class RefreshPolicy {
         this.clock = clock;
     }
 
-    /** Records that an action was sent for a server in the given account. */
+    /** 주어진 계정의 서버에 동작을 보냈음을 기록한다. */
     public synchronized void actionSent(String accountId) {
         Instant now = clock.instant();
         actionAt.put(accountId, now);
         fastSince.putIfAbsent(accountId, now);
     }
 
-    /** Plans the next poll from the latest loaded data. */
+    /** 최근에 불러온 데이터로 다음 조회를 계획한다. */
     public synchronized Plan next(List<AccountInventory> inventory) {
         Instant now = clock.instant();
         Set<String> transitional = inventory.stream()

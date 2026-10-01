@@ -5,34 +5,34 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.function.LongConsumer;
 
-/** File access on a server (SFTP). Blocking; call off the EDT. */
+/** 서버의 파일 접근(SFTP). 블로킹이므로 EDT 밖에서 호출한다. */
 public interface RemoteFiles extends AutoCloseable {
 
-    /** The login directory, e.g. "/home/ubuntu". */
+    /** 로그인 디렉터리. 예: "/home/ubuntu". */
     String home() throws IOException;
 
-    /** Directory entries, directories first then by name; "." and ".." excluded. */
+    /** 디렉터리 항목. 디렉터리가 먼저, 그다음 이름순이며 "."와 ".."는 제외한다. */
     List<RemoteFile> list(String directory) throws IOException;
 
     boolean exists(String path) throws IOException;
 
-    /** @param progress receives the number of bytes copied so far */
+    /** @param progress 지금까지 복사한 바이트 수를 받는다 */
     void download(String remotePath, Path localFile, LongConsumer progress) throws IOException;
 
     void upload(Path localFile, String remotePath, LongConsumer progress) throws IOException;
 
-    /** Deletes a file or an empty directory. */
+    /** 파일 또는 빈 디렉터리를 삭제한다. */
     void delete(RemoteFile file) throws IOException;
 
     @Override
     void close();
 
-    /** Joins a directory and a name with '/', without doubling slashes. */
+    /** 디렉터리와 이름을 '/'로 잇는다. 슬래시가 겹치지 않게 한다. */
     static String join(String directory, String name) {
         return directory.endsWith("/") ? directory + name : directory + "/" + name;
     }
 
-    /** Parent directory; "/" stays "/". */
+    /** 상위 디렉터리. "/"의 상위는 "/"다. */
     static String parent(String path) {
         if (path.equals("/") || !path.contains("/")) {
             return "/";
@@ -42,7 +42,7 @@ public interface RemoteFiles extends AutoCloseable {
         return i <= 0 ? "/" : trimmed.substring(0, i);
     }
 
-    /** A remote name made safe to use as a local file name. */
+    /** 원격 파일 이름을 로컬 파일 이름으로 안전하게 쓸 수 있게 바꾼 것. */
     static String safeLocalName(String remoteName) {
         String cleaned = remoteName.replace('/', '_').replace('\\', '_').replace(':', '_').strip();
         return cleaned.isEmpty() || cleaned.equals(".") || cleaned.equals("..") ? "download" : cleaned;

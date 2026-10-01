@@ -3,11 +3,11 @@ package com.infradesk.ssh;
 import java.util.Objects;
 
 /**
- * Non-secret SSH settings for one server. The private key and passphrase live in the secret store.
+ * 서버 하나의 비밀이 아닌 SSH 설정. 개인키와 암호는 비밀값 저장소에 있다.
  *
- * @param serverId provider server id
- * @param username login user, e.g. "ubuntu" or "opc"
- * @param port     SSH port
+ * @param serverId provider의 서버 id
+ * @param username 로그인 사용자. 예: "ubuntu" 또는 "opc"
+ * @param port     SSH 포트
  */
 public record SshSettings(String serverId, String username, int port) {
 

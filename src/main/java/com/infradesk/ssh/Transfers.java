@@ -5,7 +5,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.function.LongConsumer;
 
-/** Stream copy with progress, shared by SFTP implementations. */
+/** 진행률을 알리며 스트림을 복사한다. SFTP 구현들이 함께 쓴다. */
 final class Transfers {
 
     private Transfers() {

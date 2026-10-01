@@ -11,22 +11,22 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * Shell commands for Docker over SSH and parsing of their output. Docker's TCP API is never used.
+ * SSH로 실행하는 Docker 셸 명령과 그 출력의 파싱. Docker의 TCP API는 절대 쓰지 않는다.
  *
- * <p>Every command starts with {@link #PRELUDE}, which picks {@code docker} or, when the login
- * user isn't in the docker group, {@code sudo -n docker} (passwordless sudo, the OCI default).
- * Container ids are validated as hex before they go into a command, so names or other text from
- * the server never reach the shell.
+ * <p>모든 명령은 {@link #PRELUDE}로 시작한다. 이는 {@code docker}를 고르거나, 로그인 사용자가
+ * docker 그룹에 없으면 {@code sudo -n docker}(비밀번호 없는 sudo, OCI 기본값)를 고른다.
+ * 컨테이너 id는 명령에 넣기 전에 16진수인지 검증하므로, 서버에서 온 이름이나 다른 텍스트가
+ * 셸에 닿지 않는다.
  */
 public final class DockerCommands {
 
-    /** Markers in the combined output. */
+    /** 합친 출력 안의 구분자. */
     static final String NO_DOCKER = "@@nodocker";
     static final String NO_ACCESS = "@@noaccess";
     static final String PS = "@@ps";
     static final String STATS = "@@stats";
 
-    // Non-interactive SSH on macOS has a minimal PATH; Docker Desktop and Homebrew install elsewhere.
+    // macOS의 비대화형 SSH는 PATH가 최소한이다. Docker Desktop과 Homebrew는 다른 곳에 설치된다.
     public static final String PRELUDE = "PATH=\"$PATH:/usr/local/bin:/opt/homebrew/bin\"; command -v docker >/dev/null 2>&1 || { echo " + NO_DOCKER + "; exit 0; }; "
             + "D=docker; docker info >/dev/null 2>&1 || { sudo -n docker info >/dev/null 2>&1 && D='sudo -n docker'; } "
             + "|| { echo " + NO_ACCESS + "; exit 0; }; ";
@@ -37,7 +37,7 @@ public final class DockerCommands {
     private DockerCommands() {
     }
 
-    /** Containers (all states) plus a one-shot stats sample for the running ones. */
+    /** 모든 상태의 컨테이너와, 실행 중인 컨테이너의 1회성 stats 샘플. */
     public static String list() {
         return PRELUDE + "echo " + PS + "; $D ps -a --no-trunc --format '{{json .}}'; "
                 + "echo " + STATS + "; $D stats --no-stream --no-trunc --format '{{json .}}' 2>/dev/null; true";
@@ -56,24 +56,24 @@ public final class DockerCommands {
         return PRELUDE + "$D logs --tail " + tail + " --timestamps " + checkedId(containerId) + " 2>&1";
     }
 
-    /** Interactive shell inside the container: bash when the image has it, else sh. Needs a PTY. */
+    /** 컨테이너 안의 대화형 셸: 이미지에 bash가 있으면 bash, 없으면 sh. PTY가 필요하다. */
     public static String shell(String containerId) {
         return exec(containerId, "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi");
     }
 
-    /** The database client of a well-known image, run inside its container. Needs a PTY. */
+    /** 잘 알려진 이미지의 데이터베이스 클라이언트를 컨테이너 안에서 실행한다. PTY가 필요하다. */
     public static String console(String containerId, Console console) {
         return exec(containerId, console.script);
     }
 
     private static String exec(String containerId, String script) {
-        // The script is a fixed constant from this class; single quotes keep $VARS for the container's sh.
+        // 스크립트는 이 클래스의 고정 상수다. 작은따옴표로 감싸서 $VARS를 컨테이너의 sh가 해석하게 한다.
         return PRELUDE + "exec $D exec -it " + checkedId(containerId) + " sh -c '" + script + "'";
     }
 
     /**
-     * Database consoles picked from the image name. Passwords are typed in the terminal (the
-     * clients prompt for them); nothing is stored.
+     * 이미지 이름으로 고르는 데이터베이스 콘솔. 비밀번호는 터미널에서 직접 입력하며
+     * (클라이언트가 묻는다) 아무것도 저장하지 않는다.
      */
     public enum Console {
         MYSQL("MySQL", "if command -v mariadb >/dev/null 2>&1; then exec mariadb -u root -p; else exec mysql -u root -p; fi",
@@ -82,7 +82,7 @@ public final class DockerCommands {
         REDIS("Redis", "exec redis-cli", "redis", "valkey", "keydb"),
         MONGO("MongoDB", "if command -v mongosh >/dev/null 2>&1; then exec mongosh; else exec mongo; fi", "mongo");
 
-        /** Images named after a database that aren't one: exporters, admin UIs, proxies. */
+        /** 이름은 데이터베이스지만 데이터베이스가 아닌 이미지: exporter, 관리 UI, 프록시. */
         private static final String[] SIDECARS = {"exporter", "express", "commander", "insight", "admin", "operator",
                 "proxy", "backup", "router"};
 
@@ -96,7 +96,7 @@ public final class DockerCommands {
             this.imageNames = imageNames;
         }
 
-        /** The console for an image like "mysql:8", "bitnami/postgresql:16" or "redis/redis-stack". */
+        /** "mysql:8", "bitnami/postgresql:16", "redis/redis-stack" 같은 이미지의 콘솔. */
         public static java.util.Optional<Console> forImage(String image) {
             if (image == null) {
                 return java.util.Optional.empty();
@@ -127,7 +127,7 @@ public final class DockerCommands {
         }
     }
 
-    /** Rejects anything that isn't a Docker id, so nothing else reaches the shell. */
+    /** Docker id가 아닌 것은 거부해서 다른 것이 셸에 닿지 않게 한다. */
     static String checkedId(String id) {
         if (id == null || !ID.matcher(id).matches()) {
             throw new IllegalArgumentException("not a container id: " + id);
@@ -135,7 +135,7 @@ public final class DockerCommands {
         return id;
     }
 
-    /** Result of {@link #list()}. */
+    /** {@link #list()}의 결과. */
     public record Listing(Status status, List<Container> containers, String problem) {
         public enum Status { OK, NO_DOCKER, NO_ACCESS, ERROR }
     }
@@ -194,7 +194,7 @@ public final class DockerCommands {
                 try {
                     nodes.add(JSON.readTree(t));
                 } catch (IOException ignored) {
-                    // Skip a malformed line.
+                    // 형식이 잘못된 줄은 건너뛴다.
                 }
             }
         }
