@@ -8,10 +8,10 @@ import java.util.Optional;
 import java.util.logging.Logger;
 
 /**
- * Starts InfraDesk at login, hidden in the menu bar ({@code --minimized}).
- * macOS: a LaunchAgent plist that runs {@code open -g -a <app>}; Windows: the HKCU Run key.
- * The target is the running packaged app, or else an installed /Applications/InfraDesk.app
- * (so it can be set up from a {@code ./gradlew run} session too).
+ * 로그인할 때 InfraDesk를 메뉴 막대에 숨겨서 실행한다({@code --minimized}).
+ * macOS: {@code open -g -a <app>}을 실행하는 LaunchAgent plist, Windows: HKCU Run 키.
+ * 대상은 실행 중인 패키징된 앱이고, 없으면 설치된 /Applications/InfraDesk.app이다
+ * ({@code ./gradlew run} 세션에서도 설정할 수 있도록).
  */
 public final class LaunchAtLogin {
 
@@ -39,7 +39,7 @@ public final class LaunchAtLogin {
         return new LaunchAtLogin(home.resolve("Library").resolve("LaunchAgents"), findTarget(mac, win), mac, win);
     }
 
-    /** macOS: the .app bundle; Windows: InfraDesk.exe. Empty when nothing installed can be launched. */
+    /** macOS: .app 번들, Windows: InfraDesk.exe. 실행할 수 있는 설치본이 없으면 빈 값. */
     static Optional<Path> findTarget(boolean mac, boolean windows) {
         String appPath = System.getProperty("jpackage.app-path");
         if (appPath != null) {
@@ -109,7 +109,7 @@ public final class LaunchAtLogin {
         return launchAgentsDir.resolve(LABEL + ".plist");
     }
 
-    /** LaunchAgent that opens the app in the background, hidden in the menu bar. */
+    /** 앱을 백그라운드에서 메뉴 막대에 숨겨 여는 LaunchAgent. */
     static String plistContent(Path app) {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>

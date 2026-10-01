@@ -16,12 +16,12 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Turns inventory and CPU updates into alerts. Pure state machine: callers feed it data and send
- * the returned alerts. Each problem alerts once and gets a matching "recovered" alert.
+ * 인벤토리와 CPU 갱신을 알림으로 바꾼다. 순수한 상태 기계: 호출하는 쪽이 데이터를 넣고
+ * 반환된 알림을 전송한다. 문제마다 알림은 한 번만 가고, 짝이 되는 "복구" 알림이 간다.
  */
 public class AlertMonitor {
 
-    /** How long a stop/reboot started from the app suppresses "server down" alerts. */
+    /** 앱에서 시작한 정지/재부팅이 "서버 다운" 알림을 얼마나 오래 억제하는지. */
     static final Duration EXPECTED_WINDOW = Duration.ofMinutes(15);
 
     private final Clock clock;
@@ -40,12 +40,12 @@ public class AlertMonitor {
         this.settings = settings;
     }
 
-    /** The user started or stopped a server from the app; its status changes are expected. */
+    /** 사용자가 앱에서 서버를 시작하거나 정지했다. 이후 상태 변화는 예상된 것이다. */
     public synchronized void expectChange(String serverId) {
         expectedUntil.put(serverId, clock.instant().plus(EXPECTED_WINDOW));
     }
 
-    /** Feed a full or partial inventory refresh. */
+    /** 전체 또는 일부 인벤토리 갱신을 넣는다. */
     public synchronized List<Alert> onInventory(List<AccountInventory> inventory) {
         AlertSettings s = settings.get();
         List<Alert> alerts = new ArrayList<>();
@@ -89,7 +89,7 @@ public class AlertMonitor {
         return alerts;
     }
 
-    /** Feed the latest CPU per server; call about once a minute. */
+    /** 서버별 최신 CPU를 넣는다. 1분에 한 번 정도 호출한다. */
     public synchronized List<Alert> onCpu(Map<String, Double> cpu) {
         AlertSettings s = settings.get();
         List<Alert> alerts = new ArrayList<>();

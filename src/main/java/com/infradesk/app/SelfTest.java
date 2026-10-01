@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 /**
- * {@code --self-test}: loads every major library the way the app would and prints a report, without
- * opening windows or touching settings, the keychain or the network. Used to check a packaged app
- * (the jlink runtime must contain every module the libraries need).
+ * {@code --self-test}: 앱이 쓰는 방식 그대로 주요 라이브러리를 모두 불러보고 결과를 출력한다.
+ * 창을 열거나 설정, 키체인, 네트워크를 건드리지 않는다. 패키징된 앱을 점검하는 데 쓴다
+ * (jlink 런타임에 라이브러리가 필요로 하는 모듈이 모두 들어 있어야 한다).
  */
 final class SelfTest {
 

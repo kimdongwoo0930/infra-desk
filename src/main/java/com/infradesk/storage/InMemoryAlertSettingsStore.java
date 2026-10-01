@@ -2,7 +2,7 @@ package com.infradesk.storage;
 
 import com.infradesk.alert.AlertSettings;
 
-/** Non-persistent store for demo mode and tests. */
+/** 데모 모드와 테스트용 비영속 저장소. */
 public class InMemoryAlertSettingsStore implements AlertSettingsStore {
 
     private volatile AlertSettings settings;

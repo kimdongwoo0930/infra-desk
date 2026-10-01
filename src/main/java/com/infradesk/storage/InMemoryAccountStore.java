@@ -4,7 +4,7 @@ import com.infradesk.core.Account;
 
 import java.util.List;
 
-/** Non-persistent store used by demo mode and tests. */
+/** 데모 모드와 테스트에서 쓰는 비영속 저장소. */
 public class InMemoryAccountStore implements AccountStore {
 
     private volatile List<Account> accounts;

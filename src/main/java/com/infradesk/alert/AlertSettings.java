@@ -1,12 +1,12 @@
 package com.infradesk.alert;
 
 /**
- * Which alerts to send. The webhook URL is secret and stored separately in the keychain.
+ * 보낼 알림의 종류. 웹훅 URL은 비밀값이라 키체인에 따로 저장한다.
  *
- * @param enabled        master switch
- * @param serverDown     a running server stopped without the app asking it to (and when it's back)
- * @param accountError   an account can't be reached (and when it recovers)
- * @param cpuHigh        CPU stayed at or above {@code cpuThreshold}% for {@code cpuMinutes} checks
+ * @param enabled        전체 스위치
+ * @param serverDown     실행 중이던 서버가 앱의 요청 없이 멈춘 경우(와 돌아온 경우)
+ * @param accountError   계정에 연결할 수 없는 경우(와 복구된 경우)
+ * @param cpuHigh        CPU가 {@code cpuThreshold}% 이상인 상태가 {@code cpuMinutes}번 연속 확인된 경우
  */
 public record AlertSettings(boolean enabled, boolean serverDown, boolean accountError, boolean cpuHigh,
                             int cpuThreshold, int cpuMinutes) {

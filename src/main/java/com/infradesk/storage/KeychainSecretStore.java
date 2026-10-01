@@ -6,7 +6,7 @@ import com.github.javakeyring.PasswordAccessException;
 
 import java.util.Optional;
 
-/** OS keychain: macOS Keychain, Windows Credential Manager, Linux Secret Service. */
+/** OS 키체인: macOS 키체인, Windows 자격 증명 관리자, Linux Secret Service. */
 public class KeychainSecretStore implements SecretStore {
 
     private static final String SERVICE = "InfraDesk";
@@ -44,7 +44,7 @@ public class KeychainSecretStore implements SecretStore {
         try {
             keyring.deletePassword(SERVICE, key);
         } catch (PasswordAccessException e) {
-            // Already absent.
+            // 이미 없다.
         }
     }
 }

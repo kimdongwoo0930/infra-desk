@@ -14,8 +14,8 @@ import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 /**
- * Posts alerts to a Discord webhook as an embed. The URL is read from {@code webhookUrl} for each
- * send (so changing it in settings takes effect immediately) and is never logged or put in errors.
+ * 알림을 디스코드 웹훅에 embed로 보낸다. URL은 전송할 때마다 {@code webhookUrl}에서 읽으므로
+ * (설정에서 바꾸면 바로 적용된다) 로그나 오류 메시지에 절대 넣지 않는다.
  */
 public class DiscordNotifier implements Notifier {
 
@@ -37,7 +37,7 @@ public class DiscordNotifier implements Notifier {
         this(webhookUrl, HttpClient.newBuilder().connectTimeout(TIMEOUT).build());
     }
 
-    /** Whether the text looks like a Discord webhook URL. */
+    /** 텍스트가 디스코드 웹훅 URL처럼 생겼는지. */
     public static boolean isWebhookUrl(String url) {
         return url != null && WEBHOOK.matcher(url.strip()).matches();
     }
@@ -78,7 +78,7 @@ public class DiscordNotifier implements Notifier {
         }
     }
 
-    /** Embed JSON for the alert. Package-private for tests. */
+    /** 알림의 embed JSON. 테스트를 위해 package-private. */
     String payload(Alert alert) {
         int color = switch (alert.level()) {
             case PROBLEM -> 0xF08A8A;
@@ -105,7 +105,7 @@ public class DiscordNotifier implements Notifier {
                 return Duration.ofMillis((long) (n.doubleValue() * 1000));
             }
         } catch (IOException | RuntimeException ignored) {
-            // Fall through to header / default.
+            // 헤더 / 기본값으로 넘어간다.
         }
         return response.headers().firstValue("Retry-After")
                 .map(v -> Duration.ofMillis((long) (Double.parseDouble(v) * 1000)))

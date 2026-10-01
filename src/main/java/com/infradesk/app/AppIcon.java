@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.imageio.ImageIO;
 
-/** The app icon at runtime: Dock (macOS) / taskbar and window icons. Drawn by IconGenerator. */
+/** 실행 중 앱 아이콘: Dock(macOS) / 작업 표시줄과 창 아이콘. IconGenerator가 그린다. */
 public final class AppIcon {
 
     private AppIcon() {
@@ -23,13 +23,13 @@ public final class AppIcon {
                     images.add(ImageIO.read(in));
                 }
             } catch (IOException ignored) {
-                // Missing size: use the others.
+                // 없는 크기는 다른 크기를 쓴다.
             }
         }
         return images;
     }
 
-    /** Sets the Dock/taskbar icon (needed when running from Gradle; the packaged app has its own). */
+    /** Dock/작업 표시줄 아이콘을 설정한다(Gradle로 실행할 때 필요. 패키징된 앱은 자체 아이콘이 있다). */
     public static void applyToTaskbar() {
         List<Image> images = images();
         if (images.isEmpty() || !Taskbar.isTaskbarSupported()

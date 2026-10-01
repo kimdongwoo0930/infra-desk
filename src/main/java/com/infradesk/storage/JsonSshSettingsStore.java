@@ -15,7 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/** Stores SSH settings in {@code <configDir>/ssh-settings.json}, keyed by server id. */
+/** SSH 설정을 서버 id를 키로 {@code <configDir>/ssh-settings.json}에 저장한다. */
 public class JsonSshSettingsStore implements SshSettingsStore {
 
     private static final TypeReference<LinkedHashMap<String, SshSettings>> TYPE = new TypeReference<>() {

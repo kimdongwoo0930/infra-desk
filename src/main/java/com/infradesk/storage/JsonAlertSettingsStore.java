@@ -10,7 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/** Stores alert settings in {@code <configDir>/alerts.json}. */
+/** 알림 설정을 {@code <configDir>/alerts.json}에 저장한다. */
 public class JsonAlertSettingsStore implements AlertSettingsStore {
 
     private final Path file;
