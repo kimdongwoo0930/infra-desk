@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Connects to an in-process MINA SSH server; no network or real keys involved. */
+/** 프로세스 안의 MINA SSH 서버에 연결한다. 네트워크도 실제 키도 쓰지 않는다. */
 class MinaShellConnectorTest {
 
     @TempDir
@@ -36,7 +36,7 @@ class MinaShellConnectorTest {
     private SshServer server;
     private MinaShellConnector connector;
 
-    /** Echoes every byte back, like a shell with local echo. */
+    /** 받은 바이트를 모두 그대로 되돌려 준다. 로컬 에코가 있는 셸처럼. */
     private static final class EchoShell implements Command, Runnable {
         private InputStream in;
         private OutputStream out;
@@ -181,7 +181,7 @@ class MinaShellConnectorTest {
         SshTarget target = new SshTarget("127.0.0.1", port, "ubuntu", pem(key), null);
         connector.open(target, (h, p, t, f) -> true, 80, 24).close();
 
-        // Same address, new host key.
+        // 같은 주소, 다른 호스트 키.
         server.stop(true);
         server = null;
         server = SshServer.setUpDefaultServer();
@@ -213,7 +213,7 @@ class MinaShellConnectorTest {
         assertEquals(SshException.Kind.KEY_FORMAT, e.kind());
     }
 
-    /** Exec command that prints what it was asked to run and the terminal type it got, then exits. */
+    /** 실행하라고 한 명령과 받은 터미널 종류를 출력하고 종료하는 exec 명령. */
     private static final class ReportCommand implements org.apache.sshd.server.command.Command {
         private final String command;
         private java.io.OutputStream out;

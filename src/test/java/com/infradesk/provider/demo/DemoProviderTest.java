@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DemoProviderTest {
 
-    /** Clock the test advances by hand. */
+    /** 테스트가 직접 앞으로 돌리는 시계. */
     private static final class ManualClock extends Clock {
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
 
@@ -53,7 +53,7 @@ class DemoProviderTest {
 
     @Test
     void rejectsInvalidTransition() {
-        Account c = DemoData.accounts().get(2); // test-box, stopped
+        Account c = DemoData.accounts().get(2); // test-box, 정지됨
         DemoProvider p = new DemoProvider(c, new ManualClock(), Duration.ZERO);
         String id = p.listServers().getFirst().id();
         assertThrows(CloudProviderException.class, () -> p.stop(id));

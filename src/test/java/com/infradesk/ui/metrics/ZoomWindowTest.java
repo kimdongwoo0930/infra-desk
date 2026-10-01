@@ -25,7 +25,7 @@ class ZoomWindowTest {
         ZoomWindow w = window();
         assertTrue(w.zoom(0.5, 250));
         assertEquals(500, w.span(), 1e-9);
-        // 250 was 25% into the view, so it stays 25% into the new view
+        // 250은 보기의 25% 지점이었으므로 새 보기에서도 25% 지점에 있다
         assertEquals(125, w.min(), 1e-9);
         assertEquals(625, w.max(), 1e-9);
         assertFalse(w.isFull());

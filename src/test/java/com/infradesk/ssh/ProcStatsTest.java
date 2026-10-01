@@ -26,10 +26,10 @@ class ProcStatsTest {
         var b = ProcStats.parse(block(1150, 550, 8280, 520, 4_000_000, 1_204_800, 551_200), t0.plusSeconds(2)).orElseThrow();
 
         ProcStats.Sample s = ProcStats.between(a, b);
-        // busy +200 of total +500 jiffies (idle and iowait count as idle)
+        // 전체 +500 jiffies 중 busy +200 (idle과 iowait는 idle로 센다)
         assertEquals(40.0, s.cpuPercent(), 1e-9);
         assertEquals(75.0, s.memoryPercent(), 1e-9);
-        // loopback excluded: 204800 bytes / 2 s
+        // loopback 제외: 204800 바이트 / 2초
         assertEquals(102_400, s.rxBytesPerSec(), 1e-9);
         assertEquals(25_600, s.txBytesPerSec(), 1e-9);
     }

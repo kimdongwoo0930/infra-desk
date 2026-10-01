@@ -17,12 +17,12 @@ import java.nio.file.Path;
 import javax.imageio.ImageIO;
 
 /**
- * Draws the app icon and writes the packaging assets. Dev tool: {@code ./gradlew generateIcons}.
+ * 앱 아이콘을 그리고 패키징 에셋을 쓴다. 개발 도구: {@code ./gradlew generateIcons}.
  *
  * <ul>
- *   <li>src/packaging/macos/InfraDesk.iconset/*.png (turned into InfraDesk.icns by iconutil)</li>
- *   <li>src/packaging/windows/InfraDesk.ico (PNG-compressed entries)</li>
- *   <li>src/main/resources/com/infradesk/app/icon-{64,128,256,512}.png (Dock / window icon at runtime)</li>
+ *   <li>src/packaging/macos/InfraDesk.iconset/*.png (iconutil이 InfraDesk.icns로 변환)</li>
+ *   <li>src/packaging/windows/InfraDesk.ico (PNG 압축 항목)</li>
+ *   <li>src/main/resources/com/infradesk/app/icon-{64,128,256,512}.png (실행 중 Dock / 창 아이콘)</li>
  * </ul>
  */
 public final class IconGenerator {
@@ -56,10 +56,10 @@ public final class IconGenerator {
     }
 
     /**
-     * macOS-style icon: rounded-square tile inset from the canvas edge (Big Sur grid, ~80%),
-     * dark gradient, two server racks with status LEDs.
+     * macOS 스타일 아이콘: 캔버스 가장자리에서 안쪽으로 들여 놓은 둥근 사각형 타일(Big Sur 그리드, 약 80%),
+     * 어두운 그라데이션, 상태 LED가 달린 서버 랙 두 개.
      *
-     * @param inset whether to leave the macOS margin around the tile (false fills the canvas)
+     * @param inset 타일 둘레에 macOS 여백을 둘지 여부(false면 캔버스를 가득 채운다)
      */
     static BufferedImage render(int size, boolean inset) {
         BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
@@ -72,7 +72,7 @@ public final class IconGenerator {
             float tile = size - 2 * margin;
             float arc = tile * 0.45f;
 
-            // Soft shadow under the tile.
+            // 타일 아래의 부드러운 그림자.
             if (inset && size >= 64) {
                 for (int i = 6; i >= 1; i--) {
                     g.setColor(new Color(0, 0, 0, 10));
@@ -88,7 +88,7 @@ public final class IconGenerator {
             g.setStroke(new BasicStroke(Math.max(1f, 4 * s)));
             g.draw(new RoundRectangle2D.Float(margin + 2 * s, margin + 2 * s, tile - 4 * s, tile - 4 * s, arc, arc));
 
-            // Two racks.
+            // 랙 두 개.
             float rackW = tile * 0.60f;
             float rackH = tile * 0.20f;
             float gap = tile * 0.07f;
@@ -114,7 +114,7 @@ public final class IconGenerator {
                 g.setColor(leds[i]);
                 g.fill(new Ellipse2D.Float(ledX, ledY, led, led));
                 if (size >= 48) {
-                    // Drive slots on the right side of each rack.
+                    // 각 랙 오른쪽의 드라이브 슬롯.
                     g.setColor(new Color(0x8C8F94));
                     g.setStroke(new BasicStroke(stroke * 0.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                     float slotY = y + rackH / 2;
@@ -130,7 +130,7 @@ public final class IconGenerator {
         return img;
     }
 
-    /** ICO with PNG-compressed entries (supported since Windows Vista). */
+    /** PNG 압축 항목이 있는 ICO(Windows Vista부터 지원). */
     private static void writeIco(Path file, int[] sizes) throws IOException {
         byte[][] pngs = new byte[sizes.length][];
         for (int i = 0; i < sizes.length; i++) {
