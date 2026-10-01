@@ -3,16 +3,16 @@ package com.infradesk.core;
 import java.util.List;
 import java.util.Map;
 
-/** Creates the {@link CloudProvider} for an account. Implementations live in provider packages. */
+/** 계정에 대한 {@link CloudProvider}를 만든다. 구현은 provider 패키지에 있다. */
 public interface CloudProviderFactory {
 
     /**
-     * @param account the account to connect to
-     * @param secrets secret values for the account (e.g. {@code privateKey}); never logged
+     * @param account 연결할 계정
+     * @param secrets 계정의 비밀값(예: {@code privateKey}). 절대 로그에 남기지 않는다
      */
     CloudProvider create(Account account, Map<String, String> secrets);
 
-    /** Region identifiers offered in the add-account dialog, most common first. */
+    /** 계정 추가 다이얼로그에서 제안하는 리전 식별자. 많이 쓰는 것부터. */
     default List<String> regions() {
         return List.of();
     }

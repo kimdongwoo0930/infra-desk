@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Fake provider for demo mode. Simulates network latency and lifecycle transitions: start/stop/
- * reboot move the server into a transitional state that settles after {@link #TRANSITION}.
+ * 데모 모드용 가짜 provider. 네트워크 지연과 생명주기 전이를 흉내 낸다. 시작/정지/재부팅은
+ * 서버를 전이 상태로 만들고, {@link #TRANSITION}이 지나면 안정된다.
  */
 public class DemoProvider implements CloudProvider {
 
@@ -109,7 +109,7 @@ public class DemoProvider implements CloudProvider {
         states.put(serverId, new State(server.withStatus(via), target, clock.instant().plus(TRANSITION)));
     }
 
-    /** Current server, settling any finished transition. */
+    /** 현재 서버. 끝난 전이가 있으면 반영한다. */
     private Server current(String serverId) {
         State state = states.get(serverId);
         if (state == null) {

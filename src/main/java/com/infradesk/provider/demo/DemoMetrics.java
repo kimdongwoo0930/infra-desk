@@ -9,8 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Deterministic fake metrics: smooth waves plus hash noise, seeded by server id, so every
- * refresh shows the same history shifted by the current minute.
+ * 결정적인 가짜 메트릭: 부드러운 파형에 해시 잡음을 더하고 서버 id로 시드를 정한다. 그래서
+ * 새로고침할 때마다 같은 기록이 현재 분만큼 밀려서 보인다.
  */
 final class DemoMetrics {
 
@@ -23,7 +23,7 @@ final class DemoMetrics {
         return forServer(serverId, now, HOUR);
     }
 
-    /** Longer ranges use coarser steps, like the real provider: 1m up to 6h, 5m up to 24h, else 15m. */
+    /** 실제 provider처럼 긴 기간일수록 거친 간격을 쓴다: 6시간까지 1분, 24시간까지 5분, 그 이상은 15분. */
     static Metrics forServer(String serverId, Instant now, Duration range) {
         long stepMinutes = range.compareTo(Duration.ofHours(6)) <= 0 ? 1 : range.compareTo(Duration.ofHours(24)) <= 0 ? 5 : 15;
         int points = (int) Math.max(2, range.toMinutes() / stepMinutes);
@@ -50,7 +50,7 @@ final class DemoMetrics {
         return new Metrics(cpu, mem, in, out);
     }
 
-    /** Stable pseudo-random value in [-1, 1] for a server and minute. */
+    /** 서버와 분(分)에 대해 안정적인 [-1, 1] 범위의 의사 난수. */
     private static double noise(int seed, long minute) {
         long x = seed * 0x9E3779B97F4A7C15L + minute * 0xBF58476D1CE4E5B9L;
         x ^= x >>> 31;
