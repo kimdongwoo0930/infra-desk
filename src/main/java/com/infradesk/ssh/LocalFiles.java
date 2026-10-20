@@ -64,6 +64,11 @@ public final class LocalFiles {
         Files.createDirectory(inside(path));
     }
 
+    /** 빈 파일. 이미 있으면 덮어쓰지 않고 실패한다. */
+    public void createFile(String path) throws IOException {
+        Files.createFile(inside(path));
+    }
+
     /** 이름 바꾸기. 대상이 이미 있으면 덮어쓰지 않고 실패한다. */
     public void rename(String from, String to) throws IOException {
         Files.move(inside(from), inside(to));

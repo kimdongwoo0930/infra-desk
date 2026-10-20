@@ -183,6 +183,22 @@ class SftpTest {
     }
 
     @Test
+    void createFileMakesAnEmptyFileAndRefusesToOverwrite() throws Exception {
+        String path = RemoteFiles.join(files.home(), "empty.txt");
+
+        files.createFile(path);
+
+        assertTrue(Files.isRegularFile(remoteRoot.resolve("empty.txt")));
+        assertEquals(0, Files.size(remoteRoot.resolve("empty.txt")));
+        Files.writeString(remoteRoot.resolve("README.md"), "keep me");
+        assertThrows(java.io.IOException.class, () -> files.createFile(RemoteFiles.join(files.home(), "README.md")),
+                "이미 있는 파일은 덮어쓰지 않는다");
+        assertEquals("keep me", Files.readString(remoteRoot.resolve("README.md")));
+        assertThrows(java.io.IOException.class, () -> files.createFile(RemoteFiles.join(files.home(), "nodir/x.txt")),
+                "상위 폴더가 없으면 실패");
+    }
+
+    @Test
     void pathHelpers() {
         assertEquals("/home/u/a", RemoteFiles.join("/home/u", "a"));
         assertEquals("/a", RemoteFiles.join("/", "a"));

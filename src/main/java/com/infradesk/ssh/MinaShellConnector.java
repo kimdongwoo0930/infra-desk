@@ -299,6 +299,16 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         }
 
         @Override
+        public void createFile(String path) throws IOException {
+            if (exists(path)) {
+                throw new java.nio.file.FileAlreadyExistsException(path);
+            }
+            // 열었다 닫으면 빈 파일이 만들어진다. Exclusive는 그 사이 누가 같은 이름을 만들었을 때를 막는다.
+            sftp.open(path, java.util.EnumSet.of(SftpClient.OpenMode.Write, SftpClient.OpenMode.Create,
+                    SftpClient.OpenMode.Exclusive)).close();
+        }
+
+        @Override
         public void rename(String from, String to) throws IOException {
             sftp.rename(from, to);
         }

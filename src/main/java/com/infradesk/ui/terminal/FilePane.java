@@ -63,6 +63,9 @@ final class FilePane extends JPanel {
 
         void mkdir(String path) throws IOException;
 
+        /** 빈 파일. 같은 이름이 있으면 실패한다. */
+        void createFile(String path) throws IOException;
+
         void rename(String from, String to) throws IOException;
 
         /** 폴더면 안의 모든 것까지 지운다. 휴지통으로 보냈으면 true(되돌릴 수 있음). */
@@ -102,6 +105,11 @@ final class FilePane extends JPanel {
             @Override
             public void mkdir(String path) throws IOException {
                 files.mkdir(path);
+            }
+
+            @Override
+            public void createFile(String path) throws IOException {
+                files.createFile(path);
             }
 
             @Override
@@ -156,6 +164,11 @@ final class FilePane extends JPanel {
             @Override
             public void mkdir(String path) throws IOException {
                 files.mkdir(path);
+            }
+
+            @Override
+            public void createFile(String path) throws IOException {
+                files.createFile(path);
             }
 
             @Override

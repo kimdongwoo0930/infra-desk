@@ -400,6 +400,25 @@ public final class SftpDialog extends JDialog {
         }, pane::reload);
     }
 
+    private void newFile(FilePane pane) {
+        if (!pane.ready()) {
+            return;
+        }
+        String name = askName("새 파일 이름", "새 파일", "", pane, pane == localPane, null);
+        if (name == null) {
+            return;
+        }
+        FilePane.Source src = pane.source();
+        String path = src.join(pane.cwd(), name);
+        pane.run("파일을 만드는 중…", () -> {
+            src.createFile(path);
+            return null;
+        }, done -> {
+            pane.reload();
+            status.setText("'" + name + "' 파일을 만들었어요");
+        }, pane::reload);
+    }
+
     private void rename(FilePane pane) {
         RemoteFile f = pane.single();
         if (f == null || !pane.ready()) {
@@ -739,6 +758,7 @@ public final class SftpDialog extends JDialog {
         }
         menu.addSeparator();
         addItem(menu, "새 폴더…", pane.ready(), () -> newFolder(pane));
+        addItem(menu, "새 파일…", pane.ready(), () -> newFile(pane));
         addItem(menu, "이름 바꾸기…   F2", pane.ready() && selection.size() == 1, () -> rename(pane));
         if (remote) {
             addItem(menu, "권한 변경…", pane.ready() && any, this::chmod);

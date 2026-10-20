@@ -133,4 +133,20 @@ class LocalFilesTest {
         assertThrows(IOException.class, () -> files.delete(dir.toString()));
         assertThrows(IOException.class, () -> files.rename(dir.resolve("x").toString(), root.resolve("y").toString()));
     }
+
+    @Test
+    void createFileMakesAnEmptyFileInsideTheRoot() throws Exception {
+        LocalFiles files = new LocalFiles(dir, dir);
+        String path = files.join(dir.toString(), "new.txt");
+
+        files.createFile(path);
+
+        assertTrue(Files.isRegularFile(dir.resolve("new.txt")));
+        assertEquals(0, Files.size(dir.resolve("new.txt")));
+        Files.writeString(dir.resolve("keep.txt"), "keep me");
+        assertThrows(IOException.class, () -> files.createFile(files.join(dir.toString(), "keep.txt")), "덮어쓰지 않는다");
+        assertEquals("keep me", Files.readString(dir.resolve("keep.txt")));
+        assertThrows(IOException.class, () -> new LocalFiles(dir.resolve("root"), dir.resolve("root"))
+                .createFile(dir.resolve("outside.txt").toString()), "제한된 루트 밖에는 만들 수 없다");
+    }
 }

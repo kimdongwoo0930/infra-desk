@@ -66,4 +66,17 @@ class DemoRemoteFilesTest {
 
         org.junit.jupiter.api.Assertions.assertArrayEquals(full, Files.readAllBytes(partial));
     }
+
+    @Test
+    void createFileMakesAnEmptyFileAndRefusesToOverwrite() throws Exception {
+        DemoRemoteFiles files = new DemoRemoteFiles("ubuntu", "demo-create-" + System.nanoTime());
+        String home = files.home();
+
+        files.createFile(home + "/new.txt");
+
+        assertTrue(files.exists(home + "/new.txt"));
+        assertEquals(0, files.stat(home + "/new.txt").size());
+        assertThrows(java.nio.file.FileAlreadyExistsException.class, () -> files.createFile(home + "/README.md"));
+        assertThrows(java.nio.file.NoSuchFileException.class, () -> files.createFile(home + "/nodir/x.txt"));
+    }
 }

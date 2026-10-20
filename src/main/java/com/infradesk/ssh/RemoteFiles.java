@@ -55,6 +55,9 @@ public interface RemoteFiles extends AutoCloseable {
 
     void mkdir(String path) throws IOException;
 
+    /** 빈 파일을 만든다. 같은 이름이 이미 있으면 덮어쓰지 않고 실패한다. */
+    void createFile(String path) throws IOException;
+
     /** 이름 바꾸기·이동. 대상이 이미 있으면 서버에 따라 실패한다. */
     void rename(String from, String to) throws IOException;
 

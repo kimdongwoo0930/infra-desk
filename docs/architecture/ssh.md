@@ -70,9 +70,9 @@ SshTarget(호스트, 포트, 사용자, 개인키)
 | `HostFacts` | SSH 한 번으로 업타임·OS·루트 디스크·열린 포트 읽기 (서버 상세의 정보 칸) |
 | `ProcStats` | 원격 `/proc` 스냅샷 명령, 파싱, 두 스냅샷 사이 사용률 계산 (실시간 모드) |
 | `DockerCommands`, `Container` | SSH로 실행할 Docker 명령(컨테이너 ID는 16진수만 허용)과 결과 파싱. `docker exec -it`로 컨테이너 셸·DB 콘솔도 연다 |
-| `RemoteFiles`, `RemoteFile`, `Transfers` | SFTP 작업: 목록·`stat`, 업로드·다운로드(오프셋을 주면 이어받기·이어올리기, 진행률 콜백이 예외를 던지면 취소), `mkdir`, `rename`, `chmod`, 삭제. `deleteRecursively`는 폴더를 통째로 지우되 **심볼릭 링크는 따라가지 않고 링크만 지운다**. `RemoteFile`은 권한(`rwxr-xr-x`)과 링크 여부를 가진다 |
+| `RemoteFiles`, `RemoteFile`, `Transfers` | SFTP 작업: 목록·`stat`, 업로드·다운로드(오프셋을 주면 이어받기·이어올리기, 진행률 콜백이 예외를 던지면 취소), `mkdir`, `createFile`(빈 파일, 같은 이름이 있으면 덮어쓰지 않고 실패), `rename`, `chmod`, 삭제. `deleteRecursively`는 폴더를 통째로 지우되 **심볼릭 링크는 따라가지 않고 링크만 지운다**. `RemoteFile`은 권한(`rwxr-xr-x`)과 링크 여부를 가진다 |
 | `TransferQueue` | 파일·폴더 전송 대기열(아래) |
-| `LocalFiles` | 이 컴퓨터의 폴더 목록·새 폴더·이름 바꾸기·삭제(SFTP 창의 왼쪽 패널). 서버 쪽과 같은 표를 쓰도록 항목을 `RemoteFile` 모양으로 돌려준다. OS의 경로 표기를 그대로 쓰고, 삭제는 가능하면 휴지통으로 보낸다 |
+| `LocalFiles` | 이 컴퓨터의 폴더 목록·새 폴더·새 파일·이름 바꾸기·삭제(SFTP 창의 왼쪽 패널). 서버 쪽과 같은 표를 쓰도록 항목을 `RemoteFile` 모양으로 돌려준다. OS의 경로 표기를 그대로 쓰고, 삭제는 가능하면 휴지통으로 보낸다 |
 
 ## 전송 대기열 (`TransferQueue`)
 

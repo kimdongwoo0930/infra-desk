@@ -173,6 +173,17 @@ final class DemoRemoteFiles implements RemoteFiles {
     }
 
     @Override
+    public void createFile(String path) throws IOException {
+        if (exists(path)) {
+            throw new FileAlreadyExistsException(path);
+        }
+        if (!tree.containsKey(RemoteFiles.parent(path) + "/") && !RemoteFiles.parent(path).equals("/")) {
+            throw new NoSuchFileException(RemoteFiles.parent(path));
+        }
+        tree.put(path, new byte[0]);
+    }
+
+    @Override
     public void rename(String from, String to) throws IOException {
         if (!exists(from)) {
             throw new NoSuchFileException(from);
