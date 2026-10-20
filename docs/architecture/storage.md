@@ -11,19 +11,17 @@
 | **설정** (비밀 아님) | 계정 이름·리전·OCID, SSH 사용자·포트, 저장된 명령어 | JSON 파일 |
 | **비밀값** | API 개인키, SSH 개인키·암호, 디스코드 웹훅 URL | 암호화된 금고 파일 + OS 키체인 |
 
-## 인터페이스 + 구현 세 벌
+## 인터페이스 + 구현
 
-저장소마다 인터페이스가 있고, 실제 모드용 구현과 데모·테스트용 메모리 구현이 있다. `service`는 인터페이스만 안다.
+저장소마다 인터페이스가 있고 `service`는 인터페이스만 안다.
 
-| 인터페이스 | 실제 모드 | 데모·테스트 | 저장하는 것 |
-|---|---|---|---|
-| `AccountStore` | `JsonAccountStore` | `InMemoryAccountStore` | 계정 설정 |
-| `SshSettingsStore` | `JsonSshSettingsStore` | `InMemorySshSettingsStore` | 서버별 SSH 사용자·포트 |
-| `SavedCommandStore` | `JsonSavedCommandStore` | `InMemorySavedCommandStore` | 저장된 명령어 |
-| `AlertSettingsStore` | `JsonAlertSettingsStore` | `InMemoryAlertSettingsStore` | 알림 설정 |
-| `SecretStore` | `VaultSecretStore` (+ `KeychainSecretStore`) | `InMemorySecretStore` | 비밀값 |
-
-데모 모드는 메모리 구현만 쓰므로 **실제 설정 파일과 키체인을 읽거나 쓰지 않는다.**
+| 인터페이스 | 구현 | 저장하는 것 |
+|---|---|---|
+| `AccountStore` | `JsonAccountStore` | 계정 설정 |
+| `SshSettingsStore` | `JsonSshSettingsStore` | 서버별 SSH 사용자·포트 |
+| `SavedCommandStore` | `JsonSavedCommandStore` | 저장된 명령어 |
+| `AlertSettingsStore` | `JsonAlertSettingsStore` | 알림 설정 |
+| `SecretStore` | `VaultSecretStore` (+ `KeychainSecretStore`) | 비밀값 |
 
 ## 비밀값이 저장되는 방식
 

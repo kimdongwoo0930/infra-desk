@@ -5,10 +5,8 @@
 ## 명령
 
 ```bash
-./gradlew run        # 앱 실행 (실제 모드)
-./gradlew runDemo    # 데모 모드 (가짜 데이터, 키 불필요)
+./gradlew run        # 앱 실행
 ./gradlew test       # 테스트
-./gradlew snapshot   # 데모 데이터로 화면을 build/snapshots/*.png로 렌더링 (개발용)
 ./gradlew dmg        # macOS: build/dist/InfraDesk-<버전>.dmg (패키징된 앱 자가 점검 포함)
 ./gradlew windowsZip # Windows: build/dist/InfraDesk-<버전>-windows.zip
 ./gradlew generateIcons  # 앱 아이콘 다시 그리기 (src/packaging, 런타임 아이콘)
@@ -21,7 +19,7 @@ installDist → appImage (jpackage + jlink 필요한 모듈만) → selfTestAppI
            → dmg + macUpdateZip (macOS) / windowsZip (Windows)
 ```
 
-- JVM 옵션: `build.gradle.kts`의 `appJvmArgs`(SerialGC, `-Xms16m -Xmx256m`, 빈 힙 반환, C1 전용). `run`·`runDemo`·jpackage가 함께 쓴다. 근거는 DEVLOG "메모리 줄이기"
+- JVM 옵션: `build.gradle.kts`의 `appJvmArgs`(SerialGC, `-Xms16m -Xmx256m`, 빈 힙 반환, C1 전용). `run`·jpackage가 함께 쓴다. 근거는 DEVLOG "메모리 줄이기"
 - 아이콘: `src/packaging/macos/InfraDesk.icns`, `src/packaging/windows/InfraDesk.ico` (`tools.IconGenerator`가 생성)
 
 ## CI (`.github/workflows/build.yml`)
@@ -35,7 +33,7 @@ installDist → appImage (jpackage + jlink 필요한 모듈만) → selfTestAppI
 
 ## 실행 옵션
 
-`--demo`, `--minimized`(메뉴 막대에서만 시작), `--debug-input`, `--self-test`, `--migrate-secrets`
+`--minimized`(메뉴 막대에서만 시작), `--debug-input`, `--self-test`, `--migrate-secrets`
 
 - `--self-test`: 패키징된 앱이 제대로 뜨는지 점검하고 종료한다. 앱 안 업데이트도 새 빌드에 이걸 먼저 돌려 본다.
 - `--migrate-secrets`: 옛 항목별 키체인 비밀값을 금고로 옮긴다 → [architecture/storage.md](architecture/storage.md)

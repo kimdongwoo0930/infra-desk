@@ -11,10 +11,9 @@
 ## 구성: 감지와 전송을 분리
 
 ```
-   MainFrame ──► AlertService ──► AlertMonitor ──► (알림 목록) ──► 전송 스레드 ──► Notifier
-   (인벤토리·CPU)   설정·전송 관리     감지만 한다                       한 줄로 순서대로     │
-                                    (순수 상태 기계)                                      ├ DiscordNotifier (실제)
-                                                                                         └ 토스트 미리보기 (데모)
+   MainFrame ──► AlertService ──► AlertMonitor ──► (알림 목록) ──► 전송 스레드 ──► DiscordNotifier
+   (인벤토리·CPU)   설정·전송 관리     감지만 한다                       한 줄로 순서대로
+                                    (순수 상태 기계)
 ```
 
 | 클래스 | 역할 |
@@ -43,9 +42,5 @@
 MainFrame.setInventory ─► AlertService.onInventory ─► AlertMonitor (상태 변화 비교)
 1분 CPU 조회           ─► AlertService.onCpu       ─► AlertMonitor (연속 N회 기준 이상)
 정지·재부팅 요청         ─► AlertService.expectChange (15분 동안 해당 서버 제외)
-알림 ─► 전송 스레드 ─► DiscordNotifier (실제) / Toast 미리보기 (데모) ─► 실패 시 Toast
+알림 ─► 전송 스레드 ─► DiscordNotifier ─► 실패 시 Toast
 ```
-
-## 데모 모드
-
-데모에서는 디스코드로 보내지 않고 화면에 "디스코드 알림 미리보기 (데모 · 전송 안 함)" 토스트만 띄운다(`app/InfraDeskApp.demoAlertService`).

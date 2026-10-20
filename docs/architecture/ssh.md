@@ -8,12 +8,11 @@
 
 > `provider/ssh`와 헷갈리지 말 것. 그쪽은 포트가 열려 있는지만 확인하는 상태 표시용이다 → [개요](README.md#헷갈리기-쉬운-것-ssh가-두-개다)
 
-## 구조: 인터페이스 + 두 구현
+## 구조: 인터페이스 + 구현
 
 ```
 ShellConnector (인터페이스)           ShellSession (열린 연결)
- ├─ MinaShellConnector  ← 실제 모드    ├─ MINA SSHD 채널
- └─ DemoShellConnector  ← 데모 모드    └─ 데모용 가짜 셸
+ └─ MinaShellConnector                 └─ MINA SSHD 채널
 ```
 
 `ShellConnector`가 SSH 연결의 입구다. 네 가지를 할 수 있다.
@@ -25,7 +24,7 @@ ShellConnector (인터페이스)           ShellSession (열린 연결)
 | `exec(target, prompt, command)` | PTY 없이 명령을 실행하고 출력 읽기 | 일괄 실행, 컨테이너 목록, 실시간 모니터링 |
 | `sftp(target, prompt)` | 파일 목록·업로드·다운로드 (`RemoteFiles`) | SFTP 창 |
 
-`service.TerminalService`가 이 인터페이스를 쓰고, 실제 구현을 쓸지 데모를 쓸지는 `app`이 정한다.
+`service.TerminalService`가 이 인터페이스를 쓰고, 어떤 구현을 쓸지는 `app`이 정한다.
 
 ## 접속 흐름 (`MinaShellConnector`)
 
@@ -72,10 +71,6 @@ SshTarget(호스트, 포트, 사용자, 개인키)
 | `ProcStats` | 원격 `/proc` 스냅샷 명령, 파싱, 두 스냅샷 사이 사용률 계산 (실시간 모드) |
 | `DockerCommands`, `Container` | SSH로 실행할 Docker 명령(컨테이너 ID는 16진수만 허용)과 결과 파싱. `docker exec -it`로 컨테이너 셸·DB 콘솔도 연다 |
 | `RemoteFiles`, `RemoteFile`, `Transfers` | SFTP 목록·업로드·다운로드·삭제와 진행률 |
-
-### 데모용 가짜
-
-`DemoShellConnector`, `DemoContainerShell`, `DemoDocker`, `DemoRemoteFiles`. 네트워크 없이 터미널·컨테이너·SFTP를 보여 준다.
 
 ## 보안 규칙
 

@@ -10,6 +10,7 @@
 
 - **분리:** `docs/architecture/` 아래 `README.md`(개요) + 모듈별 `core`/`service`/`provider`/`ssh`/`storage`/`alert`/`ui`. 빌드·패키징·CI는 `docs/BUILD.md`로. `docs/ARCHITECTURE.md`는 목차만 남겼다(README·CLAUDE.md의 링크 유지).
 - **구성:** 개요는 "모듈이 맡은 일 / 일부러 모르는 것" 표, 의존 방향, **[정지] 버튼 한 번이 `ui → service → provider → OCI`를 지나는 과정**, 용어 풀이를 앞에 둔다. 기존 클래스 표는 모듈 문서 안에 그대로 남겼다.
+- **데모 모드 분리:** 데모 설명(실행 방법, 실제와 비교표, 가짜 부품 위치, "새 기능은 데모 데이터도 같이" 규칙)은 `architecture/demo.md` 한 곳에만 둔다. 나머지 구조 문서는 실제 동작만 설명해서 흐름이 끊기지 않게 했다. `BUILD.md`의 명령 목록에서도 `runDemo`·`snapshot`을 뺐다(`demo.md`에 있음).
 - **혼동 해소:** `provider/ssh`(포트가 열렸는지만 확인, 상태 표시용)와 `ssh`(진짜 접속)가 이름이 같아 헷갈렸다. 개요에 비교표를 넣었다.
 - **바로잡은 것:**
   - 평소 폴링 주기는 문서에 45초였지만 코드(`RefreshPolicy.NORMAL_INTERVAL`)는 **30초**.

@@ -4,13 +4,12 @@
 
 ## 왜 있나
 
-`core.CloudProvider`는 "서버 목록 줘", "정지해줘"라는 **약속**만 정한다. 실제로 OCI에 HTTP 요청을 보내고 응답을 번역하는 일은 `provider` 아래 구현체가 한다. 구현체는 세 가지다.
+`core.CloudProvider`는 "서버 목록 줘", "정지해줘"라는 **약속**만 정한다. 실제로 OCI에 HTTP 요청을 보내고 응답을 번역하는 일은 `provider` 아래 구현체가 한다. 구현체는 두 가지다.
 
 ```
 provider/
-  oracle/   OCI Java SDK로 Oracle Cloud와 통신                    (실제 모드)
-  ssh/      SSH 포트에 TCP로 접속해 보고 상태만 판단              (실제 모드, 직접 연결 기기)
-  demo/     가짜 데이터                                            (데모 모드)
+  oracle/   OCI Java SDK로 Oracle Cloud와 통신
+  ssh/      SSH 포트에 TCP로 접속해 보고 상태만 판단 (직접 연결 기기용)
 ```
 
 모두 `core`만 import한다. 화면(`ui`)이나 저장소(`storage`)를 모른다.
@@ -52,12 +51,6 @@ provider/
 - 클라우드 메트릭도 없다(`Metrics.EMPTY`). 대신 `service.SshMetricsService`와 실시간 모드가 SSH로 직접 읽는다 → [service.md](service.md)
 - 주소·포트는 `core.SshHostProperties`, 사용자·키는 기존 SSH 설정.
 - **진짜 SSH 접속은 여기서 하지 않는다.** 터미널 등은 [ssh.md](ssh.md)의 `ssh` 패키지가 한다.
-
-## provider/demo
-
-`DemoProvider`는 데모 모드의 가짜 클라우드다. 네트워크 지연과 상태 전이(시작 → 시작 중 → 실행 중)를 흉내 내서, 키 없이도 화면의 모든 흐름을 볼 수 있다. 실제 설정 파일·키체인·네트워크를 쓰지 않는다. `DemoData`는 가짜 계정·서버·저장된 명령어를, `DemoMetrics`는 가짜 그래프 데이터를 만든다.
-
-새 기능을 만들면 데모에서도 보이도록 가짜 데이터를 여기에 같이 만든다.
 
 ## 새 클라우드(AWS 등)를 추가하려면
 

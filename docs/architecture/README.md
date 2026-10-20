@@ -26,13 +26,13 @@
 | `storage` | 설정 파일(JSON)과 비밀값(암호화 금고)을 읽고 쓴다 | 그 값이 무슨 뜻인지 | [storage.md](storage.md) |
 | `alert` | 서버 상태 변화를 감지해서 디스코드로 알린다 (현재 꺼져 있음) | 화면 | [alert.md](alert.md) |
 
-이 밖에 `app`이 있다. 시작할 때 위 모듈들을 **조립**하는 `main`이다. 어떤 저장소·provider·SSH 연결을 쓸지(실제/데모)는 여기서 정한다. 다만 `MainFrame`이 `ContainerService`와 `SshMetricsService`를 직접 만드는 예외가 있다.
+이 밖에 `app`이 있다. 시작할 때 위 모듈들을 **조립**하는 `main`이다. 어떤 저장소·provider·SSH 연결을 쓸지는 여기서 정한다. 다만 `MainFrame`이 `ContainerService`와 `SshMetricsService`를 직접 만드는 예외가 있다.
 
 ### `app`에 있는 것
 
 | 클래스 | 역할 |
 |---|---|
-| `InfraDeskApp` | 진입점. 옵션을 읽고 실제/데모 부품을 조립해 `MainFrame`을 띄운다 |
+| `InfraDeskApp` | 진입점. 옵션을 읽고 부품을 조립해 `MainFrame`을 띄운다 |
 | `Logging` | 로그 파일 설정, 비밀값 가림 |
 | `BuildInfo` | 버전·빌드 번호·커밋 |
 | `AppIcon` | Dock/작업 표시줄/창 아이콘 |
@@ -116,25 +116,8 @@
 | PTY | 터미널처럼 동작하는 셸. 화면 크기를 알고 색과 커서 이동을 지원한다 |
 | 금고 (vault) | 모든 비밀값을 암호화해서 넣어 둔 파일 하나. 열쇠 하나만 OS 키체인에 있다 |
 
-## 실제 모드 vs 데모 모드
-
-앱은 같은 코드를 **다른 부품으로 조립**해서 두 가지로 실행한다. 조립은 `app/InfraDeskApp`이 한다.
-
-| | 실제 (`./gradlew run`) | 데모 (`./gradlew runDemo`) |
-|---|---|---|
-| 계정 저장 | `JsonAccountStore` | `InMemoryAccountStore` (가짜 계정 3개로 시작) |
-| SSH 설정 | `JsonSshSettingsStore` | `InMemorySshSettingsStore` (없어도 `ubuntu`로 접속) |
-| SSH 연결 | `MinaShellConnector` + `known_hosts` | `DemoShellConnector` (가짜 셸) |
-| 저장된 명령어 | `JsonSavedCommandStore` | 목업 예시 4개 (메모리) |
-| 알림 | `DiscordNotifier` (웹훅) | 토스트 미리보기 (전송 안 함) |
-| 비밀값 | `VaultSecretStore` (키체인엔 마스터 키만) | `InMemorySecretStore` |
-| provider | `OracleProviderFactory`, `SshHostProviderFactory` | `DemoProviderFactory` (클라우드), SSH는 항상 응답하는 가짜 연결 확인 |
-| 네트워크 | OCI API | 없음 (지연 시간만 흉내) |
-
-`ui`와 `service`는 어느 쪽인지 모른다. 인터페이스(`SecretStore`, `ShellConnector`, `CloudProvider` 등)만 보고 일하기 때문에 가짜로 바꿔 끼울 수 있다.
-
 ## 실행 옵션
 
-`--demo`, `--minimized`(메뉴 막대에서만 시작), `--debug-input`, `--self-test`, `--migrate-secrets`
+`--minimized`(메뉴 막대에서만 시작), `--debug-input`, `--self-test`, `--migrate-secrets`
 
 빌드·실행·패키징은 [../BUILD.md](../BUILD.md).
