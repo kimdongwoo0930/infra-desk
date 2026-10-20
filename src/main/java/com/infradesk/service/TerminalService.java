@@ -1,7 +1,9 @@
 package com.infradesk.service;
 
 import com.infradesk.core.Server;
+import com.infradesk.ssh.DemoLocalFiles;
 import com.infradesk.ssh.HostFacts;
+import com.infradesk.ssh.LocalFiles;
 import com.infradesk.ssh.HostKeyPrompt;
 import com.infradesk.ssh.ProcStats;
 import com.infradesk.ssh.SshConfig;
@@ -181,6 +183,11 @@ public class TerminalService {
     /** 저장된 SSH 설정으로 서버에 SFTP를 연다. */
     public RemoteFiles openFiles(Server server, HostKeyPrompt prompt) {
         return connector.sftp(target(server), prompt);
+    }
+
+    /** SFTP 창 왼쪽에 보여줄 이 컴퓨터의 폴더. 데모 모드는 실제 폴더 대신 가짜 폴더를 쓴다. */
+    public LocalFiles localFiles() {
+        return demo ? DemoLocalFiles.get() : LocalFiles.userHome();
     }
 
     public List<SavedCommand> savedCommands() {

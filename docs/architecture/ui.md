@@ -99,7 +99,9 @@ Async.run(
 | `TerminalPanel` | 탭 하나: 연결, JediTerm 위젯, 상태바, 실패 안내와 "다시 연결" |
 | `ShellTtyConnector` | `ssh.ShellSession`을 JediTerm이 쓰는 형태로 이어 주는 어댑터 |
 | `TerminalSidePanel` | 오른쪽 패널: 저장된 명령어, 일괄 실행, SFTP 버튼 |
-| `BatchResultDialog`, `SftpDialog`, `CommandEditDialog` | 일괄 실행 결과 / SFTP 탐색기 / 명령어 편집 |
+| `SftpDialog` | SFTP 파일 관리. **왼쪽 내 컴퓨터, 오른쪽 서버**의 2창. 한쪽에서 파일을 고르고 `서버로 업로드` / `내 컴퓨터로 다운로드`(또는 더블클릭)로 반대쪽 현재 폴더로 보낸다. 서버 쪽에서만 삭제 |
+| `FilePane` | `SftpDialog`의 폴더 패널 하나(제목, 경로 입력, 상위 폴더·새로고침, 파일 표). 이 컴퓨터와 서버가 같은 모양으로 쓰고, 목록을 주는 `Source`만 다르다 |
+| `BatchResultDialog`, `CommandEditDialog` | 일괄 실행 결과 / 명령어 편집 |
 | `SshSettingsDialog` | 서버별 사용자 이름·포트·SSH 키 등록 |
 | `HostKeyDialog` | 처음 보는 호스트 키 확인. `ssh.HostKeyPrompt`를 구현하며 어느 스레드에서든 호출 가능 |
 

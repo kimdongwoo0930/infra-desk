@@ -57,7 +57,7 @@ OCI API 요청 제한을 지키려고 평소엔 느리게, 필요할 때만 빠�
 
 | 클래스 | 역할 |
 |---|---|
-| `TerminalService` | 서버별 SSH 설정·키 저장, 셸 열기(`open`), 명령 한 번 실행(`run`: 제한 시간·출력 상한), SFTP 열기(`openFiles`), 저장된 명령어, 서버 정보 읽기(`facts`). 실제 SSH 연결은 `ssh.ShellConnector`에 맡긴다 |
+| `TerminalService` | 서버별 SSH 설정·키 저장, 셸 열기(`open`), 명령 한 번 실행(`run`: 제한 시간·출력 상한), SFTP 열기(`openFiles`), 이 컴퓨터 폴더(`localFiles`), 저장된 명령어, 서버 정보 읽기(`facts`). 실제 SSH 연결은 `ssh.ShellConnector`에 맡긴다 |
 | `ContainerService` | 컨테이너 목록·시작/정지/재시작·로그. `TerminalService.run`으로 `docker` 명령을 실행한다 |
 | `LiveStats` | 실시간 모드. SSH exec 세션의 출력을 읽어 2초마다 `ProcStats.Sample`을 알린다 |
 | `SshMetricsService` | 클라우드 메트릭이 없는 직접 연결 서버용. 분당 한 번 짧은 SSH 명령으로 CPU·메모리를 재서 최근 1시간을 메모리에 보관한다 |

@@ -3,139 +3,83 @@ package com.infradesk.ui.terminal;
 import com.formdev.flatlaf.FlatClientProperties;
 import com.infradesk.core.Server;
 import com.infradesk.service.TerminalService;
+import com.infradesk.ssh.LocalFiles;
 import com.infradesk.ssh.RemoteFile;
 import com.infradesk.ssh.RemoteFiles;
 import com.infradesk.ui.Async;
-import com.infradesk.ui.Icons;
+import com.infradesk.ui.IpPrivacy;
 import com.infradesk.ui.Theme;
 import com.infradesk.ui.components.Buttons;
 
 import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.FlowLayout;
 import java.awt.Window;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JDialog;
-import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextField;
-import javax.swing.ListSelectionModel;
-import javax.swing.SwingConstants;
+import javax.swing.JSplitPane;
 import javax.swing.SwingUtilities;
-import javax.swing.table.AbstractTableModel;
-import javax.swing.table.DefaultTableCellRenderer;
 
-/** 서버 하나의 SFTP 파일 브라우저: 탐색, 업로드, 다운로드, 삭제. 모달이 아니다. */
+/**
+ * 서버 하나의 SFTP 파일 관리. 왼쪽이 이 컴퓨터, 오른쪽이 서버다. 한쪽에서 파일을 고르고 버튼(또는
+ * 더블클릭)으로 반대쪽의 현재 폴더로 보낸다. 모달이 아니다.
+ */
 public final class SftpDialog extends JDialog {
-
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-            .withZone(ZoneId.systemDefault());
 
     private final TerminalService service;
     private final Server server;
-    private final FileTableModel model = new FileTableModel();
-    private final JTable table = new JTable(model);
-    private final JTextField pathField = new JTextField();
+    private final FilePane localPane = new FilePane("내 컴퓨터", "내 컴퓨터 경로");
+    private final FilePane remotePane;
     private final JLabel status = new JLabel(" ");
-    private final JButton up = Buttons.icon("arrow-up", "상위 폴더", 30);
-    private final JButton refresh = Buttons.icon("refresh", "새로고침", 30);
-    private final JButton upload = Buttons.secondary("업로드…", "upload");
-    private final JButton download = Buttons.secondary("다운로드…", "download");
+    private final JButton upload = Buttons.secondary("서버로 업로드", "upload");
+    private final JButton download = Buttons.secondary("내 컴퓨터로 다운로드", "download");
     private final JButton delete = Buttons.danger("삭제", "trash");
 
     private RemoteFiles files;
-    private String cwd;
     private boolean busy;
 
     public SftpDialog(Window owner, TerminalService service, Server server) {
         super(owner, "SFTP · " + server.name(), ModalityType.MODELESS);
         this.service = service;
         this.server = server;
+        this.remotePane = new FilePane("서버 · " + server.name(), "원격 경로");
 
-        pathField.setFont(Theme.monoFont(12.5f));
-        pathField.putClientProperty(FlatClientProperties.STYLE, "background: #1E1F22");
-        pathField.getAccessibleContext().setAccessibleName("원격 경로");
-        pathField.addActionListener(e -> navigate(pathField.getText().strip()));
-        up.addActionListener(e -> navigate(RemoteFiles.parent(cwd)));
-        refresh.addActionListener(e -> navigate(cwd));
         upload.addActionListener(e -> upload());
         download.addActionListener(e -> download());
         delete.addActionListener(e -> delete());
-
-        JPanel nav = new JPanel(new BorderLayout(6, 0));
-        nav.setOpaque(false);
-        JPanel navButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
-        navButtons.setOpaque(false);
-        navButtons.add(up);
-        navButtons.add(refresh);
-        nav.add(navButtons, BorderLayout.WEST);
-        nav.add(pathField, BorderLayout.CENTER);
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        actions.setOpaque(false);
-        actions.add(upload);
-        actions.add(download);
-        actions.add(delete);
-        JPanel top = new JPanel(new BorderLayout(12, 0));
-        top.setOpaque(false);
-        top.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        top.add(nav, BorderLayout.CENTER);
-        top.add(actions, BorderLayout.EAST);
-
-        table.setRowHeight(30);
-        table.setShowGrid(false);
-        table.setFillsViewportHeight(true);
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.setBackground(Theme.APP_BG);
-        table.getColumnModel().getColumn(0).setPreferredWidth(360);
-        table.getColumnModel().getColumn(0).setCellRenderer(new NameRenderer());
-        DefaultTableCellRenderer right = new DefaultTableCellRenderer();
-        right.setHorizontalAlignment(SwingConstants.RIGHT);
-        table.getColumnModel().getColumn(1).setCellRenderer(right);
-        table.getSelectionModel().addListSelectionListener(e -> updateButtons());
-        table.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) {
-                    openSelected();
-                }
-            }
-        });
-        table.getInputMap().put(javax.swing.KeyStroke.getKeyStroke("ENTER"), "open");
-        table.getActionMap().put("open", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent e) {
-                openSelected();
-            }
-        });
-        JScrollPane scroll = new JScrollPane(table);
-        scroll.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, Theme.DIVIDER));
+        localPane.addAction(upload);
+        remotePane.addAction(download);
+        remotePane.addAction(delete);
+        localPane.onActivate(f -> upload());
+        remotePane.onActivate(f -> download());
+        localPane.onSelectionChange(this::updateButtons);
+        remotePane.onSelectionChange(this::updateButtons);
 
         status.setForeground(Theme.TEXT_MUTED);
         status.putClientProperty(FlatClientProperties.STYLE, "font: -1");
         status.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
 
+        localPane.setBorder(BorderFactory.createEmptyBorder(12, 12, 8, 6));
+        remotePane.setBorder(BorderFactory.createEmptyBorder(12, 6, 8, 12));
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, localPane, remotePane);
+        split.setResizeWeight(0.5);
+        split.setBorder(null);
+        split.setOpaque(false);
+
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Theme.PANEL_BG);
-        root.add(top, BorderLayout.NORTH);
-        root.add(scroll, BorderLayout.CENTER);
+        root.add(split, BorderLayout.CENTER);
         root.add(status, BorderLayout.SOUTH);
         setContentPane(root);
-        setSize(820, 540);
+        setSize(1120, 600);
+        setMinimumSize(new java.awt.Dimension(800, 420));
         setLocationRelativeTo(owner);
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
@@ -148,10 +92,14 @@ public final class SftpDialog extends JDialog {
             }
         });
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        updateButtons();
         connect();
     }
 
     private void connect() {
+        LocalFiles local = service.localFiles();
+        localPane.attach(FilePane.local(local), local.home());
+
         setBusy(true, "SFTP 연결 중…");
         Async.run(() -> {
             RemoteFiles f = service.openFiles(server, new HostKeyDialog(this));
@@ -161,113 +109,82 @@ public final class SftpDialog extends JDialog {
             files = (RemoteFiles) result[0];
             @SuppressWarnings("unchecked")
             List<RemoteFile> list = (List<RemoteFile>) result[2];
-            show((String) result[1], list);
+            remotePane.attach(FilePane.remote(files), (String) result[1], list);
+            setBusy(false, " ");
         }, err -> {
             setBusy(false, null);
             showError(Async.message(err));
-            upload.setEnabled(false);
         });
     }
 
-    private void navigate(String path) {
-        if (files == null || busy || path.isEmpty()) {
-            return;
-        }
-        String target = path;
-        run("불러오는 중…", () -> files.list(target), list -> show(target, list));
-    }
-
-    private void show(String path, List<RemoteFile> list) {
-        cwd = path;
-        pathField.setText(path);
-        model.setFiles(list);
-        long dirs = list.stream().filter(RemoteFile::directory).count();
-        setBusy(false, "폴더 " + dirs + "개 · 파일 " + (list.size() - dirs) + "개");
-        table.requestFocusInWindow();
-    }
-
-    private void openSelected() {
-        RemoteFile f = selected();
-        if (f == null) {
-            return;
-        }
-        if (f.directory()) {
-            navigate(f.path());
-        } else {
-            download();
-        }
-    }
-
+    /** 이 컴퓨터에서 고른 파일을 서버의 현재 폴더로 올린다. */
     private void upload() {
-        if (files == null || busy) {
+        RemoteFile f = localPane.selected();
+        if (files == null || busy || !localPane.ready() || !remotePane.ready() || f == null || f.directory()) {
             return;
         }
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle(cwd + "에 업로드");
-        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
-            return;
-        }
-        File local = chooser.getSelectedFile();
-        String remote = RemoteFiles.join(cwd, local.getName());
-        String dir = cwd;
+        String remoteDir = remotePane.cwd();
+        String remote = RemoteFiles.join(remoteDir, f.name());
+        Path local = Path.of(f.path());
         run("확인 중…", () -> files.exists(remote), exists -> {
-            if (exists && JOptionPane.showConfirmDialog(this, "'" + local.getName() + "'이(가) 이미 있어요. 덮어쓸까요?",
-                    "업로드", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
+            if (exists && !confirmOverwrite("업로드", "서버의 '" + f.name() + "'이(가) 이미 있어요. 덮어쓸까요?")) {
                 return;
             }
-            long total = Math.max(1, local.length());
-            run(local.getName() + " 업로드 중…", () -> {
-                files.upload(local.toPath(), remote, done -> progress("업로드", local.getName(), done, total));
-                return files.list(dir);
-            }, list -> {
-                show(dir, list);
-                status.setText(local.getName() + " 업로드 완료");
+            long total = Math.max(1, f.size());
+            run(f.name() + " 업로드 중…", () -> {
+                files.upload(local, remote, done -> progress("업로드", f.name(), done, total));
+                return null;
+            }, ignored -> {
+                remotePane.reload();
+                status.setText(f.name() + " 업로드 완료 → " + remoteDir);
             });
         });
     }
 
+    /** 서버에서 고른 파일을 이 컴퓨터의 현재 폴더로 받는다. */
     private void download() {
-        RemoteFile f = selected();
-        if (files == null || busy || f == null || f.directory()) {
+        RemoteFile f = remotePane.selected();
+        if (files == null || busy || !localPane.ready() || !remotePane.ready() || f == null || f.directory()) {
             return;
         }
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle(f.name() + " 저장");
-        chooser.setSelectedFile(new File(RemoteFiles.safeLocalName(f.name())));
-        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
-            return;
-        }
-        Path local = chooser.getSelectedFile().toPath();
-        if (local.toFile().exists() && JOptionPane.showConfirmDialog(this, local.getFileName() + "이(가) 이미 있어요. 덮어쓸까요?",
-                "다운로드", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
+        String localDir = localPane.cwd();
+        Path local = Path.of(localPane.source().join(localDir, RemoteFiles.safeLocalName(f.name())));
+        if (Files.exists(local) && !confirmOverwrite("다운로드", "내 컴퓨터의 '" + local.getFileName() + "'이(가) 이미 있어요. 덮어쓸까요?")) {
             return;
         }
         long total = Math.max(1, f.size());
         run(f.name() + " 다운로드 중…", () -> {
             files.download(f.path(), local, done -> progress("다운로드", f.name(), done, total));
             return null;
-        }, ignored -> setBusy(false, f.name() + " 다운로드 완료 → " + local));
+        }, ignored -> {
+            localPane.reload();
+            status.setText(f.name() + " 다운로드 완료 → " + localDir);
+        });
     }
 
     private void delete() {
-        RemoteFile f = selected();
-        if (files == null || busy || f == null) {
+        RemoteFile f = remotePane.selected();
+        if (files == null || busy || !remotePane.ready() || f == null) {
             return;
         }
         String what = f.directory() ? "폴더(비어 있어야 해요)" : "파일";
         Object[] options = {"삭제", "취소"};
-        if (JOptionPane.showOptionDialog(this, "'" + f.path() + "' " + what + "을 서버에서 삭제할까요?\n되돌릴 수 없어요.",
+        if (JOptionPane.showOptionDialog(this, "서버의 '" + f.path() + "' " + what + "을 삭제할까요?\n되돌릴 수 없어요.",
                 "삭제", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[1]) != 0) {
             return;
         }
-        String dir = cwd;
         run("삭제 중…", () -> {
             files.delete(f);
-            return files.list(dir);
-        }, list -> {
-            show(dir, list);
+            return null;
+        }, ignored -> {
+            remotePane.reload();
             status.setText(f.name() + " 삭제함");
         });
+    }
+
+    private boolean confirmOverwrite(String title, String message) {
+        return JOptionPane.showConfirmDialog(this, message, title, JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION;
     }
 
     private void progress(String verb, String name, long done, long total) {
@@ -275,9 +192,13 @@ public final class SftpDialog extends JDialog {
         SwingUtilities.invokeLater(() -> status.setText(name + " " + verb + " 중… " + percent + "%"));
     }
 
+    /** 전송·삭제처럼 양쪽 패널을 잠그고 EDT 밖에서 실행한다. 끝나면 잠금을 풀고 결과를 처리한다. */
     private <T> void run(String message, Callable<T> task, Consumer<T> onSuccess) {
         setBusy(true, message);
-        Async.run(task, onSuccess, err -> {
+        Async.run(task, result -> {
+            setBusy(false, null);
+            onSuccess.accept(result);
+        }, err -> {
             setBusy(false, null);
             showError(Async.message(err));
         });
@@ -289,95 +210,22 @@ public final class SftpDialog extends JDialog {
             status.setText(message);
             status.setForeground(Theme.TEXT_MUTED);
         }
+        localPane.setLocked(busy);
+        remotePane.setLocked(busy);
         updateButtons();
     }
 
     private void showError(String message) {
-        status.setText(com.infradesk.ui.IpPrivacy.mask(message));
+        status.setText(IpPrivacy.mask(message));
         status.setForeground(Theme.DANGER_TEXT);
     }
 
     private void updateButtons() {
-        RemoteFile f = selected();
-        boolean ready = files != null && !busy;
-        up.setEnabled(ready && cwd != null && !cwd.equals("/"));
-        refresh.setEnabled(ready);
-        upload.setEnabled(ready);
-        download.setEnabled(ready && f != null && !f.directory());
-        delete.setEnabled(ready && f != null);
-        pathField.setEnabled(ready);
-    }
-
-    private RemoteFile selected() {
-        int row = table.getSelectedRow();
-        return row < 0 ? null : model.get(table.convertRowIndexToModel(row));
-    }
-
-    static String size(long bytes) {
-        if (bytes < 1024) {
-            return bytes + " B";
-        }
-        String[] units = {"KB", "MB", "GB", "TB"};
-        double v = bytes;
-        int u = -1;
-        while (v >= 1024 && u < units.length - 1) {
-            v /= 1024;
-            u++;
-        }
-        return String.format(Locale.ROOT, v >= 100 ? "%.0f %s" : "%.1f %s", v, units[u]);
-    }
-
-    private static final class FileTableModel extends AbstractTableModel {
-        private List<RemoteFile> files = List.of();
-
-        void setFiles(List<RemoteFile> files) {
-            this.files = List.copyOf(files);
-            fireTableDataChanged();
-        }
-
-        RemoteFile get(int row) {
-            return files.get(row);
-        }
-
-        @Override
-        public int getRowCount() {
-            return files.size();
-        }
-
-        @Override
-        public int getColumnCount() {
-            return 3;
-        }
-
-        @Override
-        public String getColumnName(int column) {
-            return switch (column) {
-                case 0 -> "이름";
-                case 1 -> "크기";
-                default -> "수정한 날짜";
-            };
-        }
-
-        @Override
-        public Object getValueAt(int row, int column) {
-            RemoteFile f = files.get(row);
-            return switch (column) {
-                case 0 -> f;
-                case 1 -> f.directory() ? "—" : size(f.size());
-                default -> f.modified() == null ? "" : DATE.format(f.modified());
-            };
-        }
-    }
-
-    private static final class NameRenderer extends DefaultTableCellRenderer {
-        @Override
-        public Component getTableCellRendererComponent(JTable t, Object value, boolean sel, boolean focus, int row, int col) {
-            RemoteFile f = (RemoteFile) value;
-            super.getTableCellRendererComponent(t, f.name(), sel, focus, row, col);
-            setIcon(Icons.get(f.directory() ? "folder" : "file", 15, f.directory() ? Theme.ACCENT : Theme.TEXT_MUTED));
-            setIconTextGap(8);
-            setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
-            return this;
-        }
+        boolean ready = files != null && !busy && localPane.ready() && remotePane.ready();
+        RemoteFile local = localPane.selected();
+        RemoteFile remote = remotePane.selected();
+        upload.setEnabled(ready && local != null && !local.directory());
+        download.setEnabled(ready && remote != null && !remote.directory());
+        delete.setEnabled(ready && remote != null);
     }
 }

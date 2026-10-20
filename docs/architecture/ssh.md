@@ -71,6 +71,7 @@ SshTarget(호스트, 포트, 사용자, 개인키)
 | `ProcStats` | 원격 `/proc` 스냅샷 명령, 파싱, 두 스냅샷 사이 사용률 계산 (실시간 모드) |
 | `DockerCommands`, `Container` | SSH로 실행할 Docker 명령(컨테이너 ID는 16진수만 허용)과 결과 파싱. `docker exec -it`로 컨테이너 셸·DB 콘솔도 연다 |
 | `RemoteFiles`, `RemoteFile`, `Transfers` | SFTP 목록·업로드·다운로드·삭제와 진행률 |
+| `LocalFiles` | 이 컴퓨터의 폴더 목록(SFTP 창의 왼쪽 패널). 서버 쪽과 같은 표를 쓰도록 항목을 `RemoteFile` 모양으로 돌려준다. OS의 경로 표기를 그대로 쓴다 |
 
 ## 보안 규칙
 
