@@ -13,6 +13,9 @@ import com.infradesk.ui.components.Buttons;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.FlowLayout;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
@@ -27,6 +30,7 @@ import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
+import javax.swing.DropMode;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -37,6 +41,7 @@ import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
+import javax.swing.TransferHandler;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
@@ -181,6 +186,30 @@ final class FilePane extends JPanel {
         };
     }
 
+    /** 끌어서 놓기로 패널 사이를 오가는 선택 항목. 같은 프로그램 안에서만 쓴다. */
+    record Payload(FilePane from, List<RemoteFile> items) {
+    }
+
+    static final DataFlavor PAYLOAD = payloadFlavor();
+
+    private static DataFlavor payloadFlavor() {
+        try {
+            return new DataFlavor(DataFlavor.javaJVMLocalObjectMimeType + ";class=" + Payload.class.getName(),
+                    "SFTP 선택 항목", FilePane.class.getClassLoader());
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** 이 패널에 무언가를 끌어다 놓았을 때 처리하는 쪽. */
+    interface DropHandler {
+        /** 이 데이터를 받을 수 있는지. 끌고 있는 동안 계속 불리므로 데이터를 읽지 말고 종류만 본다. */
+        boolean accepts(TransferHandler.TransferSupport support);
+
+        /** @param folder 폴더 행 위에 놓았으면 그 폴더, 빈 곳이면 null(지금 폴더) */
+        boolean drop(Transferable data, RemoteFile folder);
+    }
+
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
             .withZone(ZoneId.systemDefault());
 
@@ -200,6 +229,7 @@ final class FilePane extends JPanel {
     private Consumer<RemoteFile> onActivate = f -> { };
     private Runnable onSelection = () -> { };
     private Supplier<JPopupMenu> menuProvider = () -> null;
+    private DropHandler dropHandler;
 
     FilePane(String title, String accessibleName) {
         super(new BorderLayout());
@@ -271,6 +301,7 @@ final class FilePane extends JPanel {
             }
         });
         bind("ENTER", this::activateSelected);
+        installDragAndDrop();
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, Theme.DIVIDER));
         scroll.getViewport().setBackground(Theme.APP_BG);
@@ -326,6 +357,84 @@ final class FilePane extends JPanel {
 
     JTable table() {
         return table;
+    }
+
+    /** 끌어다 놓는 것을 받을 쪽. null이면 받지 않는다(끌어내는 것은 항상 된다). */
+    void setDropHandler(DropHandler handler) {
+        this.dropHandler = handler;
+    }
+
+    private void installDragAndDrop() {
+        table.setDragEnabled(true);
+        table.setDropMode(DropMode.ON);
+        table.setTransferHandler(new TransferHandler() {
+            @Override
+            public int getSourceActions(javax.swing.JComponent c) {
+                return COPY;
+            }
+
+            @Override
+            protected Transferable createTransferable(javax.swing.JComponent c) {
+                List<RemoteFile> items = ready() ? selection() : List.of();
+                if (items.isEmpty()) {
+                    return null;
+                }
+                Payload payload = new Payload(FilePane.this, items);
+                return new Transferable() {
+                    @Override
+                    public DataFlavor[] getTransferDataFlavors() {
+                        return new DataFlavor[] {PAYLOAD};
+                    }
+
+                    @Override
+                    public boolean isDataFlavorSupported(DataFlavor flavor) {
+                        return PAYLOAD.equals(flavor);
+                    }
+
+                    @Override
+                    public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
+                        if (!isDataFlavorSupported(flavor)) {
+                            throw new UnsupportedFlavorException(flavor);
+                        }
+                        return payload;
+                    }
+                };
+            }
+
+            @Override
+            public boolean canImport(TransferSupport support) {
+                if (dropHandler == null || !ready() || !support.isDrop()) {
+                    return false;
+                }
+                if (support.isDataFlavorSupported(PAYLOAD)) {
+                    try {
+                        // 자기 패널에서 끌어 자기 패널에 놓는 것은 받지 않는다.
+                        Payload payload = (Payload) support.getTransferable().getTransferData(PAYLOAD);
+                        if (payload.from() == FilePane.this) {
+                            return false;
+                        }
+                    } catch (UnsupportedFlavorException | IOException e) {
+                        return false;
+                    }
+                }
+                return dropHandler.accepts(support);
+            }
+
+            @Override
+            public boolean importData(TransferSupport support) {
+                if (!canImport(support)) {
+                    return false;
+                }
+                RemoteFile folder = null;
+                if (support.getDropLocation() instanceof JTable.DropLocation location && location.getRow() >= 0) {
+                    RemoteFile target = model.get(table.convertRowIndexToModel(location.getRow()));
+                    if (target.directory()) {
+                        folder = target;
+                    }
+                }
+                return dropHandler.drop(support.getTransferable(), folder);
+            }
+        });
     }
 
     /** 목록을 이미 읽어 온 상태로 연결한다(서버 연결을 맺으면서 첫 목록까지 가져온 경우). */

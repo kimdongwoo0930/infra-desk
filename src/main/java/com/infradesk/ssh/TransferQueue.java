@@ -525,7 +525,20 @@ public final class TransferQueue implements AutoCloseable {
         listener.changed(job);
     }
 
-    private static String describe(Exception e) {
+    /** 서버·파일 시스템이 주는 영어 오류를 알아보기 쉬운 한국어로 바꾼다. */
+    static String describe(Throwable e) {
+        for (Throwable c = e; c != null; c = c.getCause()) {
+            String m = String.valueOf(c.getMessage());
+            if (c instanceof java.nio.file.AccessDeniedException || m.contains("PERMISSION_DENIED")) {
+                return "권한이 없어요. 이 계정으로는 할 수 없는 작업이에요";
+            }
+            if (c instanceof java.nio.file.NoSuchFileException || m.contains("NO_SUCH_FILE")) {
+                return "파일이나 폴더를 찾을 수 없어요";
+            }
+            if (m.contains("NO_SPACE") || m.toLowerCase(java.util.Locale.ROOT).contains("no space left")) {
+                return "저장 공간이 부족해요";
+            }
+        }
         String m = e.getMessage();
         return m == null || m.isBlank() ? e.getClass().getSimpleName() : m;
     }

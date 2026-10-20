@@ -277,6 +277,68 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
+        // 서버 파일 편집: 실제 편집기를 띄우지 않고, 받은 임시 파일에 저장하는 것을 흉내 낸 뒤
+        // 서버에 다시 올라갔는지 확인한다.
+        java.util.concurrent.atomic.AtomicReference<java.nio.file.Path> edited = new java.util.concurrent.atomic.AtomicReference<>();
+        try {
+            Class<?> editor = Class.forName("com.infradesk.ui.terminal.ExternalEditor");
+            java.lang.reflect.Field hook = editor.getDeclaredField("launcherOverride");
+            hook.setAccessible(true);
+            hook.set(null, (java.util.function.Consumer<java.nio.file.Path>) edited::set);
+        } catch (ReflectiveOperationException ex) {
+            throw new RuntimeException(ex);
+        }
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> tables = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JTable", tables);
+            javax.swing.JTable remote = (javax.swing.JTable) tables.get(1);
+            for (int row = 0; row < remote.getRowCount(); row++) {
+                if (remote.getValueAt(row, 0).toString().contains("README.md")) {
+                    remote.setRowSelectionInterval(row, row);
+                }
+            }
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JButton", buttons);
+            buttons.stream().map(b -> (javax.swing.AbstractButton) b)
+                    .filter(b -> "편집".equals(b.getText())).findFirst().orElseThrow().doClick();
+        });
+        Thread.sleep(1500);
+        java.nio.file.Path tempCopy = edited.get();
+        System.out.println(tempCopy == null ? "EDIT-LOOP: FAILED (편집기가 열리지 않음)" : "EDIT-LOOP: 임시 복사본을 열었다");
+        if (tempCopy != null) {
+            java.nio.file.Files.writeString(tempCopy, "# EDITED-BY-SNAPSHOT\n");
+            java.nio.file.Files.setLastModifiedTime(tempCopy,
+                    java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() + 5000));
+            Thread.sleep(4500);
+            var verify = InfraDeskApp.demoTerminalService();
+            try (var rf = verify.openFiles(inventory.getFirst().servers().getFirst(), (h, pt, ty, fp) -> true)) {
+                java.nio.file.Path back = java.nio.file.Files.createTempFile("edit-verify", ".md");
+                rf.download(com.infradesk.ssh.RemoteFiles.join(rf.home(), "README.md"), back, n -> { });
+                String content = java.nio.file.Files.readString(back);
+                System.out.println(content.contains("EDITED-BY-SNAPSHOT") ? "EDIT-LOOP: OK (저장한 내용이 서버에 올라갔다)"
+                        : "EDIT-LOOP: FAILED (서버 내용: " + content.strip() + ")");
+            }
+            // 두 번째 저장: 첫 업로드 뒤 서버 파일 상태를 다시 기록했는지 확인한다. 잘못되면 "서버에서
+            // 바뀌었어요" 확인 창이 떠서 여기서 멈춘다.
+            java.nio.file.Files.writeString(tempCopy, "# EDITED-TWICE\n");
+            java.nio.file.Files.setLastModifiedTime(tempCopy,
+                    java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() + 10_000));
+            Thread.sleep(4500);
+            try (var rf = verify.openFiles(inventory.getFirst().servers().getFirst(), (h, pt, ty, fp) -> true)) {
+                java.nio.file.Path back = java.nio.file.Files.createTempFile("edit-verify2", ".md");
+                rf.download(com.infradesk.ssh.RemoteFiles.join(rf.home(), "README.md"), back, n -> { });
+                String content = java.nio.file.Files.readString(back);
+                System.out.println(content.contains("EDITED-TWICE") ? "EDIT-LOOP-2: OK (두 번째 저장도 올라갔다)"
+                        : "EDIT-LOOP-2: FAILED (서버 내용: " + content.strip() + ")");
+            }
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    write(sftp[0], sftp[0].getContentPane(), sftp[0].getWidth(), sftp[0].getHeight() - 28, "sftp-edit.png");
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+            });
+        }
         // 확대 가능한 메트릭 차트: 24시간 네트워크를 그린 뒤, 확대해서 호버 툴팁과 함께 렌더링한다.
         var chartServer = inventory.getFirst().servers().getFirst();
         var chartAccount = inventory.getFirst().account();

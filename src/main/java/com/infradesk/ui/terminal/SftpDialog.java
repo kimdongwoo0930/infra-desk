@@ -15,8 +15,13 @@ import com.infradesk.ui.components.Buttons;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Window;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -40,6 +45,8 @@ import javax.swing.SwingUtilities;
  */
 public final class SftpDialog extends JDialog {
 
+    /** 이보다 큰 파일을 편집하려 하면 한 번 확인한다. */
+    private static final long EDIT_WARN_BYTES = 10L * 1024 * 1024;
     /** 삭제 전에 항목 수를 셀 때 이 수에서 멈춘다. */
     private static final int COUNT_CAP = 5000;
     /** 이 폴더를 지우면 서버가 망가질 수 있어서 따로 경고한다. */
@@ -60,7 +67,12 @@ public final class SftpDialog extends JDialog {
     private final JButton download = Buttons.secondary("내 컴퓨터로 다운로드", "download");
     private final JButton newRemote = Buttons.secondary("새 폴더", "plus");
     private final JButton deleteRemote = Buttons.danger("삭제", "trash");
+    private final JButton edit = Buttons.secondary("편집", "file");
     private final Set<Long> reloaded = new HashSet<>();
+    private final List<EditSession> edits = new ArrayList<>();
+    private final javax.swing.Timer editTimer = new javax.swing.Timer(1000, e -> checkEdits());
+    private Path editRoot;
+    private int editSeq;
 
     /** 탐색·파일 작업용 연결. 전송은 {@link #queue}가 따로 연결을 맺는다. */
     private RemoteFiles files;
@@ -83,13 +95,16 @@ public final class SftpDialog extends JDialog {
         localPane.addAction(upload);
         localPane.addAction(newLocal);
         localPane.addAction(deleteLocal);
+        edit.addActionListener(e -> edit());
         remotePane.addAction(download);
+        remotePane.addAction(edit);
         remotePane.addAction(newRemote);
         remotePane.addAction(deleteRemote);
         localPane.onActivate(f -> upload());
         remotePane.onActivate(f -> download());
         localPane.onSelectionChange(this::updateButtons);
         remotePane.onSelectionChange(this::updateButtons);
+        installDropTargets();
         localPane.setMenuProvider(() -> menu(false));
         remotePane.setMenuProvider(() -> menu(true));
         for (FilePane pane : List.of(localPane, remotePane)) {
@@ -127,8 +142,11 @@ public final class SftpDialog extends JDialog {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
                 int active = transfers.activeCount();
-                if (active > 0 && JOptionPane.showConfirmDialog(SftpDialog.this,
-                        "진행 중인 전송이 " + active + "개 있어요. 창을 닫으면 중단돼요.\n닫을까요?", "SFTP",
+                long unsaved = edits.stream().filter(s -> s.busy || s.watch.dirty()).count();
+                if ((active > 0 || unsaved > 0) && JOptionPane.showConfirmDialog(SftpDialog.this,
+                        (active > 0 ? "진행 중인 전송이 " + active + "개 있어요. 창을 닫으면 중단돼요.\n" : "")
+                                + (unsaved > 0 ? "아직 서버에 올리지 못한 편집 내용이 " + unsaved + "개 있어요.\n" : "")
+                                + "닫을까요?", "SFTP",
                         JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
                     return;
                 }
@@ -139,11 +157,14 @@ public final class SftpDialog extends JDialog {
             public void windowClosed(java.awt.event.WindowEvent e) {
                 RemoteFiles f = files;
                 files = null;
+                editTimer.stop();
+                Path tempEdits = editRoot;
                 Thread.ofVirtual().start(() -> {
                     queue.close();
                     if (f != null) {
                         f.close();
                     }
+                    deleteTree(tempEdits);
                 });
             }
         });
@@ -175,14 +196,29 @@ public final class SftpDialog extends JDialog {
 
     /** 이 컴퓨터에서 고른 파일·폴더를 서버의 현재 폴더로 올린다. */
     private void upload() {
-        List<RemoteFile> items = localPane.selection();
-        if (!canTransfer() || items.isEmpty()) {
+        uploadItems(localPane.selection(), remotePane.cwd(), true);
+    }
+
+    /** 서버에서 고른 파일·폴더를 이 컴퓨터의 현재 폴더로 받는다. */
+    private void download() {
+        downloadItems(remotePane.selection(), localPane.cwd(), true);
+    }
+
+    /**
+     * @param inCurrentFolder 대상이 서버 패널의 현재 폴더인지. 그렇다면 같은 이름이 있는지 미리 묻고,
+     *                        아니면(폴더 행에 끌어다 놓은 경우) 덮어쓰지 않고 겹치는 파일은 건너뛴다
+     */
+    private void uploadItems(List<RemoteFile> items, String remoteDir, boolean inCurrentFolder) {
+        if (!canTransfer() || items.isEmpty() || remoteDir == null) {
             return;
         }
-        String remoteDir = remotePane.cwd();
-        Set<String> existing = remotePane.names();
-        List<RemoteFile> conflicts = items.stream().filter(f -> existing.contains(f.name())).toList();
-        Decision decision = conflicts.isEmpty() ? Decision.SKIP_NONE : askConflict(conflicts, "서버");
+        List<RemoteFile> conflicts = List.of();
+        Decision decision = Decision.SKIP_NONE;
+        if (inCurrentFolder) {
+            Set<String> existing = remotePane.names();
+            conflicts = items.stream().filter(f -> existing.contains(f.name())).toList();
+            decision = conflicts.isEmpty() ? Decision.SKIP_NONE : askConflict(conflicts, "서버");
+        }
         if (decision == Decision.CANCEL) {
             return;
         }
@@ -199,17 +235,18 @@ public final class SftpDialog extends JDialog {
         status.setText(queued + "개 항목을 서버로 올려요");
     }
 
-    /** 서버에서 고른 파일·폴더를 이 컴퓨터의 현재 폴더로 받는다. */
-    private void download() {
-        List<RemoteFile> items = remotePane.selection();
-        if (!canTransfer() || items.isEmpty()) {
+    private void downloadItems(List<RemoteFile> items, String localDirPath, boolean inCurrentFolder) {
+        if (!canTransfer() || items.isEmpty() || localDirPath == null) {
             return;
         }
-        Path localDir = Path.of(localPane.cwd());
-        Set<String> existing = localPane.names();
-        List<RemoteFile> conflicts = items.stream()
-                .filter(f -> existing.contains(RemoteFiles.safeLocalName(f.name()))).toList();
-        Decision decision = conflicts.isEmpty() ? Decision.SKIP_NONE : askConflict(conflicts, "내 컴퓨터");
+        Path localDir = Path.of(localDirPath);
+        List<RemoteFile> conflicts = List.of();
+        Decision decision = Decision.SKIP_NONE;
+        if (inCurrentFolder) {
+            Set<String> existing = localPane.names();
+            conflicts = items.stream().filter(f -> existing.contains(RemoteFiles.safeLocalName(f.name()))).toList();
+            decision = conflicts.isEmpty() ? Decision.SKIP_NONE : askConflict(conflicts, "내 컴퓨터");
+        }
         if (decision == Decision.CANCEL) {
             return;
         }
@@ -224,6 +261,66 @@ public final class SftpDialog extends JDialog {
         }
         status.setForeground(Theme.TEXT_MUTED);
         status.setText(queued + "개 항목을 내 컴퓨터로 받아요");
+    }
+
+    // ---- 끌어서 놓기 ----
+
+    private void installDropTargets() {
+        remotePane.setDropHandler(new FilePane.DropHandler() {
+            @Override
+            public boolean accepts(javax.swing.TransferHandler.TransferSupport support) {
+                return support.isDataFlavorSupported(FilePane.PAYLOAD)
+                        || support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
+            }
+
+            @Override
+            public boolean drop(Transferable data, RemoteFile folder) {
+                List<RemoteFile> items = droppedItems(data);
+                if (items.isEmpty()) {
+                    return false;
+                }
+                uploadItems(items, folder != null ? folder.path() : remotePane.cwd(), folder == null);
+                return true;
+            }
+        });
+        localPane.setDropHandler(new FilePane.DropHandler() {
+            @Override
+            public boolean accepts(javax.swing.TransferHandler.TransferSupport support) {
+                return support.isDataFlavorSupported(FilePane.PAYLOAD);
+            }
+
+            @Override
+            public boolean drop(Transferable data, RemoteFile folder) {
+                List<RemoteFile> items = droppedItems(data);
+                if (items.isEmpty()) {
+                    return false;
+                }
+                downloadItems(items, folder != null ? folder.path() : localPane.cwd(), folder == null);
+                return true;
+            }
+        });
+    }
+
+    /** 끌어다 놓은 것에서 항목을 꺼낸다. 다른 패널의 선택이거나, Finder·탐색기에서 끌어온 파일. */
+    private static List<RemoteFile> droppedItems(Transferable data) {
+        try {
+            if (data.isDataFlavorSupported(FilePane.PAYLOAD)) {
+                return ((FilePane.Payload) data.getTransferData(FilePane.PAYLOAD)).items();
+            }
+            if (data.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                @SuppressWarnings("unchecked")
+                List<java.io.File> dropped = (List<java.io.File>) data.getTransferData(DataFlavor.javaFileListFlavor);
+                List<RemoteFile> items = new ArrayList<>();
+                for (java.io.File f : dropped) {
+                    items.add(new RemoteFile(f.getName(), f.getAbsolutePath(), f.isDirectory(), f.length(),
+                            Instant.ofEpochMilli(f.lastModified())));
+                }
+                return items;
+            }
+        } catch (UnsupportedFlavorException | IOException e) {
+            // 읽을 수 없는 드롭이다. 받지 않는다.
+        }
+        return List.of();
     }
 
     private boolean canTransfer() {
@@ -257,6 +354,20 @@ public final class SftpDialog extends JDialog {
             transfers.setVisible(show);
             south.revalidate();
             south.repaint();
+        }
+        for (EditSession s : edits) {
+            if (s.job == job && job.state().finished()) {
+                s.job = null;
+                if (job.state() == TransferQueue.State.DONE) {
+                    s.needsSnapshot = true;
+                    status.setForeground(Theme.TEXT_MUTED);
+                    status.setText("'" + s.remote.name() + "' 저장한 내용을 서버에 올렸어요");
+                } else {
+                    s.busy = false;
+                    showError("'" + s.remote.name() + "' 편집한 내용을 서버에 올리지 못했어요: " + job.message()
+                            + " · 다시 저장하면 다시 올려요");
+                }
+            }
         }
         if (job.state() == TransferQueue.State.DONE && reloaded.add(job.id())) {
             if (job.direction() == TransferQueue.Direction.UPLOAD && job.targetDir().equals(remotePane.cwd())) {
@@ -468,6 +579,151 @@ public final class SftpDialog extends JDialog {
         }
     }
 
+    // ---- 서버 파일 편집 ----
+
+    /** 편집 중인 서버 파일 하나. 임시 폴더의 복사본을 편집기가 저장하면 서버에 다시 올린다. */
+    private static final class EditSession {
+        final RemoteFile remote;
+        final String remoteDir;
+        final Path local;
+        final ChangeWatch watch;
+        /** 내가 받거나 마지막으로 올린 뒤의 서버 파일 상태. 서버에서 그 사이 바뀌었는지 비교한다. */
+        RemoteFile snapshot;
+        TransferQueue.Job job;
+        boolean busy;
+        boolean needsSnapshot;
+
+        EditSession(RemoteFile remote, String remoteDir, Path local, RemoteFile snapshot) throws IOException {
+            this.remote = remote;
+            this.remoteDir = remoteDir;
+            this.local = local;
+            this.watch = new ChangeWatch(local);
+            this.snapshot = snapshot;
+        }
+    }
+
+    /** 서버 파일을 임시 폴더로 받아 내 편집기로 연다. 편집기에서 저장하면 자동으로 서버에 올린다. */
+    private void edit() {
+        RemoteFile f = remotePane.single();
+        if (f == null || f.directory() || files == null || !remotePane.ready()) {
+            return;
+        }
+        for (EditSession s : edits) {
+            if (s.remote.path().equals(f.path())) {
+                openEditor(s);
+                return;
+            }
+        }
+        if (!RemoteFiles.safeLocalName(f.name()).equals(f.name())) {
+            showError("이 이름의 파일은 편집할 수 없어요: " + f.name());
+            return;
+        }
+        if (f.size() > EDIT_WARN_BYTES && JOptionPane.showConfirmDialog(this,
+                "'" + f.name() + "'은(는) " + FilePane.size(f.size()) + "로 커요. 그래도 받아서 편집할까요?", "편집",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        Path root;
+        try {
+            if (editRoot == null) {
+                editRoot = java.nio.file.Files.createTempDirectory("infradesk-edit-");
+            }
+            root = editRoot;
+        } catch (IOException e) {
+            showError("임시 폴더를 만들지 못했어요: " + e.getMessage());
+            return;
+        }
+        Path local = root.resolve(String.valueOf(++editSeq)).resolve(f.name());
+        String remoteDir = remotePane.cwd();
+        remotePane.run("편집할 파일을 받는 중…", () -> {
+            java.nio.file.Files.createDirectories(local.getParent());
+            files.download(f.path(), local, done -> { });
+            return files.stat(f.path());
+        }, snapshot -> {
+            try {
+                EditSession session = new EditSession(f, remoteDir, local, snapshot);
+                edits.add(session);
+                editTimer.start();
+                openEditor(session);
+            } catch (IOException e) {
+                showError("받은 파일을 읽지 못했어요: " + e.getMessage());
+            }
+        }, () -> { });
+    }
+
+    private void openEditor(EditSession s) {
+        try {
+            ExternalEditor.open(s.local);
+            status.setForeground(Theme.TEXT_MUTED);
+            status.setText("'" + s.remote.name() + "'을(를) 편집기로 열었어요. 저장하면 서버에 자동으로 올려요");
+        } catch (IOException e) {
+            showError("편집기를 열지 못했어요. 임시 파일: " + s.local);
+        }
+    }
+
+    /** 1초마다: 저장된 편집 내용이 있으면 서버에 올린다. */
+    private void checkEdits() {
+        for (EditSession s : edits) {
+            if (s.needsSnapshot) {
+                refreshSnapshot(s);
+            } else if (!s.busy && s.watch.poll()) {
+                uploadEdit(s);
+            }
+        }
+    }
+
+    private void uploadEdit(EditSession s) {
+        if (files == null || !remotePane.ready()) {
+            return;
+        }
+        s.busy = true;
+        remotePane.run("서버 파일을 확인하는 중…", () -> files.stat(s.remote.path()), current -> {
+            boolean serverChanged = current.size() != s.snapshot.size()
+                    || !java.util.Objects.equals(current.modified(), s.snapshot.modified());
+            if (serverChanged && JOptionPane.showConfirmDialog(this,
+                    "'" + s.remote.name() + "'이(가) 편집하는 사이 서버에서 바뀌었어요.\n내 수정으로 덮어쓸까요?", "편집",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
+                s.busy = false;
+                s.watch.acknowledge();
+                showError("덮어쓰지 않았어요. 편집한 내용은 임시 파일에 있어요: " + s.local);
+                return;
+            }
+            // 올리기 시작하는 시점의 파일을 기준으로 삼아서, 올리는 동안 또 저장하면 다시 올린다.
+            s.watch.acknowledge();
+            s.job = queue.upload(s.local, s.remoteDir, true);
+            status.setForeground(Theme.TEXT_MUTED);
+            status.setText("'" + s.remote.name() + "' 저장한 내용을 서버에 올려요");
+        }, () -> {
+            s.busy = false;
+            s.watch.acknowledge();
+        });
+    }
+
+    private void refreshSnapshot(EditSession s) {
+        if (files == null || !remotePane.ready()) {
+            return;
+        }
+        remotePane.run("서버 파일을 확인하는 중…", () -> files.stat(s.remote.path()), current -> {
+            s.snapshot = current;
+            s.needsSnapshot = false;
+            s.busy = false;
+        }, () -> {
+            s.needsSnapshot = false;
+            s.busy = false;
+        });
+    }
+
+    private static void deleteTree(Path root) {
+        if (root == null) {
+            return;
+        }
+        try (var walk = java.nio.file.Files.walk(root)) {
+            walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+        } catch (IOException ignored) {
+            // 임시 폴더라 못 지워도 괜찮다.
+        }
+    }
+
     // ---- 우클릭 메뉴와 버튼 ----
 
     private JPopupMenu menu(boolean remote) {
@@ -477,6 +733,7 @@ public final class SftpDialog extends JDialog {
         JPopupMenu menu = new JPopupMenu();
         if (remote) {
             addItem(menu, "내 컴퓨터로 다운로드", canTransfer() && any, this::download);
+            addItem(menu, "편집", pane.ready() && selection.size() == 1 && !selection.get(0).directory(), this::edit);
         } else {
             addItem(menu, "서버로 업로드", canTransfer() && any, this::upload);
         }
@@ -510,6 +767,7 @@ public final class SftpDialog extends JDialog {
         boolean transferable = canTransfer();
         upload.setEnabled(transferable && !local.isEmpty());
         download.setEnabled(transferable && !remote.isEmpty());
+        edit.setEnabled(files != null && remotePane.ready() && remote.size() == 1 && !remote.get(0).directory());
         newLocal.setEnabled(localPane.ready());
         deleteLocal.setEnabled(localPane.ready() && !local.isEmpty());
         newRemote.setEnabled(remotePane.ready());

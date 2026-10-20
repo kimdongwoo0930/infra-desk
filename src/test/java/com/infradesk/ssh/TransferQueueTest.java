@@ -317,4 +317,14 @@ class TransferQueueTest {
         assertEquals(TransferQueue.State.CANCELLED, second.state());
         assertFalse(Files.exists(localDir.resolve("second.bin")));
     }
+
+    @Test
+    void translatesCommonErrorsToKorean() {
+        assertTrue(TransferQueue.describe(new java.io.IOException("SFTP error (SSH_FX_PERMISSION_DENIED): Permission denied"))
+                .contains("권한이 없어요"));
+        assertTrue(TransferQueue.describe(new java.io.IOException("wrapper", new java.nio.file.AccessDeniedException("/etc/x")))
+                .contains("권한이 없어요"), "원인 체인도 본다");
+        assertTrue(TransferQueue.describe(new java.nio.file.NoSuchFileException("/x")).contains("찾을 수 없어요"));
+        assertEquals("뭔가 잘못됐어요", TransferQueue.describe(new java.io.IOException("뭔가 잘못됐어요")));
+    }
 }
