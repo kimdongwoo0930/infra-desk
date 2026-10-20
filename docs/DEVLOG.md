@@ -4,6 +4,22 @@
 
 ---
 
+## 2026-10-20 · 구조 문서 다시 쓰기
+
+`ARCHITECTURE.md`(205줄)가 클래스 표 모음이라 읽어도 흐름이 이해되지 않았다. 설명서로 다시 썼다.
+
+- **분리:** `docs/architecture/` 아래 `README.md`(개요) + 모듈별 `core`/`service`/`provider`/`ssh`/`storage`/`alert`/`ui`. 빌드·패키징·CI는 `docs/BUILD.md`로. `docs/ARCHITECTURE.md`는 목차만 남겼다(README·CLAUDE.md의 링크 유지).
+- **구성:** 개요는 "모듈이 맡은 일 / 일부러 모르는 것" 표, 의존 방향, **[정지] 버튼 한 번이 `ui → service → provider → OCI`를 지나는 과정**, 용어 풀이를 앞에 둔다. 기존 클래스 표는 모듈 문서 안에 그대로 남겼다.
+- **데모 모드 분리:** 데모 설명(실행 방법, 실제와 비교표, 가짜 부품 위치, "새 기능은 데모 데이터도 같이" 규칙)은 `architecture/demo.md` 한 곳에만 둔다. 나머지 구조 문서는 실제 동작만 설명해서 흐름이 끊기지 않게 했다. `BUILD.md`의 명령 목록에서도 `runDemo`·`snapshot`을 뺐다(`demo.md`에 있음).
+- **혼동 해소:** `provider/ssh`(포트가 열렸는지만 확인, 상태 표시용)와 `ssh`(진짜 접속)가 이름이 같아 헷갈렸다. 개요에 비교표를 넣었다.
+- **바로잡은 것:**
+  - 평소 폴링 주기는 문서에 45초였지만 코드(`RefreshPolicy.NORMAL_INTERVAL`)는 **30초**.
+  - 의존 방향 그림이 실제 import와 달랐다. `service`는 `provider`를 import하지 않고(`core` 인터페이스만), `ui`는 `storage`를 import하지 않는다.
+  - 디스코드 알림은 `AlertService.AVAILABLE = false`로 꺼져 있다는 점을 명시했다.
+  - 저장 위치 표에 끼어 있던 `known_hosts` 줄(로그 문장 뒤에서 표가 깨짐)을 제자리로.
+- **알려진 구조상 어색한 점 (기록만 하고 코드는 안 건드림):** `alert`↔`storage` 순환 import, `storage`가 `ssh`·`alert`의 모델을 import, `MainFrame`(약 1,150줄)이 `ContainerService`·`SshMetricsService`를 직접 생성. 모델을 `core`로 옮기고 `MainFrame`을 나누면 정리된다.
+- 남은 일: 사용자가 읽어 보고 이해 안 되는 부분 알려주기.
+
 ## 2026-09-29 · 버전 자동 증가
 
 - **버전 규칙** (사용자 결정): 앱 버전은 빌드(run 번호)에서 자동 계산. `n = run - 0`(빌드 번호 그대로)일 때 `1.(n÷10).(n%10)` → 빌드 16 → 1.1.6, 20 → 1.2.0. 메이저(1→2)는 사용자가 대규모 패치 후 직접 올림 (`build.gradle.kts`의 `majorVersion`, `runOffset` 수정).
