@@ -21,7 +21,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /** 임시 디렉터리를 루트로 하는 프로세스 내 MINA 서버에 대한 SFTP. */
 class SftpTest {
@@ -89,6 +91,95 @@ class SftpTest {
 
         files.delete(new RemoteFile("uploaded.txt", remote, false, 0, null));
         assertFalse(files.exists(remote));
+    }
+
+    @Test
+    void mkdirRenameAndChmod() throws Exception {
+        String base = files.home();
+        files.mkdir(RemoteFiles.join(base, "newdir"));
+        assertTrue(Files.isDirectory(remoteRoot.resolve("newdir")));
+
+        files.rename(RemoteFiles.join(base, "newdir"), RemoteFiles.join(base, "renamed"));
+        assertFalse(files.exists(RemoteFiles.join(base, "newdir")));
+        assertTrue(files.exists(RemoteFiles.join(base, "renamed")));
+
+        assertThrows(java.io.IOException.class, () -> files.mkdir(RemoteFiles.join(base, "renamed")), "이미 있는 폴더");
+
+        assumeTrue(Files.getFileStore(remoteRoot).supportsFileAttributeView("posix"), "POSIX 권한이 있는 파일 시스템만");
+        files.chmod(RemoteFiles.join(base, "README.md"), 0600);
+        assertEquals("rw-------", java.nio.file.attribute.PosixFilePermissions.toString(
+                Files.getPosixFilePermissions(remoteRoot.resolve("README.md"))));
+        RemoteFile readme = files.list(base).stream().filter(f -> f.name().equals("README.md")).findFirst().orElseThrow();
+        assertEquals(0600, readme.permissions());
+        assertEquals("rw-------", readme.permissionText());
+    }
+
+    @Test
+    void deleteRecursivelyRemovesNonEmptyFolders() throws Exception {
+        Files.createDirectories(remoteRoot.resolve("tree/a/b"));
+        Files.writeString(remoteRoot.resolve("tree/a/b/deep.txt"), "x");
+        Files.writeString(remoteRoot.resolve("tree/top.txt"), "y");
+        RemoteFile tree = files.list(files.home()).stream().filter(f -> f.name().equals("tree")).findFirst().orElseThrow();
+
+        assertThrows(java.io.IOException.class, () -> files.delete(tree), "비어 있지 않으면 delete는 실패");
+        files.deleteRecursively(tree);
+
+        assertFalse(Files.exists(remoteRoot.resolve("tree")));
+    }
+
+    @Test
+    void deleteRecursivelyDoesNotFollowSymlinks() throws Exception {
+        Files.writeString(remoteRoot.resolve("app/keep.txt"), "must survive");
+        try {
+            Files.createSymbolicLink(remoteRoot.resolve("applink"), Path.of("app"));
+        } catch (UnsupportedOperationException | java.io.IOException e) {
+            assumeTrue(false, "심볼릭 링크를 만들 수 없는 환경");
+        }
+        RemoteFile link = files.list(files.home()).stream().filter(f -> f.name().equals("applink")).findFirst().orElseThrow();
+        assertTrue(link.symlink(), "링크로 보고돼야 한다");
+
+        files.deleteRecursively(link);
+
+        assertFalse(Files.exists(remoteRoot.resolve("applink"), java.nio.file.LinkOption.NOFOLLOW_LINKS));
+        assertTrue(Files.exists(remoteRoot.resolve("app/keep.txt")), "링크가 가리키던 폴더의 내용은 남아야 한다");
+    }
+
+    @Test
+    void resumeDownloadAppendsOnlyTheMissingPart() throws Exception {
+        String content = "0123456789".repeat(20_000);
+        Files.writeString(remoteRoot.resolve("big.bin"), content);
+        Path partial = Files.writeString(dir.resolve("big.part"), content.substring(0, 70_000));
+        AtomicLong last = new AtomicLong();
+
+        files.download(RemoteFiles.join(files.home(), "big.bin"), partial, 70_000, last::set);
+
+        assertEquals(content, Files.readString(partial));
+        assertEquals(content.length(), last.get(), "진행률은 이어받은 바이트를 포함한 누적값");
+    }
+
+    @Test
+    void resumeUploadWritesOnlyTheMissingPart() throws Exception {
+        String content = "abcdefghij".repeat(20_000);
+        Path local = Files.writeString(dir.resolve("up.bin"), content);
+        Files.writeString(remoteRoot.resolve("up.bin"), content.substring(0, 50_000));
+        AtomicLong last = new AtomicLong();
+
+        files.upload(local, RemoteFiles.join(files.home(), "up.bin"), 50_000, last::set);
+
+        assertEquals(content, Files.readString(remoteRoot.resolve("up.bin")));
+        assertEquals(content.length(), last.get());
+    }
+
+    @Test
+    void progressCallbackCanCancelATransfer() throws Exception {
+        Files.writeString(remoteRoot.resolve("big2.bin"), "z".repeat(500_000));
+        Path target = dir.resolve("big2.bin");
+
+        assertThrows(IllegalStateException.class, () -> files.download(
+                RemoteFiles.join(files.home(), "big2.bin"), target, done -> {
+                    throw new IllegalStateException("취소");
+                }));
+        assertTrue(Files.size(target) < 500_000, "끝까지 받지 않고 멈춘다");
     }
 
     @Test

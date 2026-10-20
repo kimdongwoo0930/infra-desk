@@ -84,4 +84,53 @@ class LocalFilesTest {
         assertThrows(IOException.class, () -> demo.list(System.getProperty("user.home")), "데모는 실제 홈 폴더를 볼 수 없다");
         assertEquals(demo, DemoLocalFiles.get(), "같은 폴더를 재사용한다");
     }
+
+    @Test
+    void mkdirRenameAndDeleteInsideARestrictedRoot() throws Exception {
+        LocalFiles files = new LocalFiles(dir, dir);
+        String made = files.join(dir.toString(), "work");
+
+        files.mkdir(made);
+        assertTrue(Files.isDirectory(dir.resolve("work")));
+        assertThrows(IOException.class, () -> files.mkdir(made), "이미 있는 폴더");
+
+        files.rename(made, files.join(dir.toString(), "project"));
+        assertTrue(Files.isDirectory(dir.resolve("project")));
+        Files.writeString(dir.resolve("project/a.txt"), "x");
+        Files.createDirectories(dir.resolve("project/sub"));
+        Files.writeString(dir.resolve("project/sub/b.txt"), "y");
+
+        boolean trashed = files.delete(dir.resolve("project").toString());
+
+        assertFalse(trashed, "제한된 루트에서는 휴지통을 쓰지 않는다");
+        assertFalse(Files.exists(dir.resolve("project")));
+    }
+
+    @Test
+    void deleteDoesNotFollowSymlinks() throws Exception {
+        Path outside = Files.createDirectories(dir.resolve("outside"));
+        Files.writeString(outside.resolve("keep.txt"), "must survive");
+        Path root = Files.createDirectories(dir.resolve("root"));
+        try {
+            Files.createSymbolicLink(root.resolve("link"), outside);
+        } catch (UnsupportedOperationException | IOException e) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false, "심볼릭 링크를 만들 수 없는 환경");
+        }
+        LocalFiles files = new LocalFiles(root, root);
+        assertTrue(files.list(root.toString()).getFirst().symlink());
+
+        files.delete(root.resolve("link").toString());
+
+        assertFalse(Files.exists(root.resolve("link"), java.nio.file.LinkOption.NOFOLLOW_LINKS));
+        assertTrue(Files.exists(outside.resolve("keep.txt")), "링크가 가리키던 곳의 파일은 남아야 한다");
+    }
+
+    @Test
+    void cannotChangeAnythingOutsideTheRestrictedRoot() {
+        Path root = dir.resolve("root");
+        LocalFiles files = new LocalFiles(root, root);
+        assertThrows(IOException.class, () -> files.mkdir(dir.resolve("outside").toString()));
+        assertThrows(IOException.class, () -> files.delete(dir.toString()));
+        assertThrows(IOException.class, () -> files.rename(dir.resolve("x").toString(), root.resolve("y").toString()));
+    }
 }

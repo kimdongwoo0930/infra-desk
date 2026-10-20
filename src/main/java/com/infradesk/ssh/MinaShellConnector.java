@@ -203,7 +203,8 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
                     }
                 }
                 files.add(new RemoteFile(name, path, dir, a.getSize(),
-                        a.getModifyTime() == null ? null : a.getModifyTime().toInstant()));
+                        a.getModifyTime() == null ? null : a.getModifyTime().toInstant(),
+                        a.getPermissions() & 0777, a.isSymbolicLink()));
             }
             files.sort(java.util.Comparator.comparing((RemoteFile f) -> !f.directory())
                     .thenComparing(RemoteFile::name, String.CASE_INSENSITIVE_ORDER));
@@ -224,30 +225,80 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         }
 
         @Override
-        public void download(String remotePath, java.nio.file.Path localFile, java.util.function.LongConsumer progress)
-                throws IOException {
-            try (InputStream in = sftp.read(remotePath);
-                 OutputStream out = java.nio.file.Files.newOutputStream(localFile)) {
-                Transfers.copy(in, out, progress);
+        public void download(String remotePath, java.nio.file.Path localFile, long offset,
+                             java.util.function.LongConsumer progress) throws IOException {
+            if (offset <= 0) {
+                try (InputStream in = sftp.read(remotePath);
+                     OutputStream out = java.nio.file.Files.newOutputStream(localFile)) {
+                    Transfers.copy(in, out, progress);
+                }
+                return;
+            }
+            try (SftpClient.CloseableHandle handle = sftp.open(remotePath, java.util.EnumSet.of(SftpClient.OpenMode.Read));
+                 java.nio.channels.FileChannel out = java.nio.channels.FileChannel.open(localFile,
+                         java.nio.file.StandardOpenOption.WRITE, java.nio.file.StandardOpenOption.CREATE)) {
+                out.truncate(offset);
+                out.position(offset);
+                byte[] buf = new byte[32 * 1024];
+                long pos = offset;
+                int n;
+                while ((n = sftp.read(handle, pos, buf, 0, buf.length)) > 0) {
+                    out.write(java.nio.ByteBuffer.wrap(buf, 0, n));
+                    pos += n;
+                    progress.accept(pos);
+                }
             }
         }
 
         @Override
-        public void upload(java.nio.file.Path localFile, String remotePath, java.util.function.LongConsumer progress)
-                throws IOException {
+        public void upload(java.nio.file.Path localFile, String remotePath, long offset,
+                           java.util.function.LongConsumer progress) throws IOException {
+            if (offset <= 0) {
+                try (InputStream in = java.nio.file.Files.newInputStream(localFile);
+                     OutputStream out = sftp.write(remotePath)) {
+                    Transfers.copy(in, out, progress);
+                }
+                return;
+            }
             try (InputStream in = java.nio.file.Files.newInputStream(localFile);
-                 OutputStream out = sftp.write(remotePath)) {
-                Transfers.copy(in, out, progress);
+                 SftpClient.CloseableHandle handle = sftp.open(remotePath,
+                         java.util.EnumSet.of(SftpClient.OpenMode.Write, SftpClient.OpenMode.Create))) {
+                in.skipNBytes(offset);
+                byte[] buf = new byte[32 * 1024];
+                long pos = offset;
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    sftp.write(handle, pos, buf, 0, n);
+                    pos += n;
+                    progress.accept(pos);
+                }
             }
         }
 
         @Override
         public void delete(RemoteFile file) throws IOException {
-            if (file.directory()) {
+            if (file.directory() && !file.symlink()) {
                 sftp.rmdir(file.path());
             } else {
                 sftp.remove(file.path());
             }
+        }
+
+        @Override
+        public void mkdir(String path) throws IOException {
+            sftp.mkdir(path);
+        }
+
+        @Override
+        public void rename(String from, String to) throws IOException {
+            sftp.rename(from, to);
+        }
+
+        @Override
+        public void chmod(String path, int permissions) throws IOException {
+            SftpClient.Attributes attrs = new SftpClient.Attributes();
+            attrs.setPermissions(permissions & 07777);
+            sftp.setStat(path, attrs);
         }
 
         @Override

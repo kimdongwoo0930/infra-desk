@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -24,15 +25,19 @@ import java.util.function.LongConsumer;
 final class DemoRemoteFiles implements RemoteFiles {
 
     private static final Map<String, Map<String, byte[]>> TREES = new ConcurrentHashMap<>();
+    private static final Map<String, Map<String, Integer>> PERMISSIONS = new ConcurrentHashMap<>();
     private static final Instant BASE = Instant.parse("2026-09-20T09:00:00Z");
 
     private final String home;
     /** 절대 경로 → 내용. 디렉터리는 "/"로 끝나고 내용이 null이다. */
     private final Map<String, byte[]> tree;
+    /** 절대 경로 → 권한. 바꾸지 않은 항목은 없다(폴더 0755, 파일 0644로 보인다). */
+    private final Map<String, Integer> permissions;
 
     DemoRemoteFiles(String username, String hostname) {
         this.home = "/home/" + username;
         this.tree = TREES.computeIfAbsent(hostname, h -> seed(home, h));
+        this.permissions = PERMISSIONS.computeIfAbsent(hostname, h -> new ConcurrentHashMap<>());
     }
 
     private static Map<String, byte[]> seed(String home, String host) {
@@ -83,8 +88,10 @@ final class DemoRemoteFiles implements RemoteFiles {
                 continue;
             }
             byte[] content = tree.get(key);
-            result.add(new RemoteFile(name, prefix + name, isDir, isDir ? 4096 : content.length,
-                    BASE.plusSeconds(3600L * (key.hashCode() & 0xFF)).plusSeconds(i++)));
+            String path = prefix + name;
+            result.add(new RemoteFile(name, path, isDir, isDir ? 4096 : content.length,
+                    BASE.plusSeconds(3600L * (key.hashCode() & 0xFF)).plusSeconds(i++),
+                    permissions.getOrDefault(path, isDir ? 0755 : 0644), false));
         }
         result.sort(Comparator.comparing((RemoteFile f) -> !f.directory())
                 .thenComparing(RemoteFile::name, String.CASE_INSENSITIVE_ORDER));
@@ -97,19 +104,37 @@ final class DemoRemoteFiles implements RemoteFiles {
     }
 
     @Override
-    public void download(String remotePath, Path localFile, LongConsumer progress) throws IOException {
+    public void download(String remotePath, Path localFile, long offset, LongConsumer progress) throws IOException {
         byte[] content = tree.get(remotePath);
         if (content == null) {
             throw new NoSuchFileException(remotePath);
         }
-        try (InputStream in = new ByteArrayInputStream(content); OutputStream out = Files.newOutputStream(localFile)) {
-            Transfers.copy(in, out, progress);
+        if (offset <= 0) {
+            try (InputStream in = new ByteArrayInputStream(content); OutputStream out = Files.newOutputStream(localFile)) {
+                Transfers.copy(in, out, progress);
+            }
+            return;
+        }
+        byte[] head = Files.readAllBytes(localFile);
+        byte[] kept = java.util.Arrays.copyOf(head, (int) Math.min(offset, head.length));
+        try (InputStream in = new ByteArrayInputStream(content, kept.length, content.length - kept.length);
+             OutputStream out = Files.newOutputStream(localFile)) {
+            out.write(kept);
+            Transfers.copy(in, out, kept.length, progress);
         }
     }
 
     @Override
-    public void upload(Path localFile, String remotePath, LongConsumer progress) throws IOException {
+    public void upload(Path localFile, String remotePath, long offset, LongConsumer progress) throws IOException {
         byte[] content = Files.readAllBytes(localFile);
+        byte[] existing = tree.get(remotePath);
+        if (offset > 0 && existing != null) {
+            byte[] merged = java.util.Arrays.copyOf(existing, (int) Math.min(offset, existing.length));
+            byte[] result = new byte[merged.length + content.length - merged.length];
+            System.arraycopy(merged, 0, result, 0, merged.length);
+            System.arraycopy(content, merged.length, result, merged.length, content.length - merged.length);
+            content = result;
+        }
         progress.accept(content.length);
         tree.put(remotePath, content);
     }
@@ -126,6 +151,61 @@ final class DemoRemoteFiles implements RemoteFiles {
         } else {
             tree.remove(file.path());
         }
+        permissions.remove(file.path());
+    }
+
+    @Override
+    public void mkdir(String path) throws IOException {
+        if (exists(path)) {
+            throw new FileAlreadyExistsException(path);
+        }
+        if (!tree.containsKey(RemoteFiles.parent(path) + "/") && !RemoteFiles.parent(path).equals("/")) {
+            throw new NoSuchFileException(RemoteFiles.parent(path));
+        }
+        tree.put(path + "/", new byte[0]);
+    }
+
+    @Override
+    public void rename(String from, String to) throws IOException {
+        if (!exists(from)) {
+            throw new NoSuchFileException(from);
+        }
+        if (exists(to)) {
+            throw new FileAlreadyExistsException(to);
+        }
+        boolean isDir = tree.containsKey(from + "/");
+        if (!isDir) {
+            tree.put(to, tree.remove(from));
+            moveOwnPermission(from, to);
+            return;
+        }
+        String oldPrefix = from + "/";
+        String newPrefix = to + "/";
+        for (String key : new ArrayList<>(tree.keySet())) {
+            if (key.startsWith(oldPrefix)) {
+                tree.put(newPrefix + key.substring(oldPrefix.length()), tree.remove(key));
+            }
+        }
+        for (String key : new ArrayList<>(permissions.keySet())) {
+            if (key.equals(from) || key.startsWith(oldPrefix)) {
+                permissions.put(to + key.substring(from.length()), permissions.remove(key));
+            }
+        }
+    }
+
+    private void moveOwnPermission(String from, String to) {
+        Integer perm = permissions.remove(from);
+        if (perm != null) {
+            permissions.put(to, perm);
+        }
+    }
+
+    @Override
+    public void chmod(String path, int mode) throws IOException {
+        if (!exists(path)) {
+            throw new NoSuchFileException(path);
+        }
+        permissions.put(path, mode & 0777);
     }
 
     @Override

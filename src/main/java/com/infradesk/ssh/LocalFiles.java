@@ -47,7 +47,8 @@ public final class LocalFiles {
                     BasicFileAttributes a = Files.readAttributes(p, BasicFileAttributes.class);
                     Instant modified = a.lastModifiedTime().toInstant();
                     result.add(new RemoteFile(p.getFileName().toString(), p.toString(), a.isDirectory(),
-                            a.isDirectory() ? 0 : a.size(), modified));
+                            a.isDirectory() ? 0 : a.size(), modified, RemoteFile.UNKNOWN_PERMISSIONS,
+                            Files.isSymbolicLink(p)));
                 } catch (IOException | SecurityException skipped) {
                     // 끊어진 링크나 권한 없는 항목은 목록에서 뺀다.
                 }
@@ -56,6 +57,65 @@ public final class LocalFiles {
         result.sort(Comparator.comparing((RemoteFile f) -> !f.directory())
                 .thenComparing(RemoteFile::name, String.CASE_INSENSITIVE_ORDER));
         return result;
+    }
+
+    /** 새 폴더. 이미 있거나 상위 폴더가 없으면 실패한다. */
+    public void mkdir(String path) throws IOException {
+        Files.createDirectory(inside(path));
+    }
+
+    /** 이름 바꾸기. 대상이 이미 있으면 덮어쓰지 않고 실패한다. */
+    public void rename(String from, String to) throws IOException {
+        Files.move(inside(from), inside(to));
+    }
+
+    /**
+     * 파일이나 폴더(안의 모든 것)를 지운다. 이 컴퓨터의 일반 모드에서는 휴지통으로 보내서
+     * 실수해도 되돌릴 수 있게 하고, 휴지통을 쓸 수 없을 때만 영구 삭제한다. 심볼릭 링크는 따라가지
+     * 않고 링크만 지운다. 데모처럼 {@code root}가 제한된 경우는 항상 영구 삭제한다(실제 휴지통을
+     * 건드리지 않게).
+     *
+     * @return 휴지통으로 보냈으면 true, 영구 삭제했으면 false
+     */
+    public boolean delete(String path) throws IOException {
+        Path p = inside(path);
+        if (root == null && !Files.isSymbolicLink(p) && moveToTrash(p)) {
+            return true;
+        }
+        deleteTree(p);
+        return false;
+    }
+
+    private static boolean moveToTrash(Path p) {
+        try {
+            if (java.awt.Desktop.isDesktopSupported()
+                    && java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.MOVE_TO_TRASH)) {
+                return java.awt.Desktop.getDesktop().moveToTrash(p.toFile());
+            }
+        } catch (RuntimeException | UnsatisfiedLinkError e) {
+            // 휴지통을 쓸 수 없는 환경이다. 영구 삭제로 넘어간다.
+        }
+        return false;
+    }
+
+    private static void deleteTree(Path p) throws IOException {
+        if (Files.isDirectory(p, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            try (DirectoryStream<Path> entries = Files.newDirectoryStream(p)) {
+                for (Path child : entries) {
+                    deleteTree(child);
+                }
+            }
+        }
+        Files.delete(p);
+    }
+
+    /** 제한된 루트 밖의 경로를 막는다. */
+    private Path inside(String path) throws IOException {
+        Path p = Path.of(path).toAbsolutePath().normalize();
+        if (root != null && !p.startsWith(root)) {
+            throw new IOException("이 폴더는 볼 수 없어요: " + path);
+        }
+        return p;
     }
 
     public boolean exists(String path) {
