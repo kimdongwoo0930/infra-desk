@@ -104,6 +104,13 @@ final class DemoRemoteFiles implements RemoteFiles {
     }
 
     @Override
+    public RemoteFile stat(String path) throws IOException {
+        String parent = RemoteFiles.parent(path);
+        return list(parent).stream().filter(f -> f.path().equals(path)).findFirst()
+                .orElseThrow(() -> new NoSuchFileException(path));
+    }
+
+    @Override
     public void download(String remotePath, Path localFile, long offset, LongConsumer progress) throws IOException {
         byte[] content = tree.get(remotePath);
         if (content == null) {

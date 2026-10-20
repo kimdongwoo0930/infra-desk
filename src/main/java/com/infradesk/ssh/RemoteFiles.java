@@ -16,6 +16,9 @@ public interface RemoteFiles extends AutoCloseable {
 
     boolean exists(String path) throws IOException;
 
+    /** 항목 하나의 현재 상태(크기·수정 시각·권한). 없으면 {@link java.nio.file.NoSuchFileException} 같은 {@link IOException}. */
+    RemoteFile stat(String path) throws IOException;
+
     /** @param progress 지금까지 복사한 바이트 수를 받는다. 예외를 던지면 전송이 중단된다 */
     default void download(String remotePath, Path localFile, LongConsumer progress) throws IOException {
         download(remotePath, localFile, 0, progress);

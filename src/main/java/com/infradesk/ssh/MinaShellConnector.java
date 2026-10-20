@@ -225,6 +225,15 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         }
 
         @Override
+        public RemoteFile stat(String path) throws IOException {
+            SftpClient.Attributes a = sftp.stat(path);
+            String name = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+            name = name.substring(name.lastIndexOf('/') + 1);
+            return new RemoteFile(name, path, a.isDirectory(), a.getSize(),
+                    a.getModifyTime() == null ? null : a.getModifyTime().toInstant(), a.getPermissions() & 0777, false);
+        }
+
+        @Override
         public void download(String remotePath, java.nio.file.Path localFile, long offset,
                              java.util.function.LongConsumer progress) throws IOException {
             if (offset <= 0) {
