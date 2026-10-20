@@ -30,9 +30,20 @@ public class UpdateService {
      * @param downloadUrl  이 OS에서 사람이 내려받는 것(macOS는 dmg) 또는 릴리스 페이지
      * @param updateUrl    앱이 스스로 설치할 때 쓰는 아카이브. 릴리스에 없으면 null
      * @param checksumsUrl 릴리스의 {@code SHA256SUMS.txt}. 릴리스에 없으면 null
+     * @param version      릴리스 제목의 앱 버전("1.1.6"). 제목에 없으면 ""
      */
     public record Release(int build, String commit, String pageUrl, String downloadUrl, String updateUrl,
-                          String checksumsUrl) {
+                          String checksumsUrl, String version) {
+
+        public Release(int build, String commit, String pageUrl, String downloadUrl, String updateUrl,
+                       String checksumsUrl) {
+            this(build, commit, pageUrl, downloadUrl, updateUrl, checksumsUrl, "");
+        }
+
+        /** 안내 문구에 쓰는 이름. "InfraDesk 1.1.6 Beta", 제목에 버전이 없으면 "베타 빌드 16". */
+        public String label() {
+            return version.isEmpty() ? "베타 빌드 " + build : "InfraDesk " + version + " Beta";
+        }
     }
 
     public static final String CHECKSUMS_ASSET = "SHA256SUMS.txt";
@@ -40,6 +51,7 @@ public class UpdateService {
     public static final URI BETA_RELEASE_API =
             URI.create("https://api.github.com/repos/kimdongwoo0930/infra-desk/releases/tags/beta");
     private static final Pattern BUILD = Pattern.compile("빌드 #?(\\d+)");
+    private static final Pattern VERSION = Pattern.compile("(\\d+\\.\\d+\\.\\d+)");
     private static final Pattern COMMIT = Pattern.compile("커밋 \\[`([0-9a-f]{7,40})`]");
     private static final Logger LOG = Logger.getLogger(UpdateService.class.getName());
 
@@ -163,6 +175,8 @@ public class UpdateService {
                 checksums = url;
             }
         }
-        return new Release(Integer.parseInt(b.group(1)), c.find() ? c.group(1) : "", page, download, update, checksums);
+        Matcher v = VERSION.matcher(name);
+        return new Release(Integer.parseInt(b.group(1)), c.find() ? c.group(1) : "", page, download, update, checksums,
+                v.find() ? v.group(1) : "");
     }
 }
