@@ -71,7 +71,7 @@
 | OS | 상태 |
 |---|---|
 | macOS (Apple Silicon) | ✅ 실행 · 앱 안 업데이트 확인 |
-| macOS (Intel) | ⏳ 지금 빌드는 Apple Silicon 전용 |
+| macOS (Intel) | ⏳ 불가능 |
 | Windows 10/11 | ✅ 실행 · 계정 추가 · 앱 안 업데이트 확인 |
 | Linux | 소스에서 `./gradlew run` (설치 파일 없음) |
 
