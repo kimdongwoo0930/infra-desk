@@ -257,6 +257,26 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
+        // 내 컴퓨터에서 폴더 1개와 파일 2개를 골라 서버로 올리면 아래에 전송 대기열이 나타난다.
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> tables = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JTable", tables);
+            javax.swing.JTable local = (javax.swing.JTable) tables.get(0);
+            local.setRowSelectionInterval(0, 0);
+            local.addRowSelectionInterval(3, 4);
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JButton", buttons);
+            buttons.stream().map(b -> (javax.swing.AbstractButton) b)
+                    .filter(b -> "서버로 업로드".equals(b.getText())).findFirst().orElseThrow().doClick();
+        });
+        Thread.sleep(2500);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(sftp[0], sftp[0].getContentPane(), sftp[0].getWidth(), sftp[0].getHeight() - 28, "sftp-transfer.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
         // 확대 가능한 메트릭 차트: 24시간 네트워크를 그린 뒤, 확대해서 호버 툴팁과 함께 렌더링한다.
         var chartServer = inventory.getFirst().servers().getFirst();
         var chartAccount = inventory.getFirst().account();

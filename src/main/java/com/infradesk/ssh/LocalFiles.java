@@ -86,6 +86,16 @@ public final class LocalFiles {
         return false;
     }
 
+    /** {@link #delete}가 휴지통을 쓰는지(되돌릴 수 있는지). 확인 창 문구를 정하는 데 쓴다. */
+    public boolean movesToTrash() {
+        try {
+            return root == null && java.awt.Desktop.isDesktopSupported()
+                    && java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.MOVE_TO_TRASH);
+        } catch (RuntimeException | UnsatisfiedLinkError e) {
+            return false;
+        }
+    }
+
     private static boolean moveToTrash(Path p) {
         try {
             if (java.awt.Desktop.isDesktopSupported()
