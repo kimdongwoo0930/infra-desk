@@ -508,7 +508,18 @@ final class FilePane extends JPanel {
             return;
         }
         Source s = source;
-        run("불러오는 중…", () -> s.list(directory), list -> show(directory, list), () -> pathField.setText(cwd == null ? "" : cwd));
+        boolean remote = s.hasPermissions();
+        run("불러오는 중…", () -> {
+            try {
+                return s.list(directory);
+            } catch (IOException e) {
+                String hint = isPermissionError(e) ? permissionHint(directory, remote) : null;
+                if (hint == null) {
+                    throw e;
+                }
+                throw new HintedException("권한이 없어서 폴더를 읽지 못했어요. " + hint, e);
+            }
+        }, list -> show(directory, list), () -> pathField.setText(cwd == null ? "" : cwd));
     }
 
     /**
@@ -548,11 +559,54 @@ final class FilePane extends JPanel {
         }
     }
 
+    /** 폴더를 읽지 못한 이유에 해결 방법까지 붙인 오류. {@link #friendly}가 그대로 보여준다. */
+    private static final class HintedException extends IOException {
+        HintedException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    /** 권한이 없어서 난 오류인지. macOS의 개인정보 보호가 막을 때는 "Operation not permitted"로 온다. */
+    static boolean isPermissionError(Throwable t) {
+        for (Throwable c = t; c != null; c = c.getCause()) {
+            String m = String.valueOf(c.getMessage());
+            if (c instanceof java.nio.file.AccessDeniedException || m.contains("PERMISSION_DENIED")
+                    || m.contains("Operation not permitted")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final java.util.regex.Pattern MAC_PROTECTED = java.util.regex.Pattern
+            .compile("^/Users/[^/]+/(Desktop|Documents|Downloads|Movies|Music|Pictures|Library)(/.*)?$");
+
+    /**
+     * macOS는 데스크탑·문서·다운로드 같은 폴더를 SSH로 들어온 프로그램에게 기본으로 보여주지 않는다
+     * (이 컴퓨터에서도 앱이 허용을 받아야 한다). 그런 폴더에서 권한 오류가 났을 때 해결 방법을 알려준다.
+     *
+     * @return 안내 문구. 해당하지 않으면 null
+     */
+    static String permissionHint(String directory, boolean remote) {
+        if (directory == null || !MAC_PROTECTED.matcher(directory).matches()) {
+            return null;
+        }
+        return remote
+                ? "서버가 Mac이라면 SSH 접속에는 이 폴더를 읽을 권한이 기본으로 없어요. 서버의 시스템 설정 → 일반 → 공유 → "
+                        + "원격 로그인(ⓘ)에서 전체 디스크 접근을 허용해 보세요."
+                : "macOS가 이 폴더를 앱에 열어주지 않았어요. 시스템 설정 → 개인정보 보호 및 보안 → 파일 및 폴더"
+                        + "(또는 전체 디스크 접근)에서 InfraDesk를 허용해 보세요.";
+    }
+
     /** 서버·파일 시스템이 주는 영어 오류를 알아보기 쉬운 한국어로 바꾼다. */
     static String friendly(Throwable t) {
         for (Throwable c = t; c != null; c = c.getCause()) {
             String m = String.valueOf(c.getMessage());
-            if (c instanceof java.nio.file.AccessDeniedException || m.contains("PERMISSION_DENIED")) {
+            if (c instanceof HintedException) {
+                return m;
+            }
+            if (c instanceof java.nio.file.AccessDeniedException || m.contains("PERMISSION_DENIED")
+                    || m.contains("Operation not permitted")) {
                 return "권한이 없어요. 이 계정으로는 할 수 없는 작업이에요.";
             }
             if (c instanceof java.nio.file.NoSuchFileException || m.contains("NO_SUCH_FILE")) {
