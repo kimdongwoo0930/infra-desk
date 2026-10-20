@@ -10,8 +10,8 @@ import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * Fake shell for demo mode: no network. Answers a few common commands with canned output so the
- * terminal can be shown without real servers or keys.
+ * 데모 모드용 가짜 셸: 네트워크를 쓰지 않는다. 자주 쓰는 명령 몇 가지에 미리 준비한 출력으로
+ * 답해서, 실제 서버나 키 없이 터미널을 보여줄 수 있다.
  */
 public class DemoShellConnector implements ShellConnector {
 
@@ -37,7 +37,7 @@ public class DemoShellConnector implements ShellConnector {
         return new DemoShellSession(target, hostnameOf(target));
     }
 
-    /** {@code docker exec -it} into a demo container: a fake shell or database console. */
+    /** 데모 컨테이너로 {@code docker exec -it}: 가짜 셸 또는 데이터베이스 콘솔. */
     @Override
     public ShellSession open(SshTarget target, HostKeyPrompt prompt, int columns, int rows, String command) {
         try {
@@ -49,8 +49,8 @@ public class DemoShellConnector implements ShellConnector {
     }
 
     /**
-     * {@link ProcStats#COMMAND} streams fake /proc snapshots; anything else gets the same canned
-     * answer the interactive demo shell would print, then exits.
+     * {@link ProcStats#COMMAND}는 가짜 /proc 스냅샷을 스트리밍한다. 그 외 명령은 대화형 데모 셸이
+     * 출력했을 것과 같은 준비된 답을 한 번 출력하고 종료한다.
      */
     @Override
     public ShellSession exec(SshTarget target, HostKeyPrompt prompt, String command) {
@@ -86,7 +86,7 @@ public class DemoShellConnector implements ShellConnector {
         return new DemoRemoteFiles(target.username(), hostnameOf(target));
     }
 
-    /** Two /proc-style blocks one second apart, with load that drifts a little per call. */
+    /** 1초 간격의 /proc 형식 블록 두 개. 호출마다 부하가 조금씩 변한다. */
     private static String demoOneShot(String host) {
         java.util.Random r = new java.util.Random();
         int seed = Math.floorMod(host.hashCode(), 20);
@@ -104,7 +104,7 @@ public class DemoShellConnector implements ShellConnector {
         return first + second;
     }
 
-    /** Plausible HostFacts output that varies a little per host. */
+    /** 호스트마다 조금씩 다른, 그럴듯한 HostFacts 출력. */
     private static String demoFacts(String host) {
         int seed = Math.floorMod(host.hashCode(), 20);
         long totalKb = 100L * 1024 * 1024 * (seed % 2 == 0 ? 1 : 2) - 1024 * 1024;
@@ -122,7 +122,7 @@ public class DemoShellConnector implements ShellConnector {
                 + "@ports\n" + ss;
     }
 
-    /** A command that already ran: its output, then EOF. */
+    /** 이미 실행이 끝난 명령: 출력한 뒤 EOF. */
     private record FinishedSession(String address, String text, int exit) implements ShellSession {
         @Override
         public InputStream output() {
@@ -169,7 +169,7 @@ public class DemoShellConnector implements ShellConnector {
         private volatile boolean open = true;
         private volatile int columns = 80;
 
-        /** How a demo session greets, prompts and answers; {@code null} fields mean the host shell. */
+        /** 데모 세션이 인사하고, 프롬프트를 띄우고, 답하는 방식. {@code null} 필드는 호스트 셸을 뜻한다. */
         record Mode(String banner, String prompt, java.util.function.Function<String, String> respond,
                     java.util.Set<String> exitWords) {
         }
@@ -238,7 +238,7 @@ public class DemoShellConnector implements ShellConnector {
                     }
                 }
             } catch (IOException ignored) {
-                // Terminal closed.
+                // 터미널이 닫혔다.
             } finally {
                 close();
             }
@@ -340,7 +340,7 @@ public class DemoShellConnector implements ShellConnector {
         }
     }
 
-    /** Emits /proc-shaped snapshots with plausible, slowly wandering counters. */
+    /** /proc 형식의 스냅샷을 내보낸다. 카운터가 그럴듯하게 천천히 움직인다. */
     static final class DemoStatsSession implements ShellSession {
 
         private final SshTarget target;
@@ -370,7 +370,7 @@ public class DemoShellConnector implements ShellConnector {
             long memTotal = 24_000_000;
             double cpuLevel = 0.15 + random.nextDouble() * 0.25;
             double memLevel = 0.35 + random.nextDouble() * 0.25;
-            long ticks = Math.max(1, interval.toMillis() / 10); // 100 jiffies per second
+            long ticks = Math.max(1, interval.toMillis() / 10); // 초당 100 jiffies
             try {
                 while (open) {
                     cpuLevel = Math.max(0.02, Math.min(0.95, cpuLevel + (random.nextDouble() - 0.5) * 0.12));
@@ -393,7 +393,7 @@ public class DemoShellConnector implements ShellConnector {
                     Thread.sleep(interval);
                 }
             } catch (IOException | InterruptedException ignored) {
-                // Closed.
+                // 닫혔다.
             } finally {
                 close();
             }

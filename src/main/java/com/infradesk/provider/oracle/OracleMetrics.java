@@ -18,8 +18,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Reads instance metrics from OCI Monitoring ({@code oci_computeagent} namespace, reported by the
- * Compute Instance Monitoring plugin). OCI aggregates at one-minute resolution.
+ * OCI Monitoring({@code oci_computeagent} 네임스페이스, Compute Instance Monitoring 플러그인이
+ * 보고)에서 인스턴스 메트릭을 읽는다. OCI는 1분 해상도로 집계한다.
  */
 final class OracleMetrics {
 
@@ -37,12 +37,12 @@ final class OracleMetrics {
         this.clock = clock;
     }
 
-    /** Last hour of CPU, memory and network for one instance. Four queries. */
+    /** 인스턴스 하나의 최근 1시간 CPU, 메모리, 네트워크. 쿼리 4개. */
     Metrics forInstance(String instanceId) {
         return forInstance(instanceId, WINDOW);
     }
 
-    /** CPU, memory and network over {@code range}, at {@link #intervalFor(Duration)}. Four queries. */
+    /** {@code range} 동안의 CPU, 메모리, 네트워크를 {@link #intervalFor(Duration)} 간격으로. 쿼리 4개. */
     Metrics forInstance(String instanceId, Duration range) {
         String interval = intervalFor(range);
         return new Metrics(
@@ -52,7 +52,7 @@ final class OracleMetrics {
                 series(query("NetworksBytesOut", instanceId, "rate", range, interval)));
     }
 
-    /** Coarser points for longer ranges keep every chart to a few hundred points. */
+    /** 긴 기간일수록 거친 점을 써서 차트마다 점이 수백 개 안팎이 되게 한다. */
     static String intervalFor(Duration range) {
         if (range.compareTo(Duration.ofHours(6)) <= 0) {
             return "1m";
@@ -63,7 +63,7 @@ final class OracleMetrics {
         return "15m";
     }
 
-    /** Latest CPU per instance in the compartment, one grouped query. */
+    /** 컴파트먼트의 인스턴스별 최신 CPU. 그룹 쿼리 하나. */
     Map<String, Double> latestCpu(Collection<String> instanceIds) {
         Instant end = clock.instant();
         List<MetricData> data = summarize("CpuUtilization[1m].groupBy(resourceId).mean()", end.minus(CPU_WINDOW), end);
@@ -81,7 +81,7 @@ final class OracleMetrics {
         return result;
     }
 
-    /** MQL for one metric of one instance, e.g. {@code CpuUtilization[1m]{resourceId = "…"}.mean()}. */
+    /** 인스턴스 하나의 메트릭 하나에 대한 MQL. 예: {@code CpuUtilization[1m]{resourceId = "…"}.mean()}. */
     static String mql(String metric, String instanceId, String statistic) {
         return mql(metric, instanceId, statistic, "1m");
     }
@@ -113,7 +113,7 @@ final class OracleMetrics {
                 .build()).getItems();
     }
 
-    /** Flattens the (single) returned stream into samples, oldest first. */
+    /** 돌아온 (하나뿐인) 스트림을 샘플로 펼친다. 오래된 것부터. */
     static List<Metrics.Sample> series(List<MetricData> data) {
         List<Metrics.Sample> samples = new ArrayList<>();
         if (data == null) {

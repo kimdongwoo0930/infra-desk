@@ -29,7 +29,7 @@ class LaunchAtLoginTest {
         assertTrue(login.isEnabled());
         String plist = Files.readString(login.plist());
         assertTrue(plist.contains("<string>--minimized</string>"));
-        // Separator-agnostic: Windows paths use '\\'.
+        // 구분자와 무관하게: Windows 경로는 '\\'를 쓴다.
         assertTrue(plist.contains(app.toString().replace("&", "&amp;")), "path is XML-escaped");
         assertFalse(plist.contains("Apps & Tools"), "raw '&' would break the plist");
         var doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(login.plist().toFile());

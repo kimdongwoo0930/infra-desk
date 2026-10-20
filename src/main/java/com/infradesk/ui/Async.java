@@ -6,7 +6,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import javax.swing.SwingUtilities;
 
-/** Runs blocking work off the EDT and delivers the result back on the EDT. */
+/** 블로킹 작업을 EDT 밖에서 실행하고 결과를 다시 EDT에서 전달한다. */
 public final class Async {
 
     private static final ExecutorService POOL = Executors.newVirtualThreadPerTaskExecutor();
@@ -25,7 +25,7 @@ public final class Async {
         });
     }
 
-    /** User-facing message for a failure, never a stack trace. */
+    /** 실패에 대해 사용자에게 보여줄 메시지. 스택 트레이스는 절대 보여주지 않는다. */
     public static String message(Throwable t) {
         Throwable root = t;
         while (root.getCause() != null && root.getMessage() == null) {

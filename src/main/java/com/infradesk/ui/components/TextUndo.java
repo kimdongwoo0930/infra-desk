@@ -19,8 +19,8 @@ import javax.swing.undo.CannotUndoException;
 import javax.swing.undo.UndoManager;
 
 /**
- * Undo / redo (⌘Z / ⇧⌘Z, Ctrl+Z / Ctrl+Y on Windows) for every text field. Swing text fields have
- * none by default. Attached to each text component as it's added to a container.
+ * 모든 텍스트 필드의 실행 취소 / 다시 실행(⌘Z / ⇧⌘Z, Windows는 Ctrl+Z / Ctrl+Y). Swing 텍스트
+ * 필드에는 기본으로 없다. 텍스트 컴포넌트가 컨테이너에 추가될 때마다 붙인다.
  */
 public final class TextUndo {
 
@@ -37,13 +37,13 @@ public final class TextUndo {
         }, AWTEvent.CONTAINER_EVENT_MASK);
     }
 
-    /** Undoes the last edit in the component, if it has undo history. */
+    /** 컴포넌트에 실행 취소 기록이 있으면 마지막 편집을 취소한다. */
     public static void undo(Component c) {
         if (c instanceof JTextComponent t && t.getClientProperty(KEY) instanceof UndoManager m && m.canUndo()) {
             try {
                 m.undo();
             } catch (CannotUndoException ignored) {
-                // Nothing to undo.
+                // 취소할 것이 없다.
             }
         }
     }
@@ -53,7 +53,7 @@ public final class TextUndo {
             try {
                 m.redo();
             } catch (CannotRedoException ignored) {
-                // Nothing to redo.
+                // 다시 실행할 것이 없다.
             }
         }
     }

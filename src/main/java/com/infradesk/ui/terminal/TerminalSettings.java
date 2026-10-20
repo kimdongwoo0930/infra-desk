@@ -7,7 +7,7 @@ import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 
 import java.awt.Font;
 
-/** JediTerm look: DESIGN.md terminal colors and a monospaced font. */
+/** JediTerm 모양: DESIGN.md의 터미널 색상과 고정폭 글꼴. */
 final class TerminalSettings extends DefaultSettingsProvider {
 
     private static final float FONT_SIZE = 13f;
@@ -33,9 +33,8 @@ final class TerminalSettings extends DefaultSettingsProvider {
     }
 
     /**
-     * Style for text printed before any SGR sequence. Deprecated in JediTerm, but 3.76 still uses it
-     * for the initial style and its default is black on white, which shows as white bars behind
-     * uncolored banner text.
+     * SGR 시퀀스 이전에 출력되는 텍스트의 스타일. JediTerm에서는 deprecated지만 3.76은 아직 초기
+     * 스타일에 이것을 쓰고, 기본값이 흰 바탕에 검은 글씨라서 색이 없는 배너 글자 뒤에 흰 막대가 보인다.
      */
     @Override
     @SuppressWarnings("deprecation")

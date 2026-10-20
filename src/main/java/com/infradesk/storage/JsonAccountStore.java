@@ -14,7 +14,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 
-/** Stores accounts as JSON in {@code <configDir>/accounts.json}. Writes atomically via a temp file. */
+/** 계정을 {@code <configDir>/accounts.json}에 JSON으로 저장한다. 임시 파일을 거쳐 원자적으로 쓴다. */
 public class JsonAccountStore implements AccountStore {
 
     private static final TypeReference<List<Account>> ACCOUNTS = new TypeReference<>() {
@@ -58,7 +58,7 @@ public class JsonAccountStore implements AccountStore {
         }
     }
 
-    /** The file holds OCIDs; keep it readable only by the current user where the OS supports it. */
+    /** 파일에 OCID가 들어 있으므로 OS가 지원하면 현재 사용자만 읽을 수 있게 한다. */
     private static void restrictToOwner(Path path) throws IOException {
         if (path.getFileSystem().supportedFileAttributeViews().contains("posix")) {
             Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"));

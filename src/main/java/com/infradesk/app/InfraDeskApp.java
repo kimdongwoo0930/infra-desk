@@ -37,8 +37,8 @@ import java.util.Arrays;
 import javax.swing.SwingUtilities;
 
 /**
- * Application entry point. Pass {@code --demo} (or {@code -Dinfradesk.demo=true}) to run with fake
- * data: no settings file or keychain access, no network.
+ * 애플리케이션 진입점. {@code --demo}(또는 {@code -Dinfradesk.demo=true})를 주면 가짜 데이터로
+ * 실행한다. 설정 파일과 키체인에 접근하지 않고 네트워크도 쓰지 않는다.
  */
 public final class InfraDeskApp {
 
@@ -65,7 +65,7 @@ public final class InfraDeskApp {
             System.setProperty("apple.awt.application.name", "InfraDesk");
             System.setProperty("apple.awt.application.appearance", "NSAppearanceNameDarkAqua");
             System.setProperty("apple.laf.useScreenMenuBar", "true");
-            // Menu-bar icon as a template image: monochrome, follows the light/dark menu bar.
+            // 템플릿 이미지로 쓰는 메뉴 막대 아이콘: 단색이며 밝은/어두운 메뉴 막대를 따라간다.
             System.setProperty("apple.awt.enableTemplateImages", "true");
         }
         SwingUtilities.invokeLater(() -> {
@@ -78,7 +78,7 @@ public final class InfraDeskApp {
             if (demo) {
                 frame = new MainFrame(demoService(), demoTerminalService(), demoAlertService(), null, true);
             } else {
-                // One keychain item (the vault's master key); every secret lives in the encrypted vault.
+                // 키체인 항목은 하나(금고의 마스터 키)뿐이고, 모든 비밀값은 암호화된 금고에 들어 있다.
                 KeychainSecretStore keychain = new KeychainSecretStore();
                 SecretStore secrets = new VaultSecretStore(AppPaths.configDir(), keychain, keychain);
                 AlertService alerts = new AlertService(new JsonAlertSettingsStore(AppPaths.configDir()), secrets, null,
@@ -91,7 +91,7 @@ public final class InfraDeskApp {
                         AppPaths.logDir().resolve("update.log")).ifPresent(frame::setUpdateInstaller);
             }
             AppIcon.applyTo(frame);
-            // --minimized (login item): stay in the menu bar; without a tray there'd be no way back, so show.
+            // --minimized(로그인 시 실행): 메뉴 막대에만 머문다. 트레이가 없으면 돌아올 방법이 없으므로 창을 보여준다.
             if (!minimized || !frame.hasTray()) {
                 frame.setVisible(true);
             }
@@ -100,7 +100,7 @@ public final class InfraDeskApp {
         });
     }
 
-    /** Alerts in demo mode never leave the machine: they show as a preview toast instead. */
+    /** 데모 모드의 알림은 기기 밖으로 나가지 않고 미리보기 토스트로만 표시된다. */
     public static AlertService demoAlertService() {
         Notifier preview = alert -> SwingUtilities.invokeLater(() -> {
             java.awt.Window w = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
@@ -118,9 +118,8 @@ public final class InfraDeskApp {
     }
 
     /**
-     * {@code --migrate-secrets}: moves every per-item keychain secret into the vault and deletes the
-     * old items. Meant to run once from the JVM that created them (./gradlew run), which reads them
-     * without a keychain prompt.
+     * {@code --migrate-secrets}: 항목별 키체인에 있던 모든 비밀값을 금고로 옮기고 이전 항목을 삭제한다.
+     * 항목을 만든 JVM(./gradlew run)에서 한 번 실행하는 용도이며, 그 JVM은 키체인 승인 창 없이 읽을 수 있다.
      */
     private static int migrateSecrets() {
         var dir = AppPaths.configDir();
@@ -135,7 +134,7 @@ public final class InfraDeskApp {
                 names.add("server." + id + "." + TerminalService.SSH_PASSPHRASE);
             });
         } catch (java.io.IOException ignored) {
-            // No SSH settings yet.
+            // 아직 SSH 설정이 없다.
         }
         names.add("alerts.discordWebhook");
         KeychainSecretStore keychain = new KeychainSecretStore();
@@ -162,7 +161,7 @@ public final class InfraDeskApp {
         for (ProviderType type : ProviderType.values()) {
             registry.register(type, factory);
         }
-        // Directly connected demo machines answer unless their address says otherwise.
+        // 직접 연결 데모 기기는 주소에 따로 지정하지 않으면 응답한다.
         registry.register(ProviderType.SSH, new com.infradesk.provider.ssh.SshHostProviderFactory((host, port) -> !host.startsWith("offline")));
         return new InventoryService(new InMemoryAccountStore(DemoData.accounts()), new InMemorySecretStore(), registry);
     }

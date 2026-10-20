@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** SFTP against an in-process MINA server rooted in a temp directory. */
+/** 임시 디렉터리를 루트로 하는 프로세스 내 MINA 서버에 대한 SFTP. */
 class SftpTest {
 
     @TempDir

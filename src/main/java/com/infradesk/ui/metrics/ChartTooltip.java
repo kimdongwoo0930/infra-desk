@@ -11,18 +11,18 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.util.List;
 
-/** Vertical hover line plus one box naming the time and each series' value, shared by the chart panels. */
+/** 세로 호버선과, 시각과 각 시리즈의 값을 적은 상자 하나. 차트 패널들이 함께 쓴다. */
 final class ChartTooltip {
 
     private ChartTooltip() {
     }
 
     /**
-     * @param lineX      x of the hover line
-     * @param lineTop    top of the hover line
-     * @param lineBottom bottom of the hover line
-     * @param boxY       top of the box
-     * @param lines      one text per series, coloured with the matching entry of {@code colors}
+     * @param lineX      호버선의 x
+     * @param lineTop    호버선의 위쪽
+     * @param lineBottom 호버선의 아래쪽
+     * @param boxY       상자의 위쪽
+     * @param lines      시리즈마다 텍스트 하나. {@code colors}의 해당 항목 색으로 칠한다
      */
     static void draw(Graphics g, Font baseFont, int panelWidth, int lineX, int lineTop, int lineBottom, int boxY,
                      String header, List<String> lines, List<Color> colors) {

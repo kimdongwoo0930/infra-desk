@@ -20,7 +20,7 @@ public class OracleProviderFactory implements CloudProviderFactory {
         return new OracleProvider(account, secrets);
     }
 
-    /** Commercial (OC1) regions, Korean regions first. */
+    /** 상업용(OC1) 리전. 한국 리전이 먼저. */
     @Override
     public List<String> regions() {
         Stream<String> others = Arrays.stream(Region.values())

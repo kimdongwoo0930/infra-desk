@@ -19,10 +19,10 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JToggleButton;
 
-/** "모니터링" section: CPU, memory and network cards plus the live (SSH) toggle. */
+/** "모니터링" 섹션: CPU, 메모리, 네트워크 카드와 실시간(SSH) 토글. */
 public class MetricsPanel extends JPanel {
 
-    /** Keep five minutes of live samples. */
+    /** 실시간 샘플은 5분어치를 보관한다. */
     private static final int LIVE_CAPACITY = 5 * 60 / ProcStats.INTERVAL_SECONDS;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -74,7 +74,7 @@ public class MetricsPanel extends JPanel {
         add(cards, BorderLayout.CENTER);
     }
 
-    /** A card was clicked: the user wants a bigger, zoomable chart of that metric. */
+    /** 카드를 클릭했다: 사용자가 그 메트릭의 더 크고 확대 가능한 차트를 원한다. */
     public void onExpand(Consumer<MetricKind> listener) {
         cpu.onClick(() -> listener.accept(MetricKind.CPU));
         memory.onClick(() -> listener.accept(MetricKind.MEMORY));
@@ -85,7 +85,7 @@ public class MetricsPanel extends JPanel {
         this.onLiveToggle = listener;
     }
 
-    /** Sets the toggle without firing the listener. */
+    /** 리스너를 호출하지 않고 토글을 설정한다. */
     public void setLiveSelected(boolean selected) {
         suppressToggle = true;
         live.setSelected(selected);
@@ -116,7 +116,7 @@ public class MetricsPanel extends JPanel {
         }
     }
 
-    /** OCI history (one-minute points). */
+    /** OCI 기록(1분 간격 점). */
     public void showHistory(Metrics m) {
         String caption = "최근 1시간";
         cpu.show(List.of(m.cpuPercent()), caption, false, "데이터가 아직 없어요");
@@ -125,7 +125,7 @@ public class MetricsPanel extends JPanel {
         setStatus("OCI 모니터링 · 1분 간격 · " + LocalTime.now().format(TIME) + " 갱신", false);
     }
 
-    /** Appends one live sample and redraws. */
+    /** 실시간 샘플 하나를 추가하고 다시 그린다. */
     public void addLive(ProcStats.Sample s) {
         liveSamples.add(s);
         if (liveSamples.size() > LIVE_CAPACITY) {

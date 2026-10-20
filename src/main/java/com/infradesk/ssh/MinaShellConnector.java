@@ -32,15 +32,15 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * SSH shells over Apache MINA SSHD. Host keys are checked against {@code known_hosts} in the
- * app's config directory: unknown keys go to the {@link HostKeyPrompt}, changed keys are refused.
+ * Apache MINA SSHD 기반 SSH 셸. 호스트 키는 앱 설정 디렉터리의 {@code known_hosts}와 대조한다.
+ * 모르는 키는 {@link HostKeyPrompt}로 넘기고, 바뀐 키는 거부한다.
  */
 public class MinaShellConnector implements ShellConnector, AutoCloseable {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration AUTH_TIMEOUT = Duration.ofSeconds(15);
 
-    /** Per-connect state. Host key checks run on MINA's I/O threads, so it travels with the connection. */
+    /** 연결별 상태. 호스트 키 검사는 MINA의 I/O 스레드에서 실행되므로 연결과 함께 전달한다. */
     private static final class Attempt {
         final HostKeyPrompt prompt;
         volatile boolean hostKeyChanged;
@@ -143,7 +143,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         T run(ClientSession session) throws IOException;
     }
 
-    /** Connects and authenticates, then hands the session to {@code task}; cleans up on failure. */
+    /** 연결하고 인증한 뒤 세션을 {@code task}에 넘긴다. 실패하면 정리한다. */
     private <T> T withSession(SshTarget target, HostKeyPrompt prompt, SessionTask<T> task) {
         KeyPair identity = loadKey(target);
         Attempt attempt = new Attempt(prompt);
@@ -168,7 +168,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         }
     }
 
-    /** SFTP over an authenticated session; closing it closes the session. */
+    /** 인증된 세션 위의 SFTP. 닫으면 세션도 닫힌다. */
     private static final class MinaRemoteFiles implements RemoteFiles {
 
         private final ClientSession session;
@@ -307,7 +307,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         client.stop();
     }
 
-    /** Shell over an open MINA channel. */
+    /** 열려 있는 MINA 채널 위의 셸. */
     private static final class MinaShellSession implements ShellSession {
 
         private final ClientSession session;
@@ -338,7 +338,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
             try {
                 pty.sendWindowChange(columns, rows);
             } catch (IOException e) {
-                // Channel closing; nothing to resize.
+                // 채널이 닫히는 중이다. 크기를 조정할 것이 없다.
             }
         }
 

@@ -112,7 +112,7 @@ class UpdateInstallerTest {
                 () -> installer.prepare(release, (d, t) -> { }, () -> true));
     }
 
-    /** Download (through a redirect, like GitHub's CDN) → verify → unzip → swap, with Java's unzip. */
+    /** 다운로드(GitHub CDN처럼 리디렉트를 거침) → 검증 → 압축 해제 → 교체. Java의 unzip을 쓴다. */
     @Test
     void preparesAWindowsUpdateFromARedirectedDownload() throws Exception {
         Path app = Files.createDirectories(dir.resolve("apps").resolve("InfraDesk"));
@@ -144,7 +144,7 @@ class UpdateInstallerTest {
         assertSwapped(installer, prepared, app, app.resolve("InfraDesk.exe"));
     }
 
-    /** The real macOS path: ditto zip, ditto unzip, the new app's --self-test, then the sh swap script. */
+    /** 실제 macOS 경로: ditto zip, ditto unzip, 새 앱의 --self-test, 그다음 sh 교체 스크립트. */
     @Test
     @EnabledOnOs(OS.MAC)
     void macUpdateSelfTestsAndSwapsTheBundle() throws Exception {
@@ -209,9 +209,9 @@ class UpdateInstallerTest {
                 "old failures are not reported");
     }
 
-    // ---- helpers ----
+    // ---- 헬퍼 ----
 
-    /** Runs the swap script against a stand-in process and checks the result. */
+    /** 대역 프로세스를 상대로 교체 스크립트를 실행하고 결과를 확인한다. */
     private void assertSwapped(UpdateInstaller installer, UpdateInstaller.Prepared prepared, Path app, Path marker)
             throws Exception {
         Process standIn = new ProcessBuilder(OS.WINDOWS.isCurrentOs()
@@ -251,7 +251,7 @@ class UpdateInstallerTest {
         return bytes.toByteArray();
     }
 
-    /** /sums → checksums, /dl/<name> → 302 to /cdn/<name> → the archive. */
+    /** /sums → 체크섬, /dl/<name> → /cdn/<name>으로 302 → 아카이브. */
     private String serve(byte[] archive, String sums) throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/sums", ex -> send(ex, 200, sums.getBytes(StandardCharsets.UTF_8)));

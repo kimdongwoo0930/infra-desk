@@ -12,13 +12,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A machine you reach directly over SSH (a home server, a Mac mini on Tailscale). There is no cloud
- * API: the one server's status is whether its SSH port accepts a connection, and power control and
- * cloud metrics don't exist (live mode reads them over SSH instead).
+ * SSH로 직접 닿는 기기(집 서버, Tailscale 위의 Mac mini). 클라우드 API가 없다.
+ * 서버 하나의 상태는 SSH 포트가 연결을 받는지 여부이고, 전원 제어와 클라우드 메트릭은
+ * 존재하지 않는다(대신 실시간 모드가 SSH로 읽는다).
  */
 public class SshHostProvider implements CloudProvider {
 
-    /** Tells whether host:port accepts a TCP connection. Blocking. */
+    /** host:port가 TCP 연결을 받는지 알려준다. 블로킹. */
     public interface Reachability {
         boolean reachable(String host, int port);
     }

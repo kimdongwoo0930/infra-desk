@@ -2,7 +2,7 @@ package com.infradesk.ui;
 
 import java.util.Map;
 
-/** Short Korean names for common regions, shown in the sidebar. */
+/** 자주 쓰는 리전의 짧은 한국어 이름. 사이드바에 표시된다. */
 public final class Regions {
 
     private static final Map<String, String> NAMES = Map.ofEntries(

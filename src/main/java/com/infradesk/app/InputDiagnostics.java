@@ -14,10 +14,10 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Prints keyboard, focus and window-activation events to stderr, to debug input problems on a
- * machine we can't see. Never prints typed characters (fields may hold OCIDs); letters and digits
- * show as "a" / "9", and only modifier combos and special keys are named.
- * Enabled with {@code --debug-input}.
+ * 키보드, 포커스, 창 활성화 이벤트를 stderr에 출력한다. 직접 볼 수 없는 기기의 입력 문제를
+ * 디버깅하기 위한 것이다. 입력한 글자는 절대 출력하지 않으며(필드에 OCID가 들어 있을 수 있다),
+ * 문자와 숫자는 "a" / "9"로 표시하고 수정 키 조합과 특수 키만 이름으로 표시한다.
+ * {@code --debug-input}으로 켠다.
  */
 final class InputDiagnostics {
 

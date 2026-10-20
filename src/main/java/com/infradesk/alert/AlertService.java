@@ -14,14 +14,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Alert settings, the webhook secret, and delivery. Detection is in {@link AlertMonitor}; sending
- * happens on one background thread so alerts go out in order and never block the UI.
+ * 알림 설정, 웹훅 비밀값, 전송. 감지는 {@link AlertMonitor}가 하고, 전송은 백그라운드 스레드
+ * 하나에서 해서 알림이 순서대로 나가고 UI를 막지 않는다.
  */
 public class AlertService {
 
     /**
-     * Discord alerts are shown as "준비 중" and not fed by the app until they have been tried on a
-     * real channel. The code and its tests stay; flip this to ship the feature.
+     * 디스코드 알림은 "준비 중"으로 표시하고, 실제 채널에서 시험해보기 전까지는 앱이 알림을
+     * 넣어주지 않는다. 코드와 테스트는 남겨두며, 이 값을 바꾸면 기능이 켜진다.
      */
     public static final boolean AVAILABLE = false;
 
@@ -41,7 +41,7 @@ public class AlertService {
     private volatile Consumer<String> onDeliveryFailure = msg -> { };
 
     /**
-     * @param notifier null to use Discord with the stored webhook URL
+     * @param notifier null이면 저장된 웹훅 URL로 디스코드를 쓴다
      */
     public AlertService(AlertSettingsStore settingsStore, SecretStore secretStore, Notifier notifier, Clock clock) {
         this.settingsStore = settingsStore;
@@ -60,7 +60,7 @@ public class AlertService {
         return secretStore.get(WEBHOOK_KEY).isPresent();
     }
 
-    /** @param webhookUrl new URL, null to keep the stored one, empty to remove it */
+    /** @param webhookUrl 새 URL. null이면 저장된 값 유지, 빈 값이면 삭제 */
     public void save(AlertSettings newSettings, String webhookUrl) {
         if (webhookUrl != null) {
             if (webhookUrl.isBlank()) {
@@ -73,7 +73,7 @@ public class AlertService {
         this.settings = newSettings;
     }
 
-    /** Called with a user-facing message when an alert can't be delivered. */
+    /** 알림을 전달하지 못했을 때 사용자에게 보여줄 메시지와 함께 호출된다. */
     public void onDeliveryFailure(Consumer<String> listener) {
         this.onDeliveryFailure = listener;
     }
@@ -90,7 +90,7 @@ public class AlertService {
         dispatch(monitor.onCpu(cpu));
     }
 
-    /** Sends a test message now, blocking. Throws {@link AlertException} on failure. */
+    /** 테스트 메시지를 지금 보낸다(블로킹). 실패하면 {@link AlertException}을 던진다. */
     public void sendTest() {
         notifier.send(new Alert(Alert.Level.INFO, "🔔 InfraDesk 테스트 알림",
                 "알림이 이 채널로 와요. 설정은 InfraDesk ⚙ 설정에서 바꿀 수 있어요.", java.time.Instant.now()));

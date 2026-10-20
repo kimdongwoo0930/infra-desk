@@ -20,9 +20,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * java.util.logging setup: a rotating file in the log directory (5 × 2 MB) plus stderr. Our code
- * logs at INFO; libraries (routed through slf4j-jdk14) only at WARNING. Every line goes through
- * {@link #redact} so logs can be shared: private keys, webhook URLs, public IPs and OCIDs are masked.
+ * java.util.logging 설정: 로그 디렉터리의 순환 파일(5 × 2 MB)과 stderr. 우리 코드는 INFO,
+ * 라이브러리(slf4j-jdk14로 연결)는 WARNING 이상만 기록한다. 모든 줄이 {@link #redact}를 거치므로
+ * 로그를 공유해도 되도록 개인키, 웹훅 URL, 공인 IP, OCID가 가려진다.
  */
 public final class Logging {
 
@@ -38,20 +38,20 @@ public final class Logging {
     private static final Pattern OCID = Pattern.compile("\\b(ocid1\\.[a-z]+\\.[a-z0-9]+\\.[a-z0-9-]*\\.)([a-z0-9]{8,})([a-z0-9]{6})\\b");
 
     private static Path logFile;
-    /** Strong references so the level overrides aren't garbage-collected with their loggers. */
+    /** 레벨 설정이 로거와 함께 가비지 컬렉션되지 않도록 강한 참조를 유지한다. */
     private static final java.util.List<Logger> QUIET = new java.util.ArrayList<>();
 
     private Logging() {
     }
 
-    /** Installs handlers once at startup. Failure to open the file leaves stderr logging only. */
+    /** 시작할 때 핸들러를 한 번 설치한다. 파일을 열지 못하면 stderr 로깅만 남는다. */
     public static void install(Path dir) {
         LogManager.getLogManager().reset();
         Logger root = Logger.getLogger("");
         root.setLevel(Level.WARNING);
         Logger.getLogger("com.infradesk").setLevel(Level.INFO);
-        // Known-harmless OCI SDK notices, logged on every client/dialog: a stream-closing tip for
-        // VPN device-config APIs we never call, and an IMDS hint that only applies on OCI instances.
+        // 해롭지 않은 것으로 알려진 OCI SDK 안내문. 클라이언트/다이얼로그마다 기록된다. 호출하지 않는
+        // VPN 장치 설정 API의 스트림 닫기 팁과, OCI 인스턴스에서만 해당되는 IMDS 안내가 그것이다.
         for (String noisy : new String[] {"com.oracle.bmc.core.VirtualNetworkClient", "com.oracle.bmc.Region"}) {
             QUIET.add(Logger.getLogger(noisy));
         }
@@ -75,12 +75,12 @@ public final class Logging {
         }
     }
 
-    /** Current log file, or null if only stderr is used. */
+    /** 현재 로그 파일. stderr만 쓰면 null. */
     public static Path logFile() {
         return logFile;
     }
 
-    /** Masks secrets and identifying values. Package-private for tests. */
+    /** 비밀값과 식별 값을 가린다. 테스트를 위해 package-private. */
     static String redact(String text) {
         if (text == null) {
             return null;
@@ -111,7 +111,7 @@ public final class Logging {
                 || (o[0] == 192 && o[1] == 168) || (o[0] == 100 && o[1] >= 64 && o[1] <= 127));
     }
 
-    /** "2026-09-28 14:31:02.123 INFO  [thread] Logger: message" + redacted stack trace. */
+    /** "2026-09-28 14:31:02.123 INFO  [thread] Logger: message" + 가려진 스택 트레이스. */
     private static final class LineFormatter extends Formatter {
         @Override
         public String format(LogRecord r) {
@@ -129,7 +129,7 @@ public final class Logging {
             return redact(sb.toString());
         }
 
-        /** Virtual threads are unnamed; show "virtual-<id>" instead of "[]". */
+        /** 가상 스레드는 이름이 없으므로 "[]" 대신 "virtual-<id>"로 표시한다. */
         private static String threadName() {
             Thread t = Thread.currentThread();
             return t.getName().isEmpty() ? (t.isVirtual() ? "virtual-" : "thread-") + t.threadId() : t.getName();

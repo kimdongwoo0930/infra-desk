@@ -12,7 +12,7 @@ import java.awt.RenderingHints;
 import java.awt.geom.Ellipse2D;
 import javax.swing.Icon;
 
-/** 8px status dot: filled green when running, gray outline when stopped, amber while transitioning. */
+/** 8px 상태 점: 실행 중이면 채운 초록, 정지면 회색 윤곽선, 전이 중이면 호박색. */
 public class StatusDot implements Icon {
 
     private static final int SIZE = 8;

@@ -40,7 +40,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
-/** SFTP file browser for one server: browse, upload, download, delete. Non-modal. */
+/** 서버 하나의 SFTP 파일 브라우저: 탐색, 업로드, 다운로드, 삭제. 모달이 아니다. */
 public final class SftpDialog extends JDialog {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")

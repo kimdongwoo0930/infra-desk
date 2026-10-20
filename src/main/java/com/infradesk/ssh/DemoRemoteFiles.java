@@ -18,8 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongConsumer;
 
 /**
- * In-memory file tree for demo mode. Uploads live until the app exits. Shared per host so the
- * tree survives closing and reopening the SFTP window.
+ * 데모 모드용 메모리 파일 트리. 업로드한 파일은 앱이 끝날 때까지 남는다. 호스트별로 공유해서
+ * SFTP 창을 닫았다 다시 열어도 트리가 유지된다.
  */
 final class DemoRemoteFiles implements RemoteFiles {
 
@@ -27,7 +27,7 @@ final class DemoRemoteFiles implements RemoteFiles {
     private static final Instant BASE = Instant.parse("2026-09-20T09:00:00Z");
 
     private final String home;
-    /** Absolute path → content; directories end with "/" and have null content. */
+    /** 절대 경로 → 내용. 디렉터리는 "/"로 끝나고 내용이 null이다. */
     private final Map<String, byte[]> tree;
 
     DemoRemoteFiles(String username, String hostname) {

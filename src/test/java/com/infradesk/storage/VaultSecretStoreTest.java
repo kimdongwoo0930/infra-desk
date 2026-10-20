@@ -19,7 +19,7 @@ class VaultSecretStoreTest {
     @TempDir
     Path dir;
 
-    /** Counts reads so tests can check the keychain is touched once. */
+    /** 키체인을 한 번만 건드리는지 테스트가 확인할 수 있도록 읽은 횟수를 센다. */
     private static final class CountingStore extends InMemorySecretStore {
         final AtomicInteger reads = new AtomicInteger();
 

@@ -23,19 +23,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Menu-bar (macOS) / notification-area (Windows) icon with a server-status menu.
+ * 서버 상태 메뉴가 있는 메뉴 막대(macOS) / 알림 영역(Windows) 아이콘.
  *
- * <p>The menu is described once as a list of {@link Entry} values and rendered per platform:
- * on macOS as a native AWT PopupMenu (a real menu-bar menu), on Windows as a Swing popup
- * ({@link SwingTrayMenu}) because native AWT menus there can't draw Hangul or emoji and show "???".
+ * <p>메뉴는 {@link Entry} 값의 목록으로 한 번만 기술하고 플랫폼마다 다르게 그린다:
+ * macOS는 네이티브 AWT PopupMenu(진짜 메뉴 막대 메뉴), Windows는 Swing 팝업
+ * ({@link SwingTrayMenu})이다. Windows의 네이티브 AWT 메뉴는 한글과 이모지를 그리지 못하고 "???"로 표시하기 때문이다.
  *
- * <p>On macOS the icon is a template image (monochrome, follows the light/dark menu bar); on
- * Windows it is drawn light or dark to match the taskbar. Attention is shown with a badge shape;
- * details are in the menu header and tooltip, never in the badge alone.
+ * <p>macOS에서는 아이콘이 템플릿 이미지(단색이며 밝은/어두운 메뉴 막대를 따라감)이고,
+ * Windows에서는 작업 표시줄에 맞춰 밝거나 어둡게 그린다. 주의가 필요한 상태는 배지 모양으로 표시하며,
+ * 세부 내용은 메뉴 헤더와 툴팁에 있고 배지만으로 전달하지 않는다.
  */
 public final class TrayController {
 
-    /** What the menu can ask the main window to do. */
+    /** 메뉴가 메인 창에 요청할 수 있는 것. */
     public interface Actions {
         void showWindow();
 
@@ -60,7 +60,7 @@ public final class TrayController {
     private final Color glyph = MAC ? Color.BLACK : (SwingTrayMenu.lightTaskbar() ? new Color(0x1E1F22) : Color.WHITE);
     private final Image normalImage = image(false, glyph);
     private final Image attentionImage = image(true, glyph);
-    /** Windows only; null on macOS. */
+    /** Windows 전용. macOS에서는 null. */
     private final SwingTrayMenu swingMenu;
     private List<Entry> entries = List.of();
 
@@ -71,7 +71,7 @@ public final class TrayController {
         this.swingMenu = MAC ? null : new SwingTrayMenu();
     }
 
-    /** Adds the icon to the menu bar; empty when the platform has no tray. Call on the EDT. */
+    /** 아이콘을 메뉴 막대에 추가한다. 플랫폼에 트레이가 없으면 빈 값. EDT에서 호출한다. */
     public static java.util.Optional<TrayController> install(Actions actions, boolean demo) {
         if (!SystemTray.isSupported()) {
             return java.util.Optional.empty();
@@ -81,7 +81,7 @@ public final class TrayController {
         TrayController controller = new TrayController(trayIcon, actions, demo);
         trayIcon.setImage(controller.normalImage);
         if (!MAC) {
-            // Windows convention: left click opens the app, right click opens the menu.
+            // Windows 관례: 왼쪽 클릭은 앱을 열고, 오른쪽 클릭은 메뉴를 연다.
             trayIcon.addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override
                 public void mouseReleased(java.awt.event.MouseEvent e) {
@@ -102,7 +102,7 @@ public final class TrayController {
         return java.util.Optional.of(controller);
     }
 
-    /** Short system notification from the menu-bar icon. */
+    /** 메뉴 막대 아이콘에서 보내는 짧은 시스템 알림. */
     public void notice(String caption, String text) {
         icon.displayMessage(caption, text, TrayIcon.MessageType.INFO);
     }
@@ -114,13 +114,13 @@ public final class TrayController {
         }
     }
 
-    /** Rebuilds the menu and icon from the latest data. Call on the EDT. */
+    /** 최신 데이터로 메뉴와 아이콘을 다시 만든다. EDT에서 호출한다. */
     private List<AccountInventory> lastInventory = List.of();
     private Map<String, Double> lastCpu = Map.of();
     private java.time.LocalTime lastRefreshed;
     private com.infradesk.service.UpdateService.Release update;
 
-    /** Shows (or clears) the "새 베타 빌드 설치" item. Call on the EDT. */
+    /** "새 베타 빌드 설치" 항목을 표시한다(또는 지운다). EDT에서 호출한다. */
     public void setUpdate(com.infradesk.service.UpdateService.Release release) {
         this.update = release;
         update(lastInventory, lastCpu, lastRefreshed);
@@ -142,7 +142,7 @@ public final class TrayController {
 
     private static final java.time.format.DateTimeFormatter TIME = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
 
-    /** Counts for the header, tooltip and badge. Package-private for tests. */
+    /** 헤더, 툴팁, 배지에 쓰는 개수. 테스트를 위해 package-private. */
     record Summary(int total, int running, int transitional, int stopped, int failedAccounts) {
 
         static Summary of(List<AccountInventory> inventory) {
@@ -185,25 +185,25 @@ public final class TrayController {
         }
     }
 
-    /** One line of the tray menu, independent of how the platform renders it. */
+    /** 플랫폼이 어떻게 그리는지와 무관한 트레이 메뉴의 한 줄. */
     sealed interface Entry {
-        /** Disabled informational line. */
+        /** 비활성화된 안내 줄. */
         record Label(String text) implements Entry {
         }
 
-        /** Clickable item; {@code highlight} marks the update offer. */
+        /** 클릭할 수 있는 항목. {@code highlight}는 업데이트 안내를 표시한다. */
         record Item(String text, boolean highlight, Runnable action) implements Entry {
         }
 
         record Separator() implements Entry {
         }
 
-        /** A server with a submenu of the actions its current state allows. */
+        /** 현재 상태에서 허용되는 동작의 하위 메뉴가 있는 서버. */
         record ServerMenu(Server server, Double cpu, List<Entry> items) implements Entry {
         }
     }
 
-    /** Package-private and static so the UI snapshot tool can render the menu without a tray. */
+    /** 트레이 없이도 UI 스냅샷 도구가 메뉴를 그릴 수 있도록 package-private이고 static이다. */
     static List<Entry> entries(List<AccountInventory> inventory, Map<String, Double> cpu, String updated, boolean demo,
                                com.infradesk.service.UpdateService.Release update, Actions actions) {
         List<Entry> menu = new java.util.ArrayList<>();
@@ -254,7 +254,7 @@ public final class TrayController {
         return m;
     }
 
-    /** Native menu for the macOS menu bar; emoji carry the status color there. */
+    /** macOS 메뉴 막대용 네이티브 메뉴. 거기서는 이모지가 상태 색을 전달한다. */
     private static PopupMenu toAwt(List<Entry> entries) {
         PopupMenu menu = new PopupMenu();
         addAwt(menu, entries);
@@ -284,25 +284,25 @@ public final class TrayController {
         }
     }
 
-    /** "🟢  name  —  CPU 23%"; the emoji and the text both carry the status, so it's never color alone. */
+    /** "🟢  name  —  CPU 23%": 이모지와 텍스트가 모두 상태를 전달하므로 색만으로 구분하지 않는다. */
     static String label(Server s, Double cpu) {
         String dot = s.status() == ServerStatus.RUNNING ? "🟢" : s.status().isTransitional() ? "🟡" : "⚪";
         return dot + "  " + plainLabel(s, cpu);
     }
 
-    /** "name  —  CPU 23%" without the emoji (the Swing menu draws a status dot icon instead). */
+    /** 이모지가 없는 "name  —  CPU 23%"(Swing 메뉴는 대신 상태 점 아이콘을 그린다). */
     static String plainLabel(Server s, Double cpu) {
         String detail = s.status() != ServerStatus.RUNNING ? s.status().label()
                 : cpu == null ? "실행 중" : "CPU " + Math.round(cpu) + "%";
         return s.name() + "  —  " + detail;
     }
 
-    /** Server glyph (two stacked racks); the attention variant adds a filled badge top-right. */
+    /** 서버 모양(랙 두 개를 쌓은 모양). 주의 변형은 오른쪽 위에 채운 배지가 추가된다. */
     private static Image image(boolean attention, Color color) {
         if (MAC) {
             return new BaseMultiResolutionImage(draw(22, attention, color), draw(44, attention, color));
         }
-        // Windows tray slots are 16px at 100% scaling, 24px at 150%, 32px at 200%.
+        // Windows 트레이 칸은 100% 배율에서 16px, 150%에서 24px, 200%에서 32px이다.
         return new BaseMultiResolutionImage(draw(16, attention, color), draw(20, attention, color),
                 draw(24, attention, color), draw(32, attention, color));
     }
@@ -320,7 +320,7 @@ public final class TrayController {
             g.fill(new Ellipse2D.Float(5.4f * u, 6.2f * u, 1.8f * u, 1.8f * u));
             g.fill(new Ellipse2D.Float(5.4f * u, 14.2f * u, 1.8f * u, 1.8f * u));
             if (attention) {
-                // Clear a ring, then fill the badge so it reads as separate from the glyph.
+                // 고리 모양으로 비운 뒤 배지를 채워서 도형과 분리되어 보이게 한다.
                 g.setComposite(java.awt.AlphaComposite.Clear);
                 g.fill(new Ellipse2D.Float(13 * u, 0, 9 * u, 9 * u));
                 g.setComposite(java.awt.AlphaComposite.SrcOver);

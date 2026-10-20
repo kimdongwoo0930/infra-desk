@@ -30,7 +30,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 
-/** Terminal screen: a tab per session plus the active terminal. */
+/** 터미널 화면: 세션마다 탭 하나와 활성 터미널. */
 public class TerminalView extends JPanel {
 
     private final TerminalService service;
@@ -73,7 +73,7 @@ public class TerminalView extends JPanel {
         add(sidePanel, BorderLayout.EAST);
     }
 
-    /** Called when the screen is shown so the batch checkboxes match the latest server list. */
+    /** 화면이 보일 때 호출되어 일괄 실행 체크박스를 최신 서버 목록에 맞춘다. */
     public void refreshServers() {
         sidePanel.refreshServers();
     }
@@ -82,12 +82,12 @@ public class TerminalView extends JPanel {
         return sidePanel.sftpButton();
     }
 
-    /** The server of the selected tab, if any. */
+    /** 선택한 탭의 서버. 없으면 없음. */
     public java.util.Optional<Server> activeServer() {
         return active == null ? java.util.Optional.empty() : java.util.Optional.of(active.server());
     }
 
-    /** SFTP for the active tab's server, or a menu of running servers when no tab is open. */
+    /** 활성 탭 서버의 SFTP. 열린 탭이 없으면 실행 중인 서버 메뉴. */
     private void openSftp() {
         if (active != null) {
             openSftp(active.server());
@@ -125,7 +125,7 @@ public class TerminalView extends JPanel {
         this.onCountChange = listener;
     }
 
-    /** Called when the last tab is closed. */
+    /** 마지막 탭이 닫히면 호출된다. */
     public void onEmpty(Runnable listener) {
         this.onEmpty = listener;
     }
@@ -134,7 +134,7 @@ public class TerminalView extends JPanel {
         return sessions.size();
     }
 
-    /** Selects the existing session for the server, or opens a new one. */
+    /** 서버의 기존 세션을 선택하거나, 없으면 새로 연다. */
     public void openOrSelect(Server server) {
         for (TerminalPanel p : sessions) {
             if (p.isLoginShell() && p.server().id().equals(server.id())) {
@@ -148,12 +148,12 @@ public class TerminalView extends JPanel {
         open(server);
     }
 
-    /** Opens a new session tab for the server. */
+    /** 서버의 새 세션 탭을 연다. */
     public void open(Server server) {
         add(new TerminalPanel(server, service, openSettings));
     }
 
-    /** Opens a tab running {@code exec} on the server (a container shell or database console). */
+    /** 서버에서 {@code exec}를 실행하는 탭을 연다(컨테이너 셸 또는 데이터베이스 콘솔). */
     public void open(Server server, TerminalPanel.Exec exec) {
         add(new TerminalPanel(server, exec, service, openSettings));
     }
@@ -167,7 +167,7 @@ public class TerminalView extends JPanel {
         onCountChange.accept(sessions.size());
     }
 
-    /** Reconnects every tab for the server (e.g. after its SSH settings changed). */
+    /** 서버의 모든 탭을 다시 연결한다(예: SSH 설정이 바뀐 뒤). */
     public void reconnect(String serverId) {
         for (TerminalPanel p : sessions) {
             if (p.server().id().equals(serverId) && p.state() == TerminalPanel.State.DISCONNECTED) {
@@ -241,7 +241,7 @@ public class TerminalView extends JPanel {
         menu.show(newSession, 0, newSession.getHeight());
     }
 
-    /** One tab: status dot, server name, close button. Selected tab has a 2px accent top border. */
+    /** 탭 하나: 상태 점, 서버 이름, 닫기 버튼. 선택한 탭은 위쪽에 2px 강조색 테두리가 있다. */
     private final class Tab extends JPanel {
 
         private final boolean selected;
@@ -299,7 +299,7 @@ public class TerminalView extends JPanel {
         }
     }
 
-    /** 7px dot in the session's connection color. */
+    /** 세션의 연결 색으로 칠한 7px 점. */
     private record DotIcon(TerminalPanel panel) implements javax.swing.Icon {
         @Override
         public void paintIcon(java.awt.Component c, Graphics g, int x, int y) {

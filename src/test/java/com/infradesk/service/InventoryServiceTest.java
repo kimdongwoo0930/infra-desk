@@ -25,7 +25,7 @@ class InventoryServiceTest {
     private static final Account OK = new Account("ok", "OK", ProviderType.ORACLE, "r", Map.of());
     private static final Account BAD = new Account("bad", "BAD", ProviderType.ORACLE, "r", Map.of());
 
-    /** Fails for the "bad" account, returns one server otherwise; records the actions it got. */
+    /** "bad" 계정에는 실패하고 그 외에는 서버 하나를 돌려준다. 받은 동작을 기록한다. */
     private static class FakeProvider implements CloudProvider {
         private final Account account;
         final List<String> calls = new java.util.ArrayList<>();

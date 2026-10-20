@@ -18,7 +18,7 @@ import javax.swing.JTextArea;
 import javax.swing.JWindow;
 import javax.swing.Timer;
 
-/** Small notice in the owner window's bottom-right corner that disappears after a few seconds. */
+/** 소유자 창의 오른쪽 아래에 뜨고 몇 초 뒤 사라지는 작은 알림. */
 public final class Toast {
 
     private static final int WIDTH = 340;
@@ -27,7 +27,7 @@ public final class Toast {
     private Toast() {
     }
 
-    /** Must be called on the EDT. Click to dismiss. */
+    /** EDT에서 호출해야 한다. 클릭하면 닫힌다. */
     public static void show(Window owner, String heading, String title, String body, Color accent) {
         if (owner == null || !owner.isShowing()) {
             return;

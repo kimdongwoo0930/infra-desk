@@ -4,7 +4,7 @@ import com.infradesk.ssh.SavedCommand;
 
 import java.util.List;
 
-/** Saved terminal commands, in display order. */
+/** 저장된 터미널 명령어. 표시 순서대로. */
 public interface SavedCommandStore {
 
     List<SavedCommand> load();

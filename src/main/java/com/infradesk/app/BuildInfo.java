@@ -5,9 +5,9 @@ import java.io.InputStream;
 import java.util.Properties;
 
 /**
- * Version, build number and commit written by Gradle at build time.
+ * 빌드 시점에 Gradle이 기록한 버전, 빌드 번호, 커밋.
  *
- * @param build CI run number for beta builds, "dev" for local builds
+ * @param build 베타 빌드는 CI 실행 번호, 로컬 빌드는 "dev"
  */
 public record BuildInfo(String version, String build, String commit) {
 
@@ -17,12 +17,12 @@ public record BuildInfo(String version, String build, String commit) {
         return CURRENT;
     }
 
-    /** True for CI beta builds (numeric build number); those take part in update checks. */
+    /** CI 베타 빌드(숫자 빌드 번호)이면 true. 이런 빌드만 업데이트 확인에 참여한다. */
     public boolean isBeta() {
         return buildNumber() > 0;
     }
 
-    /** Numeric build number, or -1 for dev builds. */
+    /** 숫자 빌드 번호. 개발 빌드는 -1. */
     public int buildNumber() {
         try {
             return Integer.parseInt(build);
@@ -45,7 +45,7 @@ public record BuildInfo(String version, String build, String commit) {
                 p.load(in);
             }
         } catch (IOException ignored) {
-            // Fall through to defaults.
+            // 기본값으로 넘어간다.
         }
         return new BuildInfo(p.getProperty("version", "?"), p.getProperty("build", "dev"), p.getProperty("commit", "unknown"));
     }

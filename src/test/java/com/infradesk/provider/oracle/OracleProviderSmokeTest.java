@@ -14,9 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Exercises the real OCI SDK stack (key parsing, request signing, Jersey HTTP client) without
- * leaving the machine: requests go to a closed local port, so they must fail with a connection
- * error rather than a class-loading or key-format error.
+ * 기기 밖으로 나가지 않고 실제 OCI SDK 스택(키 파싱, 요청 서명, Jersey HTTP 클라이언트)을 실행한다.
+ * 요청은 닫힌 로컬 포트로 가므로 클래스 로딩 오류나 키 형식 오류가 아니라 연결 오류로 실패해야 한다.
  */
 class OracleProviderSmokeTest {
 

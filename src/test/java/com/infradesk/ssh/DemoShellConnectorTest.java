@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DemoShellConnectorTest {
 
-    /** Reads until the text appears or 2 seconds pass. */
+    /** 텍스트가 나타나거나 2초가 지날 때까지 읽는다. */
     private static String readUntil(InputStream in, String needle) throws IOException, InterruptedException {
         StringBuilder sb = new StringBuilder();
         long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();

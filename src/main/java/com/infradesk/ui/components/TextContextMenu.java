@@ -23,13 +23,13 @@ import javax.swing.event.PopupMenuListener;
 import javax.swing.text.JTextComponent;
 
 /**
- * Right-click menu (잘라내기 / 복사 / 붙여넣기 / 모두 선택) for every text field.
+ * 모든 텍스트 필드의 오른쪽 클릭 메뉴(잘라내기 / 복사 / 붙여넣기 / 모두 선택).
  *
- * <p>History: showing it from a global mouse listener, and later as a standard popup, both froze
- * the modal add-account dialog on macOS. The cause was FlatLaf putting every popup in a separate
- * native window (see {@code Popup.dropShadowPainted} in Theme). With that off, Swing still uses a
- * native window when a popup doesn't fit inside the window, so this menu moves itself to always
- * fit and stays a plain in-window popup.
+ * <p>이력: 전역 마우스 리스너에서 띄우거나 나중에 표준 팝업으로 띄웠을 때 모두 macOS에서 모달
+ * 계정 추가 다이얼로그가 멈췄다. 원인은 FlatLaf가 모든 팝업을 별도의 네이티브 창에 넣는 것이었다
+ * (Theme의 {@code Popup.dropShadowPainted} 참고). 그것을 끄더라도 팝업이 창 안에 들어가지 않으면
+ * Swing이 여전히 네이티브 창을 쓰므로, 이 메뉴는 항상 들어가도록 스스로 위치를 옮겨서 창 안의
+ * 일반 팝업으로 유지한다.
  */
 public final class TextContextMenu {
 
@@ -59,7 +59,7 @@ public final class TextContextMenu {
         }
     }
 
-    /** Popup that clamps its position so it always fits inside the window's root pane. */
+    /** 항상 창의 루트 페인 안에 들어가도록 위치를 제한하는 팝업. */
     private static final class Menu extends JPopupMenu {
 
         Menu(JTextComponent text) {

@@ -19,10 +19,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Monitoring for directly connected servers, which have no cloud metrics: one short SSH command a
- * minute (two /proc or macOS snapshots a second apart) while the app runs, kept in memory for the
- * last hour so the detail charts and the sidebar CPU work like they do for cloud servers.
- * Blocking; call off the EDT.
+ * 클라우드 메트릭이 없는 직접 연결 서버의 모니터링. 앱이 실행되는 동안 분당 짧은 SSH 명령 한 번
+ * (1초 간격의 /proc 또는 macOS 스냅샷 두 개)을 실행하고 최근 1시간을 메모리에 보관해서,
+ * 상세 차트와 사이드바 CPU가 클라우드 서버처럼 동작하게 한다.
+ * 블로킹이므로 EDT 밖에서 호출한다.
  */
 public class SshMetricsService {
 
@@ -39,14 +39,14 @@ public class SshMetricsService {
         this.clock = clock;
     }
 
-    /** Whether the server has what sampling needs (SSH user and key). */
+    /** 서버에 샘플링에 필요한 것(SSH 사용자와 키)이 있는지. */
     public boolean canSample(Server server) {
         return terminal.isConfigured(server.id());
     }
 
     /**
-     * Takes one sample and adds it to the history. Empty when SSH isn't set up, the host key isn't
-     * trusted yet (never asks: this runs in the background) or the command failed.
+     * 샘플을 한 번 찍어 기록에 추가한다. SSH가 설정되지 않았거나, 호스트 키를 아직 신뢰하지 않았거나
+     * (백그라운드에서 실행되므로 절대 묻지 않는다) 명령이 실패하면 빈 값.
      */
     public Optional<ProcStats.Sample> sample(Server server) {
         if (!canSample(server)) {
@@ -69,7 +69,7 @@ public class SshMetricsService {
         return sample;
     }
 
-    /** The collected hour as chart series (empty until the first sample). */
+    /** 수집한 1시간을 차트 시리즈로 돌려준다(첫 샘플 전까지는 비어 있다). */
     public Metrics metrics(String serverId) {
         Deque<ProcStats.Sample> series = history.get(serverId);
         if (series == null) {
@@ -86,7 +86,7 @@ public class SshMetricsService {
                 copy.stream().map(s -> new Metrics.Sample(s.time(), s.txBytesPerSec())).toList());
     }
 
-    /** Latest CPU % per server that has any sample. */
+    /** 샘플이 하나라도 있는 서버별 최신 CPU %. */
     public Map<String, Double> latestCpu() {
         Map<String, Double> result = new HashMap<>();
         history.forEach((id, series) -> {

@@ -1,9 +1,9 @@
 package com.infradesk.core;
 
 /**
- * Where an {@link Account}'s servers come from. Used to pick the {@link CloudProvider} implementation.
- * {@link #SSH} is not a cloud: one account is one machine reached directly over SSH (a home server,
- * a Mac mini), so it has no power control or cloud metrics.
+ * {@link Account}의 서버가 어디서 오는지. {@link CloudProvider} 구현을 고르는 데 쓴다.
+ * {@link #SSH}는 클라우드가 아니다. 계정 하나가 SSH로 직접 닿는 기기 한 대(집 서버, Mac mini)이므로
+ * 전원 제어와 클라우드 메트릭이 없다.
  */
 public enum ProviderType {
     ORACLE("Oracle Cloud", true),
@@ -23,22 +23,22 @@ public enum ProviderType {
         return displayName;
     }
 
-    /** A cloud with an API (not a directly connected machine). */
+    /** API가 있는 클라우드(직접 연결 기기가 아님). */
     public boolean isCloud() {
         return this != SSH;
     }
 
-    /** Start / stop / reboot through the provider. */
+    /** provider를 통한 시작 / 정지 / 재부팅. */
     public boolean hasPowerControl() {
         return isCloud();
     }
 
-    /** CPU/memory/network history from the provider (otherwise only live mode over SSH). */
+    /** provider가 주는 CPU/메모리/네트워크 기록(그렇지 않으면 SSH 실시간 모드뿐). */
     public boolean hasCloudMetrics() {
         return isCloud();
     }
 
-    /** Whether a provider implementation exists yet. */
+    /** provider 구현이 이미 있는지. */
     public boolean isSupported() {
         return supported;
     }

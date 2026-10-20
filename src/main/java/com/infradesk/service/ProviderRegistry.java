@@ -10,7 +10,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-/** Picks the {@link CloudProviderFactory} by {@link Account#provider()}. */
+/** {@link Account#provider()}로 {@link CloudProviderFactory}를 고른다. */
 public class ProviderRegistry implements CloudProviderFactory {
 
     private final Map<ProviderType, CloudProviderFactory> factories = new EnumMap<>(ProviderType.class);

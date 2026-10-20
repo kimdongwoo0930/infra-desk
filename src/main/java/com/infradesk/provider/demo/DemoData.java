@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Fake accounts and servers for demo mode, mirroring docs/design mockups. IPs are from the
- * documentation ranges (RFC 5737), OCIDs are obviously fake.
+ * 데모 모드용 가짜 계정과 서버. docs/design 목업을 따라 만들었다. IP는 문서용 대역(RFC 5737)을
+ * 쓰고, OCID는 누가 봐도 가짜다.
  */
 public final class DemoData {
 
@@ -27,7 +27,7 @@ public final class DemoData {
                         com.infradesk.core.SshHostProperties.of("mac-mini", 22)));
     }
 
-    /** Saved commands from the terminal mockup. */
+    /** 터미널 목업의 저장된 명령어. */
     public static List<com.infradesk.ssh.SavedCommand> savedCommands() {
         return List.of(
                 new com.infradesk.ssh.SavedCommand("demo-cmd-1", "봇 재시작", "docker restart bot-app"),
@@ -36,7 +36,7 @@ public final class DemoData {
                 new com.infradesk.ssh.SavedCommand("demo-cmd-4", "패키지 업데이트", "sudo apt update && sudo apt upgrade -y"));
     }
 
-    /** Initial servers for a demo account; unknown accounts (added in demo mode) get one generic server. */
+    /** 데모 계정의 초기 서버. 데모 모드에서 추가한 알 수 없는 계정은 일반 서버 하나를 갖는다. */
     static List<Server> serversFor(Account account) {
         return switch (account.id()) {
             case "demo-a" -> List.of(
