@@ -35,7 +35,7 @@ public class SettingsDialog extends JDialog {
     private final com.infradesk.service.UpdateService updates;
     private final com.infradesk.app.LaunchAtLogin launchAtLogin;
     private final JCheckBox startAtLogin = new JCheckBox("로그인할 때 InfraDesk 실행 (메뉴 막대에서 시작)");
-    private final JCheckBox autoUpdate = new JCheckBox("새 베타 빌드 자동 확인 (시작할 때, 6시간마다)");
+    private final JCheckBox autoUpdate = new JCheckBox("새 버전 자동 확인 (시작할 때, 6시간마다)");
     private final WrappingLabel appStatus = new WrappingLabel(" ", 476, -1, Theme.TEXT_SECONDARY);
     private final Runnable checkNow;
     private final JCheckBox enabled = new JCheckBox("디스코드 알림 사용");
