@@ -9,13 +9,13 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import javax.swing.JButton;
 
-/** Factory for the button styles in DESIGN.md. */
+/** DESIGN.md의 버튼 스타일을 만드는 팩토리. */
 public final class Buttons {
 
     private Buttons() {
     }
 
-    /** Accent background, white text. */
+    /** 강조색 배경, 흰 글씨. */
     public static JButton primary(String text, String icon) {
         JButton b = base(text, icon, Color.WHITE);
         b.putClientProperty(FlatClientProperties.STYLE,
@@ -25,7 +25,7 @@ public final class Buttons {
         return b;
     }
 
-    /** Transparent background, no border (e.g. "취소"). */
+    /** 투명 배경, 테두리 없음(예: "취소"). */
     public static JButton ghost(String text) {
         JButton b = base(text, null, Theme.TEXT);
         b.putClientProperty(FlatClientProperties.STYLE,
@@ -33,7 +33,7 @@ public final class Buttons {
         return b;
     }
 
-    /** Transparent background with a border. */
+    /** 테두리가 있는 투명 배경. */
     public static JButton secondary(String text, String icon) {
         JButton b = base(text, icon, Theme.TEXT);
         b.putClientProperty(FlatClientProperties.STYLE,
@@ -42,7 +42,7 @@ public final class Buttons {
         return b;
     }
 
-    /** Destructive action: red border and text. */
+    /** 파괴적인 동작: 빨간 테두리와 글씨. */
     public static JButton danger(String text, String icon) {
         JButton b = base(text, icon, Theme.DANGER_TEXT);
         b.putClientProperty(FlatClientProperties.STYLE,
@@ -51,7 +51,7 @@ public final class Buttons {
         return b;
     }
 
-    /** Square icon-only button without border, for toolbars. */
+    /** 테두리 없는 정사각형 아이콘 전용 버튼. 툴바용. */
     public static JButton icon(String icon, String tooltip, int size) {
         JButton b = new JButton(Icons.get(icon, 16));
         b.setToolTipText(tooltip);

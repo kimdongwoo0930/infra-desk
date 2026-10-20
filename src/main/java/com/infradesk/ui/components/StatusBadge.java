@@ -11,7 +11,7 @@ import java.awt.RenderingHints;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 
-/** Pill-shaped status label ("실행 중"). */
+/** 알약 모양의 상태 라벨("실행 중"). */
 public class StatusBadge extends JLabel {
 
     private Color pill = Theme.PANEL_BG;

@@ -15,7 +15,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** macOS hosts (a Mac mini) have no /proc: the stats and facts commands switch to macOS tools. */
+/** macOS 호스트(Mac mini)에는 /proc이 없다. stats와 facts 명령이 macOS 도구로 바뀐다. */
 class MacHostStatsTest {
 
     @Test
@@ -47,7 +47,7 @@ class MacHostStatsTest {
         assertEquals(Optional.empty(), HostFacts.listeningPort("tcp4       0      0  127.0.0.1.631          *.*                    LISTEN"));
     }
 
-    /** Runs the real commands in zsh (the macOS login shell) on this Mac and parses them. */
+    /** 이 Mac의 zsh(macOS 로그인 셸)에서 실제 명령을 실행하고 파싱한다. */
     @Test
     @EnabledOnOs(OS.MAC)
     void realMacCommandsParse() throws Exception {

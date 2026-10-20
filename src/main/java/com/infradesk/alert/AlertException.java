@@ -1,6 +1,6 @@
 package com.infradesk.alert;
 
-/** Delivery failure with a Korean message. Never contains the webhook URL. */
+/** 한국어 메시지가 달린 전송 실패. 웹훅 URL은 절대 담지 않는다. */
 public class AlertException extends RuntimeException {
 
     public AlertException(String message) {

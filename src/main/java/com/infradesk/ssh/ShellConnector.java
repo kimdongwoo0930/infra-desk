@@ -1,18 +1,18 @@
 package com.infradesk.ssh;
 
-/** Opens interactive shells. Blocking; never call on the EDT. */
+/** 대화형 셸을 연다. 블로킹이므로 EDT에서 호출하지 않는다. */
 public interface ShellConnector {
 
     ShellSession open(SshTarget target, HostKeyPrompt prompt, int columns, int rows);
 
-    /** Runs {@code command} with a PTY, like a shell that starts with it (e.g. {@code docker exec -it}). */
+    /** {@code command}를 PTY와 함께 실행한다. 그 명령으로 시작하는 셸처럼 동작한다(예: {@code docker exec -it}). */
     default ShellSession open(SshTarget target, HostKeyPrompt prompt, int columns, int rows, String command) {
         throw new UnsupportedOperationException("PTY commands are not supported by " + getClass().getSimpleName());
     }
 
-    /** Runs a command without a PTY; the session's output is the command's stdout and stderr. */
+    /** PTY 없이 명령을 실행한다. 세션의 출력이 명령의 stdout과 stderr다. */
     ShellSession exec(SshTarget target, HostKeyPrompt prompt, String command);
 
-    /** Opens an SFTP session. */
+    /** SFTP 세션을 연다. */
     RemoteFiles sftp(SshTarget target, HostKeyPrompt prompt);
 }

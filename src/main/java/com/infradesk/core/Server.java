@@ -5,20 +5,20 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Provider-neutral view of a server. Provider SDK types are converted into this record and never
- * leak past the provider package.
+ * provider와 무관한 서버 뷰. provider SDK 타입은 이 record로 변환되며 provider 패키지 밖으로
+ * 새어 나가지 않는다.
  *
- * @param id        provider-side identifier (e.g. an OCI instance OCID)
- * @param accountId owning {@link Account#id()}
- * @param name      display name
- * @param status    normalized lifecycle state
- * @param region    region identifier
- * @param shape     machine type, e.g. "VM.Standard.A1.Flex"
- * @param cpuCount  vCPU/OCPU count, 0 when unknown
- * @param memoryGb  memory in GB, 0 when unknown
- * @param publicIp  public IPv4, or null
- * @param privateIp private IPv4, or null
- * @param createdAt creation time, or null
+ * @param id        provider 쪽 식별자(예: OCI 인스턴스 OCID)
+ * @param accountId 소유한 {@link Account#id()}
+ * @param name      표시 이름
+ * @param status    정규화된 생명주기 상태
+ * @param region    리전 식별자
+ * @param shape     머신 유형. 예: "VM.Standard.A1.Flex"
+ * @param cpuCount  vCPU/OCPU 수. 알 수 없으면 0
+ * @param memoryGb  메모리(GB). 알 수 없으면 0
+ * @param publicIp  공인 IPv4. 없으면 null
+ * @param privateIp 사설 IPv4. 없으면 null
+ * @param createdAt 생성 시각. 없으면 null
  */
 public record Server(
         String id,

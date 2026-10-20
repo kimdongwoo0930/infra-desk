@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Posts to a local HTTP server standing in for Discord. */
+/** 디스코드 대신 로컬 HTTP 서버로 전송한다. */
 class DiscordNotifierTest {
 
     private HttpServer server;

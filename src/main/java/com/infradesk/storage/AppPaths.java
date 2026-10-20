@@ -3,7 +3,7 @@ package com.infradesk.storage;
 import java.nio.file.Path;
 import java.util.Locale;
 
-/** Per-OS location of the app's settings directory. */
+/** OS별 앱 설정 디렉터리 위치. */
 public final class AppPaths {
 
     private AppPaths() {
@@ -11,7 +11,7 @@ public final class AppPaths {
 
     /**
      * macOS: ~/Library/Application Support/InfraDesk, Windows: %APPDATA%\InfraDesk,
-     * other: $XDG_CONFIG_HOME/infradesk or ~/.config/infradesk.
+     * 기타: $XDG_CONFIG_HOME/infradesk 또는 ~/.config/infradesk.
      */
     public static Path configDir() {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
@@ -28,8 +28,8 @@ public final class AppPaths {
     }
 
     /**
-     * macOS: ~/Library/Logs/InfraDesk (shows up in Console.app), Windows: %LOCALAPPDATA%\InfraDesk\logs,
-     * other: $XDG_STATE_HOME/infradesk/logs or ~/.local/state/infradesk/logs.
+     * macOS: ~/Library/Logs/InfraDesk(Console.app에 표시됨), Windows: %LOCALAPPDATA%\InfraDesk\logs,
+     * 기타: $XDG_STATE_HOME/infradesk/logs 또는 ~/.local/state/infradesk/logs.
      */
     public static Path logDir() {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
@@ -46,8 +46,8 @@ public final class AppPaths {
     }
 
     /**
-     * Disposable files such as downloaded updates. macOS: ~/Library/Caches/InfraDesk,
-     * Windows: %LOCALAPPDATA%\InfraDesk\cache, other: $XDG_CACHE_HOME/infradesk or ~/.cache/infradesk.
+     * 내려받은 업데이트처럼 지워도 되는 파일. macOS: ~/Library/Caches/InfraDesk,
+     * Windows: %LOCALAPPDATA%\InfraDesk\cache, 기타: $XDG_CACHE_HOME/infradesk 또는 ~/.cache/infradesk.
      */
     public static Path cacheDir() {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);

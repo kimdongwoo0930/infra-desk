@@ -11,7 +11,7 @@ import java.net.Socket;
 import java.util.List;
 import java.util.Map;
 
-/** Creates {@link SshHostProvider}s that check reachability with a plain TCP connect. */
+/** 단순 TCP 연결로 도달 가능 여부를 확인하는 {@link SshHostProvider}를 만든다. */
 public class SshHostProviderFactory implements CloudProviderFactory {
 
     private static final int TIMEOUT_MS = 3000;
@@ -26,7 +26,7 @@ public class SshHostProviderFactory implements CloudProviderFactory {
         this(SshHostProviderFactory::tcpConnect);
     }
 
-    /** Opens and closes a TCP connection; nothing is sent. */
+    /** TCP 연결을 열고 닫는다. 아무것도 보내지 않는다. */
     static boolean tcpConnect(String host, int port) {
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(host, port), TIMEOUT_MS);

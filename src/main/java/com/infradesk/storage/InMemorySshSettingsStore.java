@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Non-persistent store for demo mode and tests. */
+/** 데모 모드와 테스트용 비영속 저장소. */
 public class InMemorySshSettingsStore implements SshSettingsStore {
 
     private final Map<String, SshSettings> values = new ConcurrentHashMap<>();

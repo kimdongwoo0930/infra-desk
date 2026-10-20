@@ -27,7 +27,7 @@ import javax.swing.JSpinner;
 import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 
-/** App settings: Discord webhook alerts. */
+/** 앱 설정: 디스코드 웹훅 알림. */
 public class SettingsDialog extends JDialog {
 
     private final AlertService alerts;
@@ -54,9 +54,9 @@ public class SettingsDialog extends JDialog {
     }
 
     /**
-     * @param updates       update checks, or null to hide the section
-     * @param launchAtLogin login item control, or null to hide it
-     * @param checkNow      runs an update check and reports through {@link #showUpdateResult}
+     * @param updates       업데이트 확인. null이면 그 섹션을 숨긴다
+     * @param launchAtLogin 로그인 시 실행 항목 제어. null이면 숨긴다
+     * @param checkNow      업데이트 확인을 실행하고 {@link #showUpdateResult}로 결과를 알린다
      */
     public SettingsDialog(Window owner, AlertService alerts, boolean demoMode,
                           com.infradesk.service.UpdateService updates, com.infradesk.app.LaunchAtLogin launchAtLogin,
@@ -154,7 +154,7 @@ public class SettingsDialog extends JDialog {
         return body;
     }
 
-    /** "일반" (login item, auto update) and "앱 정보" (version, update check, logs). */
+    /** "일반"(로그인 시 실행, 자동 업데이트)과 "앱 정보"(버전, 업데이트 확인, 로그). */
     private void addGeneralSections(JPanel body) {
         JLabel general = new JLabel("일반");
         general.setFont(general.getFont().deriveFont(Font.BOLD, 15f));
@@ -215,7 +215,7 @@ public class SettingsDialog extends JDialog {
         body.add(Box.createVerticalStrut(18));
     }
 
-    /** Called on the EDT with the outcome of an update check started from this dialog. */
+    /** 이 다이얼로그에서 시작한 업데이트 확인의 결과와 함께 EDT에서 호출된다. */
     public void showUpdateResult(String message, boolean newer) {
         appStatus.setText(message);
         appStatus.setForeground(newer ? Theme.RUNNING_BADGE_TEXT : Theme.TEXT_SECONDARY);
@@ -250,7 +250,7 @@ public class SettingsDialog extends JDialog {
         cpuMinutes.setEnabled(on && cpuHigh.isSelected());
     }
 
-    /** New URL typed in the field, or null to keep the stored one. */
+    /** 입력란에 새로 입력한 URL. 저장된 값을 유지하려면 null. */
     private String typedUrl() {
         String typed = new String(webhook.getPassword()).strip();
         return typed.isEmpty() ? null : typed;

@@ -12,7 +12,7 @@ import java.awt.RenderingHints;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.JButton;
 
-/** Transparent button with a dashed rounded border ("계정 추가"). Keyboard focusable. */
+/** 점선 둥근 테두리가 있는 투명 버튼("계정 추가"). 키보드 포커스를 받을 수 있다. */
 public class DashedButton extends JButton {
 
     public DashedButton(String text, String icon) {

@@ -29,8 +29,8 @@ import java.util.function.Consumer;
 import javax.swing.UIManager;
 
 /**
- * Full-size chart with axes that zooms like a stock chart: the wheel zooms around the cursor, a drag
- * pans, a double-click resets. Zooming out past the full range asks the owner to widen the range.
+ * 축이 있는 전체 크기 차트. 주식 차트처럼 확대한다: 휠은 커서 주위로 확대하고, 드래그는
+ * 이동하며, 더블클릭은 초기화한다. 전체 범위보다 더 축소하면 소유자에게 기간을 넓혀 달라고 요청한다.
  */
 final class ZoomChartPanel extends XChartPanel<XYChart> {
 
@@ -151,12 +151,12 @@ final class ZoomChartPanel extends XChartPanel<XYChart> {
         return chart;
     }
 
-    /** Called when the user zooms out past everything that is loaded (e.g. to switch to a longer range). */
+    /** 불러온 전체보다 더 축소하면 호출된다(예: 더 긴 기간으로 바꾸기 위해). */
     void onZoomOutFull(Runnable listener) {
         this.onZoomOutFull = listener;
     }
 
-    /** Called with true when the view is zoomed in, false when it shows everything. */
+    /** 확대된 상태이면 true, 전체를 보여주면 false로 호출된다. */
     void onZoomChanged(Consumer<Boolean> listener) {
         this.onZoomChanged = listener;
     }
@@ -176,7 +176,7 @@ final class ZoomChartPanel extends XChartPanel<XYChart> {
         }
     }
 
-    /** Replaces the data. A zoomed view stays put, a full view follows the new data. */
+    /** 데이터를 교체한다. 확대한 보기는 그대로 두고, 전체 보기는 새 데이터를 따라간다. */
     void setData(List<List<Metrics.Sample>> newData) {
         data = newData;
         XYChart chart = getChart();
@@ -251,7 +251,7 @@ final class ZoomChartPanel extends XChartPanel<XYChart> {
         }
     }
 
-    /** Points the axes at the view and fits the y range to what is visible. */
+    /** 축을 보기에 맞추고, y 범위를 보이는 것에 맞춘다. */
     private void applyWindow() {
         XYStyler st = getChart().getStyler();
         st.setXAxisMin(window.min());

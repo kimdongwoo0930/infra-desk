@@ -29,9 +29,9 @@ import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 
 /**
- * Adds (or edits) a machine reached directly over SSH, such as a home server or a Mac mini. Only
- * the name and address live here; the SSH user and key are set in the usual SSH settings dialog,
- * which opens right after saving a new one.
+ * SSH로 직접 닿는 기기(집 서버, Mac mini 등)를 추가(또는 편집)한다. 여기서는 이름과 주소만
+ * 다루고, SSH 사용자와 키는 평소의 SSH 설정 다이얼로그에서 정한다. 새로 저장하면 그
+ * 다이얼로그가 바로 열린다.
  */
 public class AddSshServerDialog extends JDialog {
 
@@ -45,7 +45,7 @@ public class AddSshServerDialog extends JDialog {
     private final JButton saveButton = Buttons.primary("저장", null);
     private Account result;
 
-    /** @param existing the account to edit, or null to add one */
+    /** @param existing 편집할 계정. 추가하는 경우는 null */
     public AddSshServerDialog(Window owner, InventoryService service, Account existing) {
         super(owner, existing == null ? "직접 연결 서버 추가" : "서버 설정 · " + existing.displayName(),
                 ModalityType.APPLICATION_MODAL);
@@ -74,7 +74,7 @@ public class AddSshServerDialog extends JDialog {
         setLocationRelativeTo(owner);
     }
 
-    /** Shows the dialog; the saved account, or empty when cancelled. */
+    /** 다이얼로그를 보여준다. 저장된 계정을 돌려주며, 취소하면 빈 값. */
     public Optional<Account> showDialog() {
         setVisible(true);
         return Optional.ofNullable(result);
@@ -123,7 +123,7 @@ public class AddSshServerDialog extends JDialog {
         return footer;
     }
 
-    /** The account from the fields, or empty after showing what's wrong. */
+    /** 입력란의 계정. 잘못된 점을 보여준 뒤에는 빈 값. */
     private Optional<Account> build() {
         String n = name.getText().strip();
         String h = host.getText().strip();

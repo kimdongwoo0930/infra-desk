@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/** Format checks for the add-account form. Returns Korean messages; empty list means valid. */
+/** 계정 추가 폼의 형식 검사. 한국어 메시지를 돌려주며, 빈 목록이면 유효하다. */
 public final class AccountValidation {
 
     private static final Pattern FINGERPRINT = Pattern.compile("^([0-9a-fA-F]{2}:){15}[0-9a-fA-F]{2}$");

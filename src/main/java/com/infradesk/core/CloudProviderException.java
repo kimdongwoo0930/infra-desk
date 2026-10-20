@@ -1,6 +1,6 @@
 package com.infradesk.core;
 
-/** Wraps provider SDK failures so callers never depend on SDK exception types. */
+/** provider SDK 실패를 감싸서, 호출하는 쪽이 SDK 예외 타입에 의존하지 않게 한다. */
 public class CloudProviderException extends RuntimeException {
 
     public CloudProviderException(String message) {

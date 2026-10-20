@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** {@link CloudProvider} backed by the OCI Java SDK. One instance per tenancy. */
+/** OCI Java SDK로 구현한 {@link CloudProvider}. 테넌시마다 인스턴스 하나. */
 public class OracleProvider implements CloudProvider {
     private static final int CONNECT_TIMEOUT_MS = 5_000;
     private static final int READ_TIMEOUT_MS = 20_000;
@@ -45,7 +45,7 @@ public class OracleProvider implements CloudProvider {
         this(account, secrets, null);
     }
 
-    /** @param endpointOverride base URL for every client (tests only); null uses the region's endpoints */
+    /** @param endpointOverride 모든 클라이언트의 기본 URL(테스트 전용). null이면 리전 엔드포인트를 쓴다 */
     OracleProvider(Account account, Map<String, String> secrets, String endpointOverride) {
         this.account = account;
         String tenancy = require(account, OracleProperties.TENANCY_OCID);
@@ -68,7 +68,7 @@ public class OracleProvider implements CloudProvider {
                 .privateKeySupplier(() -> new ByteArrayInputStream(keyBytes))
                 .build();
         this.compartmentId = Objects.requireNonNullElse(account.property(OracleProperties.COMPARTMENT_OCID), tenancy);
-        // Without explicit timeouts a dead connection (sleep, Wi-Fi switch) can hang a request for a long time.
+        // 시간 제한을 명시하지 않으면 끊어진 연결(잠자기, Wi-Fi 전환)이 요청을 오랫동안 붙잡아 둘 수 있다.
         var timeouts = com.oracle.bmc.ClientConfiguration.builder()
                 .connectionTimeoutMillis(CONNECT_TIMEOUT_MS)
                 .readTimeoutMillis(READ_TIMEOUT_MS)
@@ -110,7 +110,7 @@ public class OracleProvider implements CloudProvider {
         }
     }
 
-    /** Instance id → IPs of its primary VNIC. One attachment listing for the whole compartment. */
+    /** 인스턴스 id → 기본 VNIC의 IP들. 컴파트먼트 전체에 대해 attachment 목록을 한 번만 조회한다. */
     private Map<String, OracleMapper.Ips> primaryIps() {
         Map<String, OracleMapper.Ips> result = new HashMap<>();
         String page = null;

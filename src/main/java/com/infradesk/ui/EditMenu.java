@@ -25,20 +25,19 @@ import javax.swing.SwingUtilities;
 import javax.swing.text.JTextComponent;
 
 /**
- * macOS menu-bar "편집" menu (잘라내기 / 복사 / 붙여넣기 / 모두 선택).
+ * macOS 메뉴 막대의 "편집" 메뉴(잘라내기 / 복사 / 붙여넣기 / 모두 선택).
  *
- * <p>With a Korean input source active, macOS gives ⌘V to the input method and the Java text
- * field never sees the V (confirmed with --debug-input: only the ⌘ press arrives). Menu key
- * equivalents are handled by AppKit before the input method, so a real Edit menu makes the
- * shortcuts work regardless of input source. It acts on whatever has focus: text fields or the
- * terminal.
+ * <p>한글 입력 소스가 켜져 있으면 macOS가 ⌘V를 입력기에 넘겨서 Java 텍스트 필드는 V를 받지
+ * 못한다(--debug-input으로 확인: ⌘ 누름만 도착한다). 메뉴 단축키는 AppKit이 입력기보다 먼저
+ * 처리하므로, 진짜 편집 메뉴를 두면 입력 소스와 관계없이 단축키가 동작한다. 포커스가 있는 곳에
+ * 동작한다: 텍스트 필드든 터미널이든.
  */
 public final class EditMenu {
 
     private EditMenu() {
     }
 
-    /** Installs the menu on the frame and as the default menu bar (used while dialogs are active). */
+    /** 메뉴를 프레임에 설치하고 기본 메뉴 막대로도 설치한다(다이얼로그가 활성일 때 쓰인다). */
     public static void install(JFrame frame) {
         if (!SystemInfo.isMacOS) {
             return;
@@ -115,7 +114,7 @@ public final class EditMenu {
                 try {
                     term.getTtyConnector().write(text.getBytes(StandardCharsets.UTF_8));
                 } catch (IOException ignored) {
-                    // Session closed.
+                    // 세션이 닫혔다.
                 }
             }
         }

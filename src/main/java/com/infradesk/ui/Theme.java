@@ -9,7 +9,7 @@ import java.awt.Color;
 import java.awt.Font;
 import java.util.Map;
 
-/** Palette from docs/design/DESIGN.md and FlatLaf setup. */
+/** docs/design/DESIGN.md의 색상표와 FlatLaf 설정. */
 public final class Theme {
 
     public static final Color APP_BG = new Color(0x1E1F22);
@@ -40,7 +40,7 @@ public final class Theme {
     private Theme() {
     }
 
-    /** Installs the look and feel. Must run before any Swing component is created. */
+    /** 룩앤필을 설치한다. Swing 컴포넌트를 만들기 전에 실행해야 한다. */
     public static void install() {
         FlatLaf.setGlobalExtraDefaults(Map.ofEntries(
                 Map.entry("@background", hex(APP_BG)),
@@ -60,9 +60,9 @@ public final class Theme {
                 Map.entry("Label.disabledForeground", hex(TEXT_MUTED)),
                 Map.entry("TitlePane.background", hex(PANEL_BG)),
                 Map.entry("TitlePane.inactiveBackground", hex(PANEL_BG)),
-                // FlatLaf on macOS otherwise shows every popup as a separate native window (for the
-                // shadow and rounded border). Inside a modal dialog that window left the dialog
-                // without keyboard/mouse input; plain Swing popups draw inside the window instead.
+                // macOS의 FlatLaf는 기본적으로 모든 팝업을 별도의 네이티브 창으로 표시한다(그림자와
+                // 둥근 테두리를 위해). 모달 다이얼로그 안에서는 그 창 때문에 다이얼로그가 키보드/마우스
+                // 입력을 받지 못했다. 일반 Swing 팝업은 창 안에 그려진다.
                 Map.entry("Popup.dropShadowPainted", "false"),
                 Map.entry("ScrollBar.width", "10"),
                 Map.entry("ScrollBar.thumbArc", "999"),
@@ -79,11 +79,10 @@ public final class Theme {
     }
 
     /**
-     * Works around a macOS JDK glyph-cache bug: if the first string drawn at a font size has a
-     * '.' or quote right after Hangul, that punctuation is cached as an empty glyph and every later
-     * '.' at that size renders as a space ("README.md" shows as "README md"). Drawing ASCII
-     * punctuation first, for each size, style, scale and antialiasing mode the UI uses, fills the
-     * cache with the correct glyphs.
+     * macOS JDK의 글리프 캐시 버그를 우회한다: 어떤 글꼴 크기에서 처음 그린 문자열에
+     * 한글 바로 뒤의 '.'나 따옴표가 있으면 그 문장부호가 빈 글리프로 캐시되어, 이후 그 크기의
+     * 모든 '.'가 공백으로 그려진다("README.md"가 "README md"로 보인다). UI가 쓰는 크기, 스타일, 배율,
+     * 안티앨리어싱 모드마다 ASCII 문장부호를 먼저 그려 두면 캐시가 올바른 글리프로 채워진다.
      */
     private static void warmUpGlyphCache() {
         if (!SystemInfo.isMacOS) {
@@ -121,7 +120,7 @@ public final class Theme {
         }
     }
 
-    /** Monospaced font for IPs, commands and terminal text. */
+    /** IP, 명령어, 터미널 텍스트용 고정폭 글꼴. */
     public static Font monoFont(float size) {
         String family = SystemInfo.isMacOS ? "Menlo" : "Consolas";
         return new Font(family, Font.PLAIN, 1).deriveFont(size);

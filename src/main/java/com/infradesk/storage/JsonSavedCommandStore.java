@@ -12,7 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 
-/** Stores saved commands in {@code <configDir>/commands.json}. */
+/** 저장된 명령어를 {@code <configDir>/commands.json}에 저장한다. */
 public class JsonSavedCommandStore implements SavedCommandStore {
 
     private static final TypeReference<List<SavedCommand>> TYPE = new TypeReference<>() {

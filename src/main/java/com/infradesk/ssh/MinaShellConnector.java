@@ -32,15 +32,15 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * SSH shells over Apache MINA SSHD. Host keys are checked against {@code known_hosts} in the
- * app's config directory: unknown keys go to the {@link HostKeyPrompt}, changed keys are refused.
+ * Apache MINA SSHD 기반 SSH 셸. 호스트 키는 앱 설정 디렉터리의 {@code known_hosts}와 대조한다.
+ * 모르는 키는 {@link HostKeyPrompt}로 넘기고, 바뀐 키는 거부한다.
  */
 public class MinaShellConnector implements ShellConnector, AutoCloseable {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration AUTH_TIMEOUT = Duration.ofSeconds(15);
 
-    /** Per-connect state. Host key checks run on MINA's I/O threads, so it travels with the connection. */
+    /** 연결별 상태. 호스트 키 검사는 MINA의 I/O 스레드에서 실행되므로 연결과 함께 전달한다. */
     private static final class Attempt {
         final HostKeyPrompt prompt;
         volatile boolean hostKeyChanged;
@@ -143,7 +143,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         T run(ClientSession session) throws IOException;
     }
 
-    /** Connects and authenticates, then hands the session to {@code task}; cleans up on failure. */
+    /** 연결하고 인증한 뒤 세션을 {@code task}에 넘긴다. 실패하면 정리한다. */
     private <T> T withSession(SshTarget target, HostKeyPrompt prompt, SessionTask<T> task) {
         KeyPair identity = loadKey(target);
         Attempt attempt = new Attempt(prompt);
@@ -168,7 +168,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         }
     }
 
-    /** SFTP over an authenticated session; closing it closes the session. */
+    /** 인증된 세션 위의 SFTP. 닫으면 세션도 닫힌다. */
     private static final class MinaRemoteFiles implements RemoteFiles {
 
         private final ClientSession session;
@@ -203,7 +203,8 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
                     }
                 }
                 files.add(new RemoteFile(name, path, dir, a.getSize(),
-                        a.getModifyTime() == null ? null : a.getModifyTime().toInstant()));
+                        a.getModifyTime() == null ? null : a.getModifyTime().toInstant(),
+                        a.getPermissions() & 0777, a.isSymbolicLink()));
             }
             files.sort(java.util.Comparator.comparing((RemoteFile f) -> !f.directory())
                     .thenComparing(RemoteFile::name, String.CASE_INSENSITIVE_ORDER));
@@ -224,30 +225,99 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         }
 
         @Override
-        public void download(String remotePath, java.nio.file.Path localFile, java.util.function.LongConsumer progress)
-                throws IOException {
-            try (InputStream in = sftp.read(remotePath);
-                 OutputStream out = java.nio.file.Files.newOutputStream(localFile)) {
-                Transfers.copy(in, out, progress);
+        public RemoteFile stat(String path) throws IOException {
+            SftpClient.Attributes a = sftp.stat(path);
+            String name = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+            name = name.substring(name.lastIndexOf('/') + 1);
+            return new RemoteFile(name, path, a.isDirectory(), a.getSize(),
+                    a.getModifyTime() == null ? null : a.getModifyTime().toInstant(), a.getPermissions() & 0777, false);
+        }
+
+        @Override
+        public void download(String remotePath, java.nio.file.Path localFile, long offset,
+                             java.util.function.LongConsumer progress) throws IOException {
+            if (offset <= 0) {
+                try (InputStream in = sftp.read(remotePath);
+                     OutputStream out = java.nio.file.Files.newOutputStream(localFile)) {
+                    Transfers.copy(in, out, progress);
+                }
+                return;
+            }
+            try (SftpClient.CloseableHandle handle = sftp.open(remotePath, java.util.EnumSet.of(SftpClient.OpenMode.Read));
+                 java.nio.channels.FileChannel out = java.nio.channels.FileChannel.open(localFile,
+                         java.nio.file.StandardOpenOption.WRITE, java.nio.file.StandardOpenOption.CREATE)) {
+                out.truncate(offset);
+                out.position(offset);
+                byte[] buf = new byte[32 * 1024];
+                long pos = offset;
+                int n;
+                while ((n = sftp.read(handle, pos, buf, 0, buf.length)) > 0) {
+                    out.write(java.nio.ByteBuffer.wrap(buf, 0, n));
+                    pos += n;
+                    progress.accept(pos);
+                }
             }
         }
 
         @Override
-        public void upload(java.nio.file.Path localFile, String remotePath, java.util.function.LongConsumer progress)
-                throws IOException {
+        public void upload(java.nio.file.Path localFile, String remotePath, long offset,
+                           java.util.function.LongConsumer progress) throws IOException {
+            if (offset <= 0) {
+                try (InputStream in = java.nio.file.Files.newInputStream(localFile);
+                     OutputStream out = sftp.write(remotePath)) {
+                    Transfers.copy(in, out, progress);
+                }
+                return;
+            }
             try (InputStream in = java.nio.file.Files.newInputStream(localFile);
-                 OutputStream out = sftp.write(remotePath)) {
-                Transfers.copy(in, out, progress);
+                 SftpClient.CloseableHandle handle = sftp.open(remotePath,
+                         java.util.EnumSet.of(SftpClient.OpenMode.Write, SftpClient.OpenMode.Create))) {
+                in.skipNBytes(offset);
+                byte[] buf = new byte[32 * 1024];
+                long pos = offset;
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    sftp.write(handle, pos, buf, 0, n);
+                    pos += n;
+                    progress.accept(pos);
+                }
             }
         }
 
         @Override
         public void delete(RemoteFile file) throws IOException {
-            if (file.directory()) {
+            if (file.directory() && !file.symlink()) {
                 sftp.rmdir(file.path());
             } else {
                 sftp.remove(file.path());
             }
+        }
+
+        @Override
+        public void mkdir(String path) throws IOException {
+            sftp.mkdir(path);
+        }
+
+        @Override
+        public void createFile(String path) throws IOException {
+            if (exists(path)) {
+                throw new java.nio.file.FileAlreadyExistsException(path);
+            }
+            // 열었다 닫으면 빈 파일이 만들어진다. Exclusive는 그 사이 누가 같은 이름을 만들었을 때를 막는다.
+            sftp.open(path, java.util.EnumSet.of(SftpClient.OpenMode.Write, SftpClient.OpenMode.Create,
+                    SftpClient.OpenMode.Exclusive)).close();
+        }
+
+        @Override
+        public void rename(String from, String to) throws IOException {
+            sftp.rename(from, to);
+        }
+
+        @Override
+        public void chmod(String path, int permissions) throws IOException {
+            SftpClient.Attributes attrs = new SftpClient.Attributes();
+            attrs.setPermissions(permissions & 07777);
+            sftp.setStat(path, attrs);
         }
 
         @Override
@@ -307,7 +377,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         client.stop();
     }
 
-    /** Shell over an open MINA channel. */
+    /** 열려 있는 MINA 채널 위의 셸. */
     private static final class MinaShellSession implements ShellSession {
 
         private final ClientSession session;
@@ -338,7 +408,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
             try {
                 pty.sendWindowChange(columns, rows);
             } catch (IOException e) {
-                // Channel closing; nothing to resize.
+                // 채널이 닫히는 중이다. 크기를 조정할 것이 없다.
             }
         }
 

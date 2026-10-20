@@ -10,9 +10,9 @@ import java.time.Duration;
 import java.util.logging.Logger;
 
 /**
- * Docker containers on a server, over SSH only (see {@link DockerCommands}). Separate from
- * {@link com.infradesk.core.CloudProvider}: it works the same for any server we can SSH into.
- * Blocking; call off the EDT.
+ * 서버의 Docker 컨테이너. SSH로만 다룬다({@link DockerCommands} 참고). SSH로 들어갈 수 있는
+ * 서버라면 똑같이 동작하므로 {@link com.infradesk.core.CloudProvider}와 분리되어 있다.
+ * 블로킹이므로 EDT 밖에서 호출한다.
  */
 public class ContainerService {
 
@@ -34,7 +34,7 @@ public class ContainerService {
         return DockerCommands.parseList(r.output());
     }
 
-    /** Starts, stops or restarts a container; throws with Docker's message on failure. */
+    /** 컨테이너를 시작, 정지, 재시작한다. 실패하면 Docker의 메시지와 함께 예외를 던진다. */
     public void act(Server server, Container container, DockerCommands.Action action, HostKeyPrompt prompt) {
         LOG.info(() -> "docker " + action + " " + container.name() + " on " + server.name());
         ExecResult r = terminal.run(server, DockerCommands.action(action, container.id()), prompt, ACTION_TIMEOUT);
@@ -46,7 +46,7 @@ public class ContainerService {
         }
     }
 
-    /** Last {@code tail} lines of the container's log, with timestamps. */
+    /** 컨테이너 로그의 마지막 {@code tail}줄(타임스탬프 포함). */
     public String logs(Server server, Container container, int tail, HostKeyPrompt prompt) {
         ExecResult r = terminal.run(server, DockerCommands.logs(container.id(), tail), prompt, LIST_TIMEOUT);
         if (r.error() != null) {

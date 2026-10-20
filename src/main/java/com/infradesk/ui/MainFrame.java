@@ -36,7 +36,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
-/** Main window: title bar on top, sidebar on the left, server detail on the right. */
+/** 메인 창: 위에 제목 표시줄, 왼쪽에 사이드바, 오른쪽에 서버 상세. */
 public class MainFrame extends JFrame {
 
     private static final String EMPTY = "empty";
@@ -48,7 +48,7 @@ public class MainFrame extends JFrame {
     private final TerminalService terminalService;
     private final com.infradesk.alert.AlertService alerts;
     private final com.infradesk.service.UpdateService updates;
-    /** Installs updates in place; null when running from Gradle (not a packaged app) or in demo mode. */
+    /** 업데이트를 제자리에 설치한다. Gradle로 실행 중(패키징된 앱이 아님)이거나 데모 모드이면 null. */
     private com.infradesk.service.UpdateInstaller updateInstaller;
     private final com.infradesk.service.ContainerService containerService;
     private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.DockerCommands.Listing>> containerCache =
@@ -71,17 +71,17 @@ public class MainFrame extends JFrame {
 
     private final RefreshPolicy policy = new RefreshPolicy(Clock.systemUTC());
     private final Timer pollTimer;
-    /** OCI aggregates metrics per minute, so polling faster gains nothing. */
+    /** OCI는 메트릭을 분 단위로 집계하므로 더 자주 조회해도 얻는 것이 없다. */
     private final Timer metricsTimer;
     private LiveStats liveStats;
     private java.util.Optional<TrayController> tray = java.util.Optional.empty();
     private java.util.Map<String, Double> lastCpu = java.util.Map.of();
-    /** Once-a-minute SSH samples for directly connected servers (they have no cloud metrics). */
+    /** 직접 연결 서버(클라우드 메트릭이 없다)에 대한 분당 SSH 샘플. */
     private final com.infradesk.service.SshMetricsService sshMetrics;
     private final java.util.Set<String> sampling = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private LocalTime lastRefreshAt;
     private boolean hiddenNoticeShown;
-    /** SSH-read facts per server id, reused for five minutes. */
+    /** 서버 id별로 SSH로 읽은 정보. 5분 동안 재사용한다. */
     private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.HostFacts>> factsCache =
             new java.util.HashMap<>();
     private static final java.time.Duration FACTS_TTL = java.time.Duration.ofMinutes(5);
@@ -97,7 +97,7 @@ public class MainFrame extends JFrame {
     private long reloadGeneration;
 
     private static final boolean MAC = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
-    /** Where the status icon lives, in the words each OS uses. */
+    /** 상태 아이콘이 있는 곳을 각 OS가 쓰는 말로. */
     private static final String TRAY_NAME = MAC ? "메뉴 막대" : "알림 영역(트레이)";
 
     public MainFrame(InventoryService service, TerminalService terminalService,
@@ -105,7 +105,7 @@ public class MainFrame extends JFrame {
         this(service, terminalService, alerts, null, demoMode);
     }
 
-    /** @param updates beta update checks, or null to disable them */
+    /** @param updates 베타 업데이트 확인. null이면 사용하지 않는다 */
     public MainFrame(InventoryService service, TerminalService terminalService,
                      com.infradesk.alert.AlertService alerts, com.infradesk.service.UpdateService updates, boolean demoMode) {
         super("InfraDesk");
@@ -124,7 +124,7 @@ public class MainFrame extends JFrame {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
                 if (tray.isPresent()) {
-                    // Keep running in the menu bar; only pause what needs the window.
+                    // 메뉴 막대에서 계속 실행한다. 창이 필요한 것만 일시 중지한다.
                     live.pause();
                     if (!hiddenNoticeShown) {
                         hiddenNoticeShown = true;
@@ -217,7 +217,7 @@ public class MainFrame extends JFrame {
         detail.metrics().onExpand(this::openMetricChart);
     }
 
-    /** Menu-bar icon; with it, closing the window hides to the menu bar instead of quitting. */
+    /** 메뉴 막대 아이콘. 이게 있으면 창을 닫을 때 종료하지 않고 메뉴 막대로 숨는다. */
     private void installTray() {
         if (Boolean.getBoolean("infradesk.noTray")) {
             return;
@@ -284,7 +284,7 @@ public class MainFrame extends JFrame {
         this.updateInstaller = installer;
     }
 
-    /** If the last update's swap gave up (this is the old version, started again), say so once. */
+    /** 지난 업데이트의 교체가 포기됐다면(지금은 이전 버전이 다시 시작된 것) 한 번 알린다. */
     private void reportFailedSwap() {
         java.nio.file.Path log = com.infradesk.storage.AppPaths.logDir().resolve("update.log");
         com.infradesk.service.UpdateInstaller.recentSwapFailure(log, java.time.Instant.now()).ifPresent(line -> {
@@ -293,7 +293,7 @@ public class MainFrame extends JFrame {
                 java.nio.file.Files.writeString(log, java.time.LocalDateTime.now() + " (reported to the user)\n",
                         java.nio.file.StandardOpenOption.APPEND);
             } catch (java.io.IOException ignored) {
-                // Worst case the notice shows once more.
+                // 최악의 경우 안내가 한 번 더 표시된다.
             }
             javax.swing.SwingUtilities.invokeLater(() -> com.infradesk.ui.components.Toast.show(this, "업데이트",
                     "업데이트를 적용하지 못했어요", "지금 버전이 그대로 켜졌어요. 설정 → 앱 정보 → 로그 폴더의 update.log에 이유가 있어요.",
@@ -301,7 +301,7 @@ public class MainFrame extends JFrame {
         });
     }
 
-    /** Asks, then downloads → verifies → self-tests → swaps in the new build and restarts. */
+    /** 먼저 묻고, 내려받기 → 검증 → 자가 점검 → 새 빌드로 교체 후 재시작한다. */
     private void offerUpdate(com.infradesk.service.UpdateService.Release release) {
         Optional<String> blocked = updateInstaller == null
                 ? Optional.of("설치된 앱이 아니라서(개발 실행) 스스로 바꿀 수 없어요.")
@@ -346,7 +346,7 @@ public class MainFrame extends JFrame {
         settingsDialog = null;
     }
 
-    /** Starts periodic beta update checks (15 s after start, then every 6 h) when enabled. */
+    /** 켜져 있으면 주기적인 베타 업데이트 확인을 시작한다(시작 15초 뒤, 그다음 6시간마다). */
     public void startUpdateChecks() {
         if (updates == null || demoMode) {
             return;
@@ -361,7 +361,7 @@ public class MainFrame extends JFrame {
         updateTimer.start();
     }
 
-    /** @param manual started from the settings dialog: report every outcome there */
+    /** @param manual 설정 다이얼로그에서 시작함: 모든 결과를 거기에 알린다 */
     private void checkForUpdate(boolean manual) {
         com.infradesk.app.BuildInfo current = com.infradesk.app.BuildInfo.current();
         Async.run(updates::latest, release -> {
@@ -410,7 +410,7 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /** Closes sessions and exits. From the tray menu, ⌘Q, or closing the window without a tray. */
+    /** 세션을 닫고 종료한다. 트레이 메뉴, ⌘Q, 또는 트레이가 없을 때 창을 닫으면 호출된다. */
     private void quit() {
         LOG.info("Quitting");
         live.stop();
@@ -424,10 +424,10 @@ public class MainFrame extends JFrame {
         return detail.metrics();
     }
 
-    /** Every minute: refresh the selected server's history (unless live) and sidebar CPU. */
+    /** 매분: 선택한 서버의 기록(실시간이 아니면)과 사이드바 CPU를 새로 고친다. */
     private void metricsTick() {
         if (!isShowing()) {
-            // Hidden in the menu bar: keep the sidebar/tray CPU and alerts fresh, skip charts.
+            // 메뉴 막대에 숨어 있을 때: 사이드바/트레이 CPU와 알림은 최신으로 유지하고 차트는 건너뛴다.
             if (tray.isPresent()) {
                 refreshCpu();
                 sampleDirectServers(false);
@@ -444,9 +444,9 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * Takes an SSH sample of every running, SSH-configured direct server.
+     * 실행 중이고 SSH가 설정된 모든 직접 연결 서버의 SSH 샘플을 한 번 찍는다.
      *
-     * @param onlyNew only servers with no sample yet (right after the list loads)
+     * @param onlyNew 아직 샘플이 없는 서버만(목록을 불러온 직후)
      */
     private void sampleDirectServers(boolean onlyNew) {
         for (AccountInventory inv : inventory) {
@@ -487,7 +487,7 @@ public class MainFrame extends JFrame {
         }, err -> sampling.remove(server.id()));
     }
 
-    /** A metric card was clicked: open the big zoomable chart for the selected server. */
+    /** 메트릭 카드를 클릭했다: 선택한 서버의 큰 확대 가능 차트를 연다. */
     private void openMetricChart(com.infradesk.ui.metrics.MetricKind kind) {
         findServer(selectedServerId).ifPresent(server -> {
             String id = server.id();
@@ -532,7 +532,7 @@ public class MainFrame extends JFrame {
         }, err -> { });
     }
 
-    /** @param showLoading clear the cards first (when switching servers) */
+    /** @param showLoading 먼저 카드를 비운다(서버를 바꿀 때) */
     private void loadMetrics(Server server, boolean showLoading) {
         metricsServerId = server.id();
         metricsServerStatus = server.status();
@@ -558,7 +558,7 @@ public class MainFrame extends JFrame {
                 metrics().showMessage("SSH 키를 등록하면 CPU·메모리를 볼 수 있어요");
                 metrics().setStatus(" ", false);
             } else if (sshMetrics.metrics(server.id()).cpuPercent().isEmpty()) {
-                // The first sample follows the facts read (which may ask to trust the host key).
+                // 첫 샘플은 상세 정보를 읽은 뒤에 온다(호스트 키를 신뢰할지 물을 수 있다).
                 metrics().showLoading();
                 metrics().setStatus("SSH로 처음 읽는 중…", false);
             } else {
@@ -587,7 +587,7 @@ public class MainFrame extends JFrame {
         return live.state() != com.infradesk.ui.metrics.LiveController.State.OFF;
     }
 
-    /** The user flipped the live toggle. Asks for SSH settings first if the server has none. */
+    /** 사용자가 실시간 토글을 켰다. 서버에 SSH 설정이 없으면 먼저 설정을 묻는다. */
     private void toggleLive(boolean on) {
         if (!on) {
             live.userToggle(false);
@@ -604,7 +604,7 @@ public class MainFrame extends JFrame {
         live.userToggle(true);
     }
 
-    /** Connects the live controller to SSH and the metrics panel. */
+    /** 실시간 컨트롤러를 SSH와 메트릭 패널에 연결한다. */
     private final class LiveHooks implements com.infradesk.ui.metrics.LiveController.Hooks {
 
         @Override
@@ -659,7 +659,7 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /** Auto-off timer on the EDT. */
+    /** EDT에서 도는 자동 끄기 타이머. */
     private static final class SwingTimeout implements com.infradesk.ui.metrics.LiveController.Timeout {
         private Timer timer;
 
@@ -680,26 +680,26 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /** Reloads every account's servers in the background. */
+    /** 모든 계정의 서버를 백그라운드에서 다시 불러온다. */
     public void refresh() {
         reload(Set.of(), true);
     }
 
-    /** Timer tick: reload what the policy asks for. */
+    /** 타이머 틱: 정책이 요청한 것을 다시 불러온다. */
     private void poll() {
         RefreshPolicy.Plan plan = policy.next(inventory);
         reload(plan.accountIds(), false);
     }
 
     /**
-     * @param accountIds accounts to reload; empty reloads all
-     * @param userInitiated whether to surface failures in a dialog (timer failures stay quiet)
+     * @param accountIds 다시 불러올 계정. 비어 있으면 전부
+     * @param userInitiated 실패를 다이얼로그로 알릴지(타이머의 실패는 조용히 넘어간다)
      */
     private void reload(Set<String> accountIds, boolean userInitiated) {
         if (refreshing && !userInitiated) {
             return;
         }
-        // A manual refresh always starts fresh, even if an earlier request is hung; its late result is dropped.
+        // 수동 새로고침은 이전 요청이 멈춰 있더라도 항상 새로 시작한다. 늦게 도착한 이전 결과는 버린다.
         long generation = ++reloadGeneration;
         pollTimer.stop();
         refreshing = true;
@@ -728,15 +728,14 @@ public class MainFrame extends JFrame {
                 });
     }
 
-    /** Last known servers of an account we can't reach: keep them listed, but don't claim a state. */
+    /** 연결할 수 없는 계정의 마지막으로 알려진 서버: 목록에는 남기되 상태는 단정하지 않는다. */
     private static Server asUnreachable(Server s) {
         return s.withStatus(ServerStatus.UNREACHABLE);
     }
 
     /**
-     * A failed load (e.g. a brief network drop) must not wipe the server list: keep the last known
-     * servers, shown as unreachable, and attach the error. The next poll replaces them once the
-     * connection is back.
+     * 불러오기 실패(예: 잠깐의 네트워크 끊김)가 서버 목록을 지우면 안 된다. 마지막으로 알려진
+     * 서버를 연결할 수 없음으로 표시해서 남기고 오류를 붙인다. 연결이 돌아오면 다음 폴링이 이를 대체한다.
      */
     private List<AccountInventory> keepLastKnownServers(List<AccountInventory> loaded) {
         List<AccountInventory> result = new ArrayList<>();
@@ -754,7 +753,7 @@ public class MainFrame extends JFrame {
         return List.copyOf(result);
     }
 
-    /** Replaces the reloaded accounts in the current inventory, keeping order. */
+    /** 다시 불러온 계정을 현재 인벤토리에서 교체한다. 순서는 유지한다. */
     private List<AccountInventory> merge(List<AccountInventory> partial) {
         List<AccountInventory> merged = new ArrayList<>(inventory);
         for (AccountInventory p : partial) {
@@ -788,7 +787,7 @@ public class MainFrame extends JFrame {
     }
 
     private void editSshSettings(Server server) {
-        // A directly connected machine: suggest its port and, as the user, the name on this computer.
+        // 직접 연결 기기: 포트와, 사용자로는 이 컴퓨터에서의 이름을 추천한다.
         com.infradesk.ssh.SshSettings defaults = accountOf(server)
                 .filter(a -> a.provider() == com.infradesk.core.ProviderType.SSH)
                 .map(a -> new com.infradesk.ssh.SshSettings(server.id(), System.getProperty("user.name"),
@@ -806,7 +805,7 @@ public class MainFrame extends JFrame {
 
     private static final java.time.Duration CONTAINERS_TTL = java.time.Duration.ofSeconds(30);
 
-    /** Docker containers over SSH for the detail section, cached briefly. */
+    /** 상세 섹션용으로 SSH로 가져온 Docker 컨테이너. 잠깐 캐시한다. */
     private void loadContainers(Server server, boolean force) {
         var panel = detail.containers();
         if (server.status() != com.infradesk.core.ServerStatus.RUNNING) {
@@ -880,7 +879,7 @@ public class MainFrame extends JFrame {
         });
     }
 
-    /** Reads uptime/OS/disk/ports over SSH for the detail grid, cached for a few minutes. */
+    /** 상세 그리드용으로 SSH로 업타임/OS/디스크/포트를 읽는다. 몇 분 동안 캐시한다. */
     private void loadFacts(Server server, boolean force) {
         if (server.status() != com.infradesk.core.ServerStatus.RUNNING) {
             detail.setFactsMessage("—");
@@ -902,7 +901,7 @@ public class MainFrame extends JFrame {
             if (id.equals(selectedServerId)) {
                 detail.setFacts(facts);
             }
-            // The facts read may just have trusted the host key; background sampling never asks.
+            // 상세 정보를 읽는 과정에서 호스트 키를 방금 신뢰했을 수 있다. 백그라운드 샘플링은 절대 묻지 않는다.
             if (isDirect(server) && sshMetrics.metrics(id).cpuPercent().isEmpty()) {
                 sampleDirect(server);
             }
@@ -917,7 +916,7 @@ public class MainFrame extends JFrame {
         return inventory.stream().flatMap(i -> i.servers().stream()).toList();
     }
 
-    /** Public so the snapshot tool can render the terminal screen. */
+    /** 스냅샷 도구가 터미널 화면을 그릴 수 있도록 public. */
     public void showTerminal() {
         dashboardVisible = false;
         live.pause();
@@ -935,7 +934,7 @@ public class MainFrame extends JFrame {
         live.resume();
     }
 
-    /** A terminal tab inside a container: its shell, or the database console for its image. */
+    /** 컨테이너 안의 터미널 탭: 그 컨테이너의 셸, 또는 이미지에 맞는 데이터베이스 콘솔. */
     void openContainerTerminal(Server server, com.infradesk.ssh.Container container,
                                        com.infradesk.ssh.DockerCommands.Console console) {
         String title = console == null ? container.name() : container.name() + " (" + console.label + ")";
@@ -947,7 +946,7 @@ public class MainFrame extends JFrame {
         terminalView.open(server, new com.infradesk.ui.terminal.TerminalPanel.Exec(title, command));
     }
 
-    /** Opens a terminal tab for the server without the settings check; for the snapshot tool. */
+    /** 설정 확인 없이 서버의 터미널 탭을 연다. 스냅샷 도구용. */
     public void openTerminalFor(Server server) {
         showTerminal();
         terminalView.openOrSelect(server);
@@ -1003,7 +1002,7 @@ public class MainFrame extends JFrame {
                 .findFirst();
     }
 
-    /** Applies loaded data. Public so the snapshot tool can inject data synchronously. */
+    /** 불러온 데이터를 적용한다. 스냅샷 도구가 데이터를 동기로 주입할 수 있도록 public. */
     public void setInventory(List<AccountInventory> loaded) {
         refreshing = false;
         inventory = keepLastKnownServers(loaded);
@@ -1085,7 +1084,7 @@ public class MainFrame extends JFrame {
         new AddAccountDialog(this, service, demoMode, account).showDialog().ifPresent(a -> refresh());
     }
 
-    /** Adds a directly connected machine, then asks for its SSH user and key right away. */
+    /** 직접 연결 기기를 추가한 뒤 바로 SSH 사용자와 키를 묻는다. */
     private void addSshServer() {
         new AddSshServerDialog(this, service, null).showDialog().ifPresent(a -> {
             refresh();

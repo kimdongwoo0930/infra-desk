@@ -20,8 +20,8 @@ import javax.swing.JDialog;
 import javax.swing.SwingUtilities;
 
 /**
- * Dev tool: renders screens off-screen with demo data into build/snapshots/*.png, so UI changes
- * can be checked without screen-recording permission. Run with {@code ./gradlew snapshot}.
+ * 개발 도구: 데모 데이터로 화면을 오프스크린 렌더링해서 build/snapshots/*.png로 저장한다.
+ * 화면 녹화 권한 없이도 UI 변경을 확인할 수 있다. {@code ./gradlew snapshot}으로 실행한다.
  */
 public final class UiSnapshot {
 
@@ -34,7 +34,7 @@ public final class UiSnapshot {
         DIR.mkdirs();
         InventoryService service = InfraDeskApp.demoService(new DemoProviderFactory(Clock.systemUTC(), Duration.ZERO));
         List<AccountInventory> inventory = service.loadAll();
-        // Separate demo world where discord-bot was just stopped, for the "stopping" screen.
+        // "정지 중" 화면을 위해 discord-bot이 방금 정지된 별도의 데모 세계.
         InventoryService stoppingService = InfraDeskApp.demoService(new DemoProviderFactory(Clock.systemUTC(), Duration.ZERO));
         var stoppingInventory = stoppingService.loadAll();
         stoppingService.control(stoppingService.accounts().getFirst(),
@@ -59,7 +59,7 @@ public final class UiSnapshot {
                 write(frame, frame.getContentPane(), 1280, 1080, "main-full.png");
                 frame.getContentPane().setSize(1280, 800);
 
-                // Hover: move the mouse over each chart (left, middle, right edge) and render.
+                // 호버: 각 차트 위(왼쪽, 가운데, 오른쪽 끝)로 마우스를 옮기며 렌더링한다.
                 List<java.awt.Component> charts = new java.util.ArrayList<>();
                 collect(frame.getContentPane(), "HoverChartPanel", charts);
                 double[] at = {0.3, 0.55, 0.97};
@@ -84,7 +84,7 @@ public final class UiSnapshot {
                         "add-account.png");
                 dialog.dispose();
 
-                // A directly connected machine (the demo Mac mini): its dialog and its dashboard.
+                // 직접 연결한 기기(데모 Mac mini): 그 다이얼로그와 대시보드.
                 JDialog addSsh = new AddSshServerDialog(frame, service, null);
                 write(addSsh, addSsh.getContentPane(), addSsh.getWidth(), addSsh.getContentPane().getPreferredSize().height,
                         "add-ssh-server.png");
@@ -103,14 +103,14 @@ public final class UiSnapshot {
                         settings.getContentPane().getPreferredSize().height, "settings.png");
                 settings.dispose();
 
-                // Windows tray menu (Swing popup): the main list and the first server's submenu side by side.
+                // Windows 트레이 메뉴(Swing 팝업): 메인 목록과 첫 서버의 하위 메뉴를 나란히.
                 TrayController.Actions noop = (TrayController.Actions) java.lang.reflect.Proxy.newProxyInstance(
                         TrayController.Actions.class.getClassLoader(), new Class<?>[]{TrayController.Actions.class}, (o, m, a) -> null);
                 var entries = TrayController.entries(inventory, java.util.Map.of(inventory.getFirst().servers().getFirst().id(), 23.0),
                         " · 18:42 갱신", true, null, noop);
                 var sub = entries.stream().filter(e -> e instanceof TrayController.Entry.ServerMenu).findFirst()
                         .map(e -> ((TrayController.Entry.ServerMenu) e).items()).orElseThrow();
-                // Popups are invisible until shown, so lay them out and paint them by hand.
+                // 팝업은 표시되기 전에는 보이지 않으므로 직접 배치하고 그린다.
                 javax.swing.JPopupMenu[] menus = {SwingTrayMenu.build(entries), SwingTrayMenu.build(sub)};
                 javax.swing.JWindow trayWindow = new javax.swing.JWindow();
                 trayWindow.addNotify();
@@ -161,7 +161,7 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
-        // Directly connected Mac mini: facts and the first SSH sample arrive asynchronously.
+        // 직접 연결한 Mac mini: 상세 정보와 첫 SSH 샘플이 비동기로 도착한다.
         MainFrame[] sshFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
             var mac = inventory.stream().filter(i -> i.account().provider() == com.infradesk.core.ProviderType.SSH)
@@ -179,7 +179,7 @@ public final class UiSnapshot {
             }
             sshFrame[0].dispose();
         });
-        // Live mode: flip the toggle on the main frame and let the demo /proc stream produce samples.
+        // 실시간 모드: 메인 프레임의 토글을 켜고 데모 /proc 스트림이 샘플을 만들게 한다.
         SwingUtilities.invokeAndWait(() -> {
             MainFrame live = mainFrame[0];
             live.addNotify();
@@ -194,7 +194,7 @@ public final class UiSnapshot {
             }
         });
 
-        // Terminal: open a demo session, give the fake shell time to print its banner, then render.
+        // 터미널: 데모 세션을 열고, 가짜 셸이 배너를 출력할 시간을 준 뒤 렌더링한다.
         MainFrame[] terminalFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
             terminalFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
@@ -221,7 +221,7 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
-        // MySQL console inside a demo container, opened like the containers panel's "MySQL 콘솔" button.
+        // 데모 컨테이너 안의 MySQL 콘솔. 컨테이너 패널의 "MySQL 콘솔" 버튼을 누른 것처럼 연다.
         SwingUtilities.invokeAndWait(() -> terminalFrame[0].openContainerTerminal(inventory.get(1).servers().getFirst(),
                 new com.infradesk.ssh.Container("c".repeat(64), "mysql", "mysql:8.4", "running", "Up 14 days",
                         "3306/tcp", 0.4, "412MiB / 23.4GiB", 1.7),
@@ -245,7 +245,7 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
-        // SFTP browser on the demo file tree.
+        // 데모 파일 트리의 SFTP 브라우저.
         JDialog[] sftp = new JDialog[1];
         SwingUtilities.invokeAndWait(() -> sftp[0] = new com.infradesk.ui.terminal.SftpDialog(terminalFrame[0],
                 InfraDeskApp.demoTerminalService(), inventory.getFirst().servers().getFirst()));
@@ -257,7 +257,89 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
-        // Zoomable metric chart: 24h network, then zoomed in with the hover tooltip.
+        // 내 컴퓨터에서 폴더 1개와 파일 2개를 골라 서버로 올리면 아래에 전송 대기열이 나타난다.
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> tables = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JTable", tables);
+            javax.swing.JTable local = (javax.swing.JTable) tables.get(0);
+            local.setRowSelectionInterval(0, 0);
+            local.addRowSelectionInterval(3, 4);
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JButton", buttons);
+            buttons.stream().map(b -> (javax.swing.AbstractButton) b)
+                    .filter(b -> "서버로 업로드".equals(b.getText())).findFirst().orElseThrow().doClick();
+        });
+        Thread.sleep(2500);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(sftp[0], sftp[0].getContentPane(), sftp[0].getWidth(), sftp[0].getHeight() - 28, "sftp-transfer.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        // 서버 파일 편집: 실제 편집기를 띄우지 않고, 받은 임시 파일에 저장하는 것을 흉내 낸 뒤
+        // 서버에 다시 올라갔는지 확인한다.
+        java.util.concurrent.atomic.AtomicReference<java.nio.file.Path> edited = new java.util.concurrent.atomic.AtomicReference<>();
+        try {
+            Class<?> editor = Class.forName("com.infradesk.ui.terminal.ExternalEditor");
+            java.lang.reflect.Field hook = editor.getDeclaredField("launcherOverride");
+            hook.setAccessible(true);
+            hook.set(null, (java.util.function.Consumer<java.nio.file.Path>) edited::set);
+        } catch (ReflectiveOperationException ex) {
+            throw new RuntimeException(ex);
+        }
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> tables = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JTable", tables);
+            javax.swing.JTable remote = (javax.swing.JTable) tables.get(1);
+            for (int row = 0; row < remote.getRowCount(); row++) {
+                if (remote.getValueAt(row, 0).toString().contains("README.md")) {
+                    remote.setRowSelectionInterval(row, row);
+                }
+            }
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JButton", buttons);
+            buttons.stream().map(b -> (javax.swing.AbstractButton) b)
+                    .filter(b -> "편집".equals(b.getText())).findFirst().orElseThrow().doClick();
+        });
+        Thread.sleep(1500);
+        java.nio.file.Path tempCopy = edited.get();
+        System.out.println(tempCopy == null ? "EDIT-LOOP: FAILED (편집기가 열리지 않음)" : "EDIT-LOOP: 임시 복사본을 열었다");
+        if (tempCopy != null) {
+            java.nio.file.Files.writeString(tempCopy, "# EDITED-BY-SNAPSHOT\n");
+            java.nio.file.Files.setLastModifiedTime(tempCopy,
+                    java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() + 5000));
+            Thread.sleep(4500);
+            var verify = InfraDeskApp.demoTerminalService();
+            try (var rf = verify.openFiles(inventory.getFirst().servers().getFirst(), (h, pt, ty, fp) -> true)) {
+                java.nio.file.Path back = java.nio.file.Files.createTempFile("edit-verify", ".md");
+                rf.download(com.infradesk.ssh.RemoteFiles.join(rf.home(), "README.md"), back, n -> { });
+                String content = java.nio.file.Files.readString(back);
+                System.out.println(content.contains("EDITED-BY-SNAPSHOT") ? "EDIT-LOOP: OK (저장한 내용이 서버에 올라갔다)"
+                        : "EDIT-LOOP: FAILED (서버 내용: " + content.strip() + ")");
+            }
+            // 두 번째 저장: 첫 업로드 뒤 서버 파일 상태를 다시 기록했는지 확인한다. 잘못되면 "서버에서
+            // 바뀌었어요" 확인 창이 떠서 여기서 멈춘다.
+            java.nio.file.Files.writeString(tempCopy, "# EDITED-TWICE\n");
+            java.nio.file.Files.setLastModifiedTime(tempCopy,
+                    java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() + 10_000));
+            Thread.sleep(4500);
+            try (var rf = verify.openFiles(inventory.getFirst().servers().getFirst(), (h, pt, ty, fp) -> true)) {
+                java.nio.file.Path back = java.nio.file.Files.createTempFile("edit-verify2", ".md");
+                rf.download(com.infradesk.ssh.RemoteFiles.join(rf.home(), "README.md"), back, n -> { });
+                String content = java.nio.file.Files.readString(back);
+                System.out.println(content.contains("EDITED-TWICE") ? "EDIT-LOOP-2: OK (두 번째 저장도 올라갔다)"
+                        : "EDIT-LOOP-2: FAILED (서버 내용: " + content.strip() + ")");
+            }
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    write(sftp[0], sftp[0].getContentPane(), sftp[0].getWidth(), sftp[0].getHeight() - 28, "sftp-edit.png");
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+            });
+        }
+        // 확대 가능한 메트릭 차트: 24시간 네트워크를 그린 뒤, 확대해서 호버 툴팁과 함께 렌더링한다.
         var chartServer = inventory.getFirst().servers().getFirst();
         var chartAccount = inventory.getFirst().account();
         var chartDialog = new com.infradesk.ui.metrics.MetricChartDialog(terminalFrame[0], chartServer.name(),
@@ -351,7 +433,7 @@ public final class UiSnapshot {
         ImageIO.write(img, "png", new File(DIR, name));
     }
 
-    /** Demo terminal whose fake /proc stream ticks every 150 ms, so the live snapshot has a full chart. */
+    /** 가짜 /proc 스트림이 150 ms마다 틱하는 데모 터미널. 실시간 스냅샷에서 차트가 가득 차게 한다. */
     private static com.infradesk.service.TerminalService fastLiveTerminalService() {
         return new com.infradesk.service.TerminalService(new com.infradesk.storage.InMemorySshSettingsStore(),
                 new com.infradesk.storage.InMemorySecretStore(),

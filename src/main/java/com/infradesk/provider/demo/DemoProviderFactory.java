@@ -9,7 +9,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
-/** Creates {@link DemoProvider}s. Ignores secrets entirely. */
+/** {@link DemoProvider}를 만든다. 비밀값은 전혀 쓰지 않는다. */
 public class DemoProviderFactory implements CloudProviderFactory {
 
     private final Clock clock;
@@ -20,7 +20,7 @@ public class DemoProviderFactory implements CloudProviderFactory {
         this.latency = latency;
     }
 
-    /** Real clock and a small latency so loading states are visible. */
+    /** 실제 시계와 약간의 지연을 써서 로딩 상태가 보이게 한다. */
     public DemoProviderFactory() {
         this(Clock.systemUTC(), Duration.ofMillis(400));
     }

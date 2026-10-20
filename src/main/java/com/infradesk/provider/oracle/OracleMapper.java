@@ -7,7 +7,7 @@ import com.oracle.bmc.core.model.Instance;
 import com.oracle.bmc.core.model.InstanceShapeConfig;
 import com.oracle.bmc.model.BmcException;
 
-/** Converts OCI SDK types into core types. Keeps OCI types inside this package. */
+/** OCI SDK 타입을 core 타입으로 변환한다. OCI 타입이 이 패키지 밖으로 나가지 않게 한다. */
 final class OracleMapper {
 
     private OracleMapper() {
@@ -25,7 +25,7 @@ final class OracleMapper {
             case Stopped -> ServerStatus.STOPPED;
             case Terminating -> ServerStatus.TERMINATING;
             case Terminated -> ServerStatus.TERMINATED;
-            // Moving and CreatingImage keep the instance running from the user's point of view.
+            // Moving과 CreatingImage는 사용자 관점에서 인스턴스가 계속 실행 중인 상태다.
             case Moving, CreatingImage -> ServerStatus.RUNNING;
             default -> ServerStatus.UNKNOWN;
         };
@@ -53,7 +53,7 @@ final class OracleMapper {
                 instance.getTimeCreated() == null ? null : instance.getTimeCreated().toInstant());
     }
 
-    /** Turns SDK failures into user-facing Korean messages without leaking request details. */
+    /** SDK 실패를 요청 세부 정보가 새지 않는, 사용자에게 보여줄 한국어 메시지로 바꾼다. */
     static CloudProviderException error(String action, RuntimeException e) {
         if (e instanceof BmcException bmc) {
             String reason = switch (bmc.getStatusCode()) {

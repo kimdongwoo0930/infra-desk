@@ -21,22 +21,21 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * All secrets in one AES-256-GCM encrypted file ({@code <configDir>/secrets.vault}); only the
- * 256-bit key lives in the OS keychain, as a single item. The keychain is read at most once per
- * run and decrypted values stay in memory.
+ * 모든 비밀값을 AES-256-GCM으로 암호화한 파일 하나({@code <configDir>/secrets.vault})에 저장한다.
+ * 256비트 키만 OS 키체인에 항목 하나로 둔다. 키체인은 실행당 최대 한 번 읽고,
+ * 복호화한 값은 메모리에만 둔다.
  *
- * <p>Why: with one keychain item per secret, macOS asked for the login password on almost every
- * click in the packaged (ad-hoc signed) app, since "Always Allow" is per item and not reliably
- * remembered for unsigned apps.
+ * <p>이유: 비밀값마다 키체인 항목을 만들면 패키징된(ad-hoc 서명) 앱에서 거의 클릭마다 macOS가
+ * 로그인 비밀번호를 물었다. "항상 허용"은 항목별로 적용되고, 서명되지 않은 앱에서는 기억이
+ * 안정적이지 않기 때문이다.
  *
- * <p>File format: {@code "IDV1"} magic, 12-byte IV, AES-GCM ciphertext of a JSON map (128-bit tag).
- * Secrets missing from the vault are looked up once in {@code legacy} (the old per-item keychain
- * store) and copied in.
+ * <p>파일 형식: {@code "IDV1"} 매직 값, 12바이트 IV, JSON 맵의 AES-GCM 암호문(128비트 태그).
+ * 금고에 없는 비밀값은 {@code legacy}(이전 항목별 키체인 저장소)에서 한 번 찾아 복사해 넣는다.
  */
 public class VaultSecretStore implements SecretStore {
 
     static final String MASTER_KEY_ITEM = "vault.masterKey";
-    /** Set once every legacy item was copied; afterwards the legacy store is never consulted. */
+    /** 모든 이전 항목을 복사하면 설정한다. 이후에는 이전 저장소를 확인하지 않는다. */
     static final String MIGRATED_MARKER = "_vault.migrated";
     private static final byte[] MAGIC = {'I', 'D', 'V', '1'};
     private static final int IV_BYTES = 12;
@@ -51,12 +50,12 @@ public class VaultSecretStore implements SecretStore {
 
     private byte[] key;
     private Map<String, String> values;
-    /** Names already looked up in the legacy store this run (found or not), so it's asked once. */
+    /** 이번 실행에서 이전 저장소를 이미 찾아본 이름(찾았든 못 찾았든). 한 번만 물어보기 위한 것이다. */
     private final java.util.Set<String> legacyChecked = new java.util.HashSet<>();
 
     /**
-     * @param keychain where the master key is kept (one item)
-     * @param legacy   old per-item store to migrate from, or null
+     * @param keychain 마스터 키를 보관하는 곳(항목 하나)
+     * @param legacy   이전하려는 옛 항목별 저장소. 없으면 null
      */
     public VaultSecretStore(Path configDir, SecretStore keychain, SecretStore legacy) {
         this.file = configDir.resolve("secrets.vault");
@@ -98,11 +97,11 @@ public class VaultSecretStore implements SecretStore {
     }
 
     /**
-     * Copies the given names from the legacy store into the vault, deletes them from the legacy
-     * store, and marks the vault as migrated. Run it from the process that created the legacy
-     * items (the dev JVM) so macOS doesn't ask for each one.
+     * 주어진 이름을 이전 저장소에서 금고로 복사하고, 이전 저장소에서는 삭제한 뒤,
+     * 금고를 이전 완료로 표시한다. 이전 항목을 만든 프로세스(개발 JVM)에서 실행해야
+     * macOS가 항목마다 묻지 않는다.
      *
-     * @return number of secrets copied
+     * @return 복사한 비밀값 개수
      */
     public synchronized int migrateFromLegacy(java.util.Collection<String> names) {
         load();

@@ -5,13 +5,13 @@ import java.util.List;
 import java.util.OptionalDouble;
 
 /**
- * Recent utilization series for one server. Series are ordered oldest first and may be empty when
- * the provider has no data yet.
+ * 서버 하나의 최근 사용률 시계열. 시계열은 오래된 것부터 정렬되며, provider에 아직 데이터가
+ * 없으면 비어 있을 수 있다.
  *
- * @param cpuPercent    CPU utilization, 0–100
- * @param memoryPercent memory utilization, 0–100
- * @param networkInBps  inbound bytes per second
- * @param networkOutBps outbound bytes per second
+ * @param cpuPercent    CPU 사용률, 0–100
+ * @param memoryPercent 메모리 사용률, 0–100
+ * @param networkInBps  초당 수신 바이트
+ * @param networkOutBps 초당 송신 바이트
  */
 public record Metrics(
         List<Sample> cpuPercent,
@@ -19,7 +19,7 @@ public record Metrics(
         List<Sample> networkInBps,
         List<Sample> networkOutBps) {
 
-    /** One data point. */
+    /** 데이터 점 하나. */
     public record Sample(Instant time, double value) {
     }
 

@@ -4,7 +4,7 @@ import com.infradesk.ssh.SavedCommand;
 
 import java.util.List;
 
-/** Non-persistent store for demo mode and tests. */
+/** 데모 모드와 테스트용 비영속 저장소. */
 public class InMemorySavedCommandStore implements SavedCommandStore {
 
     private volatile List<SavedCommand> commands;

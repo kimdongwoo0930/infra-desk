@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.function.DoubleFunction;
 import java.util.function.Function;
 
-/** The three monitored metrics: how each is titled, coloured, formatted and read out of {@link Metrics}. */
+/** 모니터링하는 세 가지 메트릭: 각각의 제목, 색, 형식, 그리고 {@link Metrics}에서 읽는 방법. */
 public enum MetricKind {
 
     CPU("CPU", List.of(new MetricCard.Series("CPU", Theme.ACCENT)), Formats::percent, 100.0,
@@ -45,12 +45,12 @@ public enum MetricKind {
         return format;
     }
 
-    /** Fixed top of the y range (100 for percentages), or null to fit the data. */
+    /** y 범위의 고정된 상단(백분율은 100). 데이터에 맞추려면 null. */
     Double yMax() {
         return yMax;
     }
 
-    /** One sample list per series, in {@link #series()} order. */
+    /** 시리즈마다 샘플 목록 하나. {@link #series()} 순서대로. */
     List<List<Metrics.Sample>> select(Metrics metrics) {
         return select.apply(metrics);
     }

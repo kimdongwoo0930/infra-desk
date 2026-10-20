@@ -26,3 +26,6 @@ accounts.json
 secrets/
 *.env
 .env*
+
+# 로컬 IDE MCP 설정
+.mcp.json

@@ -11,13 +11,13 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * Reads OpenSSH client config ({@code ~/.ssh/config}) to suggest SSH settings for a server.
- * Supports Host blocks with wildcards, HostName, User, Port and IdentityFile with "first value
- * wins" semantics like {@code ssh}. Match, Include and other directives are ignored.
+ * OpenSSH 클라이언트 설정({@code ~/.ssh/config})을 읽어 서버의 SSH 설정을 추천한다.
+ * 와일드카드가 있는 Host 블록, HostName, User, Port, IdentityFile을 지원하며
+ * {@code ssh}처럼 "첫 번째 값이 우선"으로 처리한다. Match, Include 등 다른 지시어는 무시한다.
  */
 public final class SshConfig {
 
-    /** What the config says about connecting to a host. */
+    /** 호스트에 연결하는 방법에 대해 설정이 말해주는 내용. */
     public record Suggestion(String alias, String user, Integer port, Path identityFile) {
     }
 
@@ -32,7 +32,7 @@ public final class SshConfig {
         this.home = home;
     }
 
-    /** Parses the file; a missing or unreadable file gives an empty config. */
+    /** 파일을 파싱한다. 파일이 없거나 읽을 수 없으면 빈 설정을 돌려준다. */
     public static SshConfig load(Path file, Path home) {
         try {
             return parse(Files.readAllLines(file, StandardCharsets.UTF_8), home);
@@ -65,7 +65,7 @@ public final class SshConfig {
                 current = new Block(List.of(value.split("\\s+")), new ArrayList<>());
                 blocks.add(current);
             } else if (key.equals("match")) {
-                // Unsupported: skip options until the next Host.
+                // 지원하지 않음: 다음 Host까지 옵션을 건너뛴다.
                 current = new Block(List.of(), new ArrayList<>());
                 blocks.add(current);
             } else {
@@ -76,8 +76,8 @@ public final class SshConfig {
     }
 
     /**
-     * Finds the Host whose HostName (or alias) is {@code address} and resolves its settings.
-     * Falls back to an alias equal to {@code serverName}.
+     * HostName(또는 별칭)이 {@code address}인 Host를 찾아 설정을 해석한다.
+     * 못 찾으면 {@code serverName}과 같은 별칭으로 대체한다.
      */
     public Optional<Suggestion> suggest(String address, String serverName) {
         String alias = null;
@@ -104,7 +104,7 @@ public final class SshConfig {
         return alias == null ? Optional.empty() : Optional.of(resolve(alias, address));
     }
 
-    /** OpenSSH semantics: walk blocks in order, first value for each option wins. */
+    /** OpenSSH 규칙: 블록을 순서대로 훑고, 각 옵션은 첫 번째 값이 우선한다. */
     private Suggestion resolve(String alias, String address) {
         String user = null;
         Integer port = null;
@@ -121,7 +121,7 @@ public final class SshConfig {
                             try {
                                 port = Integer.parseInt(o[1]);
                             } catch (NumberFormatException ignored) {
-                                // Leave unset.
+                                // 설정하지 않은 채로 둔다.
                             }
                         }
                     }

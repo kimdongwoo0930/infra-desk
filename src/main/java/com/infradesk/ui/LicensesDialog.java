@@ -12,7 +12,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
 
-/** Shows InfraDesk's MIT license and the generated third-party notices. */
+/** InfraDesk의 MIT 라이선스와 생성된 서드파티 고지문을 보여준다. */
 final class LicensesDialog extends JDialog {
 
     LicensesDialog(Window owner) {
