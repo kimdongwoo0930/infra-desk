@@ -57,10 +57,10 @@ OCI API 요청 제한을 지키려고 평소엔 느리게, 필요할 때만 빠�
 
 | 클래스 | 역할 |
 |---|---|
-| `TerminalService` | 서버별 SSH 설정·키 저장, 셸 열기(`open`), 명령 한 번 실행(`run`: 제한 시간·출력 상한), SFTP 열기(`openFiles`), 이 컴퓨터 폴더(`localFiles`), 저장된 명령어, 서버 정보 읽기(`facts`). 실제 SSH 연결은 `ssh.ShellConnector`에 맡긴다 |
+| `TerminalService` | 서버별 SSH 설정·키 저장(저장·삭제하면 그 서버의 풀 연결을 끊는다), 셸 열기(`open`, 풀 밖), 명령 한 번 실행(`run`: 목적 지정, 제한 시간·출력 상한), SFTP 열기(`openFiles` = FILES, `openTransferFiles` = TRANSFER), 이 컴퓨터 폴더(`localFiles`), 저장된 명령어, 서버 정보 읽기(`facts`). 실제 SSH 연결은 `ssh.ShellConnector`에 맡긴다 |
 | `ContainerService` | 컨테이너 목록·시작/정지/재시작·로그. `TerminalService.run`으로 `docker` 명령을 실행한다 |
 | `LiveStats` | 실시간 모드. SSH exec 세션의 출력을 읽어 2초마다 `ProcStats.Sample`을 알린다 |
-| `SshMetricsService` | 클라우드 메트릭이 없는 직접 연결 서버용. 분당 한 번 짧은 SSH 명령으로 CPU·메모리를 재서 최근 1시간을 메모리에 보관한다. 접속 횟수는 `SamplingGate`가 제한한다(아래) |
+| `SshMetricsService` | 클라우드 메트릭이 없는 직접 연결 서버용. 분당 한 번 짧은 SSH 명령으로 CPU·메모리를 재서 최근 1시간을 메모리에 보관한다. 접속은 `QUERY` 연결을 재사용하고, 접속을 시도해도 되는지는 `SamplingGate`가 정한다(아래) |
 
 `TerminalService.target(server)`가 SSH 접속 정보(`SshTarget`: 호스트, 포트, 사용자, 개인키)를 만든다. 호스트는 서버의 공인 IP, 사용자·포트는 `SshSettingsStore`, 개인키는 `SecretStore`에서 가져온다. 하나라도 없으면 한국어 안내 메시지가 담긴 `SshException`을 던진다.
 

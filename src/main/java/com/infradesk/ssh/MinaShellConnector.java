@@ -13,6 +13,7 @@ import org.apache.sshd.common.NamedResource;
 import org.apache.sshd.common.config.keys.FilePasswordProvider;
 import org.apache.sshd.common.config.keys.KeyUtils;
 import org.apache.sshd.common.util.security.SecurityUtils;
+import org.apache.sshd.core.CoreModuleProperties;
 import org.apache.sshd.sftp.client.SftpClient;
 import org.apache.sshd.sftp.client.SftpClientFactory;
 
@@ -26,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.KeyPair;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.EnumSet;
 import java.util.Iterator;
@@ -34,11 +36,18 @@ import java.util.Set;
 /**
  * Apache MINA SSHD 기반 SSH 셸. 호스트 키는 앱 설정 디렉터리의 {@code known_hosts}와 대조한다.
  * 모르는 키는 {@link HostKeyPrompt}로 넘기고, 바뀐 키는 거부한다.
+ *
+ * <p>조회·명령·SFTP는 {@link SessionPool}에서 서버·목적별로 연결을 재사용한다. 터미널 탭({@code open})은 사용자가
+ * 열고 닫는 연결이라 풀 밖에서 따로 맺는다.
  */
 public class MinaShellConnector implements ShellConnector, AutoCloseable {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration AUTH_TIMEOUT = Duration.ofSeconds(15);
+    /** 풀 연결이 살아 있는지 확인하는 주기. 끊어진 연결을 빨리 알아채려는 것이다. */
+    private static final Duration HEARTBEAT = Duration.ofSeconds(30);
+    /** 응답을 요구하고, 응답이 이만큼 연속으로 없으면 연결이 죽은 것으로 보고 세션을 닫는다(약 1~1.5분 안에 감지). */
+    private static final int HEARTBEAT_NO_REPLY_MAX = 2;
 
     /** 연결별 상태. 호스트 키 검사는 MINA의 I/O 스레드에서 실행되므로 연결과 함께 전달한다. */
     private static final class Attempt {
@@ -53,12 +62,36 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
 
     private static final AttributeRepository.AttributeKey<Attempt> ATTEMPT = new AttributeRepository.AttributeKey<>();
 
+    /** 터미널 탭용. heartbeat가 없고 사용자가 열고 닫는 연결을 맺는다. */
     private final SshClient client;
+    /**
+     * 풀 연결용. 오래 열어 두므로 heartbeat를 켠다. MINA는 heartbeat 설정을 세션이 만들어질 때 읽어 가서 세션마다
+     * 바꿀 수 없다. 그래서 설정이 다른 클라이언트를 따로 둔다.
+     */
+    private final SshClient pooledClient;
     private final Path knownHosts;
+    private final SessionPool pool;
 
     public MinaShellConnector(Path knownHosts) {
+        this(knownHosts, Clock.systemUTC(), HEARTBEAT, true);
+    }
+
+    /** 테스트용: 시계와 heartbeat 간격을 바꾸고, 풀의 자동 정리를 끌 수 있다. */
+    MinaShellConnector(Path knownHosts, Clock clock, Duration heartbeat, boolean autoMaintain) {
         this.knownHosts = knownHosts;
-        this.client = SshClient.setUpDefaultClient();
+        this.client = newClient();
+        this.pooledClient = newClient();
+        CoreModuleProperties.HEARTBEAT_REQUEST.set(pooledClient, "keepalive@openssh.com");
+        CoreModuleProperties.HEARTBEAT_NO_REPLY_MAX.set(pooledClient, HEARTBEAT_NO_REPLY_MAX);
+        CoreModuleProperties.HEARTBEAT_INTERVAL.set(pooledClient, heartbeat);
+        client.start();
+        pooledClient.start();
+        this.pool = new SessionPool((target, prompt) -> connect(target, prompt, true), clock, autoMaintain);
+    }
+
+    /** 호스트 키 검사를 붙인 클라이언트. 아직 시작하지 않았다. */
+    private SshClient newClient() {
+        SshClient c = SshClient.setUpDefaultClient();
         KnownHostsServerKeyVerifier verifier = new KnownHostsServerKeyVerifier(this::askUnknownHost, knownHosts);
         verifier.setModifiedServerKeyAcceptor((session, address, entry, expected, actual) -> {
             Attempt attempt = attemptOf(session);
@@ -67,8 +100,8 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
             }
             return false;
         });
-        client.setServerKeyVerifier(verifier);
-        client.start();
+        c.setServerKeyVerifier(verifier);
+        return c;
     }
 
     private static Attempt attemptOf(ClientSession session) {
@@ -90,7 +123,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
 
     @Override
     public ShellSession open(SshTarget target, HostKeyPrompt prompt, int columns, int rows) {
-        return withSession(target, prompt, session -> {
+        return withOwnedSession(target, prompt, session -> {
             ChannelShell channel = session.createShellChannel();
             channel.setPtyType("xterm-256color");
             channel.setPtyColumns(columns);
@@ -98,13 +131,13 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
             channel.setEnv("LANG", "en_US.UTF-8");
             channel.setRedirectErrorStream(true);
             channel.open().verify(CONNECT_TIMEOUT);
-            return new MinaShellSession(session, channel, target.address());
+            return new MinaShellSession(SessionPool.owning(session), channel, target.address());
         });
     }
 
     @Override
     public ShellSession open(SshTarget target, HostKeyPrompt prompt, int columns, int rows, String command) {
-        return withSession(target, prompt, session -> {
+        return withOwnedSession(target, prompt, session -> {
             ChannelExec channel = session.createExecChannel(command);
             channel.setUsePty(true);
             channel.setPtyType("xterm-256color");
@@ -113,48 +146,139 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
             channel.setEnv("LANG", "en_US.UTF-8");
             channel.setRedirectErrorStream(true);
             channel.open().verify(CONNECT_TIMEOUT);
-            return new MinaShellSession(session, channel, target.address());
+            return new MinaShellSession(SessionPool.owning(session), channel, target.address());
         });
     }
 
+    /** 목적을 밝히지 않은 명령은 서버를 바꿀 수 있다고 보고 {@link Purpose#COMMAND}로 실행한다(자동으로 다시 시도하지 않는다). */
     @Override
     public ShellSession exec(SshTarget target, HostKeyPrompt prompt, String command) {
-        return withSession(target, prompt, session -> {
-            ChannelExec channel = session.createExecChannel(command);
-            channel.setRedirectErrorStream(true);
-            channel.open().verify(CONNECT_TIMEOUT);
-            return new MinaShellSession(session, channel, target.address());
+        return exec(Purpose.COMMAND, target, prompt, command);
+    }
+
+    @Override
+    public ShellSession exec(Purpose purpose, SshTarget target, HostKeyPrompt prompt, String command) {
+        return pooled(purpose, target, prompt, lease -> {
+            ChannelExec channel = lease.session().createExecChannel(command);
+            try {
+                channel.setRedirectErrorStream(true);
+                channel.open().verify(CONNECT_TIMEOUT);
+            } catch (IOException | RuntimeException e) {
+                channel.close(true);
+                throw e;
+            }
+            return new MinaShellSession(lease, channel, target.address());
         });
     }
 
     @Override
     public RemoteFiles sftp(SshTarget target, HostKeyPrompt prompt) {
-        return withSession(target, prompt, session -> {
+        return sftp(Purpose.FILES, target, prompt);
+    }
+
+    @Override
+    public RemoteFiles sftp(Purpose purpose, SshTarget target, HostKeyPrompt prompt) {
+        return pooled(purpose, target, prompt, lease -> {
             try {
-                return new MinaRemoteFiles(session, SftpClientFactory.instance().createSftpClient(session));
+                return new MinaRemoteFiles(lease, SftpClientFactory.instance().createSftpClient(lease.session()));
             } catch (IOException e) {
+                if (!lease.session().isOpen()) {
+                    throw new SshException(SshException.Kind.CONNECT, "서버와의 연결이 끊어져 있었어요. 다시 시도하세요.", e);
+                }
                 throw new SshException(SshException.Kind.CHANNEL,
                         "SFTP를 열지 못했어요. 서버에서 SFTP 서브시스템이 꺼져 있을 수 있어요.", e);
             }
         });
     }
 
+    @Override
+    public void setBackground(boolean background) {
+        pool.setBackground(background);
+    }
+
+    /** 테스트용: 풀이 정리를 한 번 하게 한다(수명·유휴 시간이 지난 연결을 닫는다). */
+    void maintainPool() {
+        pool.maintain();
+    }
+
+    /** 테스트용: 지금 열려 있는 풀 연결 수. */
+    int pooledConnections() {
+        return pool.openCount();
+    }
+
+    @Override
+    public void invalidate(String serverId) {
+        pool.invalidate(serverId);
+    }
+
     private interface SessionTask<T> {
         T run(ClientSession session) throws IOException;
     }
 
-    /** 연결하고 인증한 뒤 세션을 {@code task}에 넘긴다. 실패하면 정리한다. */
-    private <T> T withSession(SshTarget target, HostKeyPrompt prompt, SessionTask<T> task) {
+    private interface LeaseTask<T> {
+        T run(SessionPool.SessionLease lease) throws IOException;
+    }
+
+    /**
+     * 풀 밖에서 연결을 맺고 작업을 한다(터미널 탭). 작업이 실패하면 연결을 닫는다. 성공하면 연결은
+     * 결과(셸)가 쥐고 있다가 닫을 때 같이 닫는다.
+     */
+    private <T> T withOwnedSession(SshTarget target, HostKeyPrompt prompt, SessionTask<T> task) {
+        ClientSession session = connect(target, prompt, false);
+        try {
+            return task.run(session);
+        } catch (SshException e) {
+            session.close(true);
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            session.close(true);
+            throw translate(target, new Attempt(prompt), e);
+        }
+    }
+
+    /**
+     * 풀에서 연결을 빌려 작업을 한다. 재사용하던 연결이 죽어 있어서 채널을 못 열면, 조회(QUERY)만 그 연결을 버리고
+     * 새로 맺어 <b>한 번만</b> 다시 시도한다. 새로 맺은 연결에서 난 실패는 다시 시도하지 않는다(접속 실패가
+     * 두 배로 쌓이지 않게). 일괄 실행처럼 서버를 바꾸는 명령은 이미 실행됐을 수 있어서 다시 시도하지 않는다.
+     */
+    private <T> T pooled(Purpose purpose, SshTarget target, HostKeyPrompt prompt, LeaseTask<T> task) {
+        SessionPool.SessionLease lease = pool.acquire(purpose, target, prompt);
+        try {
+            return task.run(lease);
+        } catch (SshException e) {
+            lease.close();
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            if (!(purpose.retriesOnce() && lease.reused())) {
+                lease.close();
+                throw translate(target, new Attempt(prompt), e);
+            }
+            lease.discard();
+        }
+        SessionPool.SessionLease fresh = pool.acquire(purpose, target, prompt);
+        try {
+            return task.run(fresh);
+        } catch (SshException e) {
+            fresh.close();
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            fresh.close();
+            throw translate(target, new Attempt(prompt), e);
+        }
+    }
+
+    /** 연결하고 인증까지 끝낸 세션을 돌려준다. 실패하면 정리한다. */
+    private ClientSession connect(SshTarget target, HostKeyPrompt prompt, boolean pooled) {
         KeyPair identity = loadKey(target);
         Attempt attempt = new Attempt(prompt);
         ClientSession session = null;
         try {
-            session = client.connect(target.username(), target.host(), target.port(),
+            session = (pooled ? pooledClient : client).connect(target.username(), target.host(), target.port(),
                             AttributeRepository.ofKeyValuePair(ATTEMPT, attempt))
                     .verify(CONNECT_TIMEOUT).getSession();
             session.addPublicKeyIdentity(identity);
             session.auth().verify(AUTH_TIMEOUT);
-            return task.run(session);
+            return session;
         } catch (SshException e) {
             if (session != null) {
                 session.close(true);
@@ -168,14 +292,14 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         }
     }
 
-    /** 인증된 세션 위의 SFTP. 닫으면 세션도 닫힌다. */
+    /** 연결 위의 SFTP 채널. 닫으면 채널만 닫고 연결은 풀에 돌려준다. */
     private static final class MinaRemoteFiles implements RemoteFiles {
 
-        private final ClientSession session;
+        private final SessionPool.SessionLease lease;
         private final SftpClient sftp;
 
-        MinaRemoteFiles(ClientSession session, SftpClient sftp) {
-            this.session = session;
+        MinaRemoteFiles(SessionPool.SessionLease lease, SftpClient sftp) {
+            this.lease = lease;
             this.sftp = sftp;
         }
 
@@ -326,7 +450,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
                 sftp.close();
             } catch (IOException ignored) {
             }
-            session.close(false);
+            lease.close();
         }
     }
 
@@ -374,18 +498,20 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
 
     @Override
     public void close() {
+        pool.close();
+        pooledClient.stop();
         client.stop();
     }
 
     /** 열려 있는 MINA 채널 위의 셸. */
     private static final class MinaShellSession implements ShellSession {
 
-        private final ClientSession session;
+        private final SessionPool.SessionLease lease;
         private final ClientChannel channel;
         private final String address;
 
-        MinaShellSession(ClientSession session, ClientChannel channel, String address) {
-            this.session = session;
+        MinaShellSession(SessionPool.SessionLease lease, ClientChannel channel, String address) {
+            this.lease = lease;
             this.channel = channel;
             this.address = address;
         }
@@ -432,7 +558,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         @Override
         public void close() {
             channel.close(false);
-            session.close(false);
+            lease.close();
         }
     }
 }

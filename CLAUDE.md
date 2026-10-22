@@ -39,7 +39,7 @@ app/              진입점, 구성 요소 조립
 3. **상태값 정규화**: 클라우드별 상태 문자열을 공통 enum `ServerStatus`(RUNNING, STOPPED, STARTING, STOPPING, UNKNOWN 등)로 변환한다.
 4. **계정에 provider 필드**: `Account`는 `provider`(ORACLE, AWS, ...) 값을 가지고, 이 값으로 구현체를 선택한다.
 5. **SSH는 클라우드와 무관**: SSH, SFTP, Docker 관리는 `CloudProvider`와 분리된 계층이다.
-6. **SSH 연결 규칙**: 서버 접속은 세션 풀을 통해서만 한다. 호출마다 새로 접속하지 않는다. (세션 풀 도입 전까지는 새 코드에서 접속 횟수를 늘리지 않는다.)
+6. **SSH 연결 규칙**: 서버 접속은 `ssh/SessionPool`을 통해서만 한다. 새 코드는 `Purpose`(QUERY/COMMAND/FILES/TRANSFER)를 밝혀서 연결을 빌리고, 호출마다 새로 접속하지 않는다. 서버를 바꾸는 명령(COMMAND)은 자동으로 다시 시도하지 않는다. 터미널 탭만 풀 밖에서 따로 열고 닫는다. 자세한 규칙은 `docs/architecture/ssh.md`의 "접속 풀".
 7. **UI 스레드**: 네트워크 호출은 절대 EDT에서 하지 않는다. `SwingWorker`나 별도 executor를 쓰고 결과만 EDT로 넘긴다.
 
 ## 보안 규칙

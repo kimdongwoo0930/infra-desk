@@ -4,6 +4,7 @@ import com.infradesk.core.Metrics;
 import com.infradesk.core.Server;
 import com.infradesk.ssh.ExecResult;
 import com.infradesk.ssh.ProcStats;
+import com.infradesk.ssh.Purpose;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -63,7 +64,7 @@ public class SshMetricsService {
         if (!canSample(server) || !gate.tryAcquire(server.id(), windowVisible)) {
             return Optional.empty();
         }
-        ExecResult r = terminal.run(server, ProcStats.ONE_SHOT, (host, port, type, fingerprint) -> false, TIMEOUT);
+        ExecResult r = terminal.run(Purpose.QUERY, server, ProcStats.ONE_SHOT, (host, port, type, fingerprint) -> false, TIMEOUT);
         Optional<ProcStats.Sample> sample = ProcStats.parseOneShot(r.output(), clock.instant());
         if (sample.isEmpty()) {
             boolean stopped = gate.failure(server.id(), r.failureKind());

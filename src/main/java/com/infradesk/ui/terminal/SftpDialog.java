@@ -82,7 +82,7 @@ public final class SftpDialog extends JDialog {
         this.service = service;
         this.server = server;
         this.remotePane = new FilePane("서버 · " + server.name(), "원격 경로");
-        this.queue = new TransferQueue(() -> service.openFiles(server, new HostKeyDialog(this)),
+        this.queue = new TransferQueue(() -> service.openTransferFiles(server, new HostKeyDialog(this)),
                 job -> SwingUtilities.invokeLater(() -> onJobChanged(job)));
         this.transfers = new TransferPanel(queue);
 

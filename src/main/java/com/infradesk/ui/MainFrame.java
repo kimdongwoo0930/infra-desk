@@ -120,6 +120,19 @@ public class MainFrame extends JFrame {
         this.demoMode = demoMode;
         this.titleBar = new TitleBar(demoMode);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        // X로 닫아 메뉴 막대에만 있을 때(HIDE_ON_CLOSE)는 SSH 풀에서 조회 연결만 남기고 나머지는 쓰는 대로 닫는다.
+        // Dock으로 최소화(iconify)하는 것과는 다른 상태라서 창이 숨고 보일 때의 이벤트로 알린다.
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentHidden(java.awt.event.ComponentEvent e) {
+                terminalService.setBackground(true);
+            }
+
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                terminalService.setBackground(false);
+            }
+        });
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
