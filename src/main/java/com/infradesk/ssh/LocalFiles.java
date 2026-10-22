@@ -22,9 +22,18 @@ public final class LocalFiles {
     private final Path home;
     private final Path root;
 
-    /** 사용자의 홈 폴더에서 시작한다. 제한 없음. */
+    /**
+     * 사용자의 다운로드 폴더에서 시작한다(없으면 홈 폴더). 제한 없음. 서버 파일을 내려받으면 왼쪽 패널의
+     * 현재 폴더에 저장되므로, 시작 위치가 곧 기본 다운로드 위치다.
+     */
     public static LocalFiles userHome() {
-        return new LocalFiles(Path.of(System.getProperty("user.home")), null);
+        return new LocalFiles(startFolder(Path.of(System.getProperty("user.home"))), null);
+    }
+
+    /** {@code home} 아래 {@code Downloads} 폴더가 있으면 그것, 없으면 {@code home}. macOS와 Windows 모두 이 이름이다. */
+    static Path startFolder(Path home) {
+        Path downloads = home.resolve("Downloads");
+        return Files.isDirectory(downloads) ? downloads : home;
     }
 
     /** {@code root} 아래만 볼 수 있다. {@code home}은 그 안에 있어야 한다. */
