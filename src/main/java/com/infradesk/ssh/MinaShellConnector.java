@@ -78,6 +78,16 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
 
     /** 테스트용: 시계와 heartbeat 간격을 바꾸고, 풀의 자동 정리를 끌 수 있다. */
     MinaShellConnector(Path knownHosts, Clock clock, Duration heartbeat, boolean autoMaintain) {
+        this(knownHosts, clock, heartbeat, autoMaintain, null);
+    }
+
+    /** 테스트용: 연결을 맺는 부분을 바꿔 끼운다(예: 채널을 못 여는 가짜 연결로 재시도 규칙을 확인). */
+    MinaShellConnector(Path knownHosts, Clock clock, SessionPool.Connector connectOverride) {
+        this(knownHosts, clock, HEARTBEAT, false, connectOverride);
+    }
+
+    private MinaShellConnector(Path knownHosts, Clock clock, Duration heartbeat, boolean autoMaintain,
+                               SessionPool.Connector connectOverride) {
         this.knownHosts = knownHosts;
         this.client = newClient();
         this.pooledClient = newClient();
@@ -86,7 +96,8 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         CoreModuleProperties.HEARTBEAT_INTERVAL.set(pooledClient, heartbeat);
         client.start();
         pooledClient.start();
-        this.pool = new SessionPool((target, prompt) -> connect(target, prompt, true), clock, autoMaintain);
+        this.pool = new SessionPool(connectOverride != null ? connectOverride : (target, prompt) -> connect(target, prompt, true),
+                clock, autoMaintain);
     }
 
     /** 호스트 키 검사를 붙인 클라이언트. 아직 시작하지 않았다. */
