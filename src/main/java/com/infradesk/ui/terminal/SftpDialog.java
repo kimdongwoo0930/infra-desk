@@ -68,10 +68,13 @@ public final class SftpDialog extends JDialog {
     private final JButton newRemote = Buttons.secondary("새 폴더", "plus");
     private final JButton deleteRemote = Buttons.danger("삭제", "trash");
     private final JButton edit = Buttons.secondary("편집", "file");
+    private final JButton editLocal = Buttons.secondary("편집", "file");
     private final Set<Long> reloaded = new HashSet<>();
     private final List<EditSession> edits = new ArrayList<>();
     private final javax.swing.Timer editTimer = new javax.swing.Timer(1000, e -> checkEdits());
     private Path editRoot;
+    /** 더블클릭·버튼으로 받은 파일이 저장되는 폴더(보통 Downloads). 끌어서 놓기는 놓은 곳에 저장된다. */
+    private Path downloadDir;
     private int editSeq;
 
     /** 탐색·파일 작업용 연결. 전송은 {@link #queue}가 따로 연결을 맺는다. */
@@ -92,7 +95,9 @@ public final class SftpDialog extends JDialog {
         newRemote.addActionListener(e -> newFolder(remotePane));
         deleteLocal.addActionListener(e -> delete(localPane));
         deleteRemote.addActionListener(e -> delete(remotePane));
+        editLocal.addActionListener(e -> editLocal());
         localPane.addAction(upload);
+        localPane.addAction(editLocal);
         localPane.addAction(newLocal);
         localPane.addAction(deleteLocal);
         edit.addActionListener(e -> edit());
@@ -176,6 +181,7 @@ public final class SftpDialog extends JDialog {
     private void connect() {
         LocalFiles local = service.localFiles();
         localPane.attach(FilePane.local(local), local.home());
+        downloadDir = Path.of(local.home());
 
         status.setText("SFTP 연결 중…");
         Async.run(() -> {
@@ -199,9 +205,12 @@ public final class SftpDialog extends JDialog {
         uploadItems(localPane.selection(), remotePane.cwd(), true);
     }
 
-    /** 서버에서 고른 파일·폴더를 이 컴퓨터의 현재 폴더로 받는다. */
+    /**
+     * 서버에서 고른 파일·폴더를 다운로드 폴더로 받는다(더블클릭, 버튼, 우클릭 메뉴). 왼쪽 패널이 어느 폴더를
+     * 보고 있든 같은 곳에 쌓인다. 원하는 폴더에 받으려면 그 폴더로 끌어다 놓는다.
+     */
     private void download() {
-        downloadItems(remotePane.selection(), localPane.cwd(), true);
+        downloadItems(remotePane.selection(), downloadDir == null ? null : downloadDir.toString(), true);
     }
 
     /**
@@ -235,16 +244,22 @@ public final class SftpDialog extends JDialog {
         status.setText(queued + "개 항목을 서버로 올려요");
     }
 
-    private void downloadItems(List<RemoteFile> items, String localDirPath, boolean inCurrentFolder) {
+    /**
+     * @param askConflicts 같은 이름이 이미 있는지 미리 묻는다. 아니면(폴더 행에 끌어다 놓은 경우) 덮어쓰지 않고
+     *                     겹치는 파일은 건너뛴다
+     */
+    private void downloadItems(List<RemoteFile> items, String localDirPath, boolean askConflicts) {
         if (!canTransfer() || items.isEmpty() || localDirPath == null) {
             return;
         }
         Path localDir = Path.of(localDirPath);
         List<RemoteFile> conflicts = List.of();
         Decision decision = Decision.SKIP_NONE;
-        if (inCurrentFolder) {
-            Set<String> existing = localPane.names();
-            conflicts = items.stream().filter(f -> existing.contains(RemoteFiles.safeLocalName(f.name()))).toList();
+        if (askConflicts) {
+            // 받을 폴더가 왼쪽 패널에 보이는 폴더와 다를 수 있으니 패널 목록이 아니라 실제 폴더를 본다.
+            conflicts = items.stream()
+                    .filter(f -> java.nio.file.Files.exists(localDir.resolve(RemoteFiles.safeLocalName(f.name()))))
+                    .toList();
             decision = conflicts.isEmpty() ? Decision.SKIP_NONE : askConflict(conflicts, "내 컴퓨터");
         }
         if (decision == Decision.CANCEL) {
@@ -260,7 +275,8 @@ public final class SftpDialog extends JDialog {
             queued++;
         }
         status.setForeground(Theme.TEXT_MUTED);
-        status.setText(queued + "개 항목을 내 컴퓨터로 받아요");
+        status.setText(queued + "개 항목을 '" + (localDir.getFileName() == null ? localDir : localDir.getFileName())
+                + "' 폴더로 받아요");
     }
 
     // ---- 끌어서 놓기 ----
@@ -670,6 +686,22 @@ public final class SftpDialog extends JDialog {
         }, () -> { });
     }
 
+    /** 내 컴퓨터 쪽 파일을 이 컴퓨터의 편집기로 바로 연다. 서버와 주고받을 것이 없으니 복사본을 만들지 않는다. */
+    private void editLocal() {
+        List<RemoteFile> selection = localPane.selection();
+        if (selection.size() != 1 || selection.get(0).directory()) {
+            return;
+        }
+        Path file = Path.of(selection.get(0).path());
+        try {
+            ExternalEditor.open(file);
+            status.setForeground(Theme.TEXT_MUTED);
+            status.setText("'" + file.getFileName() + "'을(를) 편집기로 열었어요");
+        } catch (IOException e) {
+            showError("편집기를 열지 못했어요: " + file.getFileName());
+        }
+    }
+
     private void openEditor(EditSession s) {
         try {
             ExternalEditor.open(s.local);
@@ -755,6 +787,7 @@ public final class SftpDialog extends JDialog {
             addItem(menu, "편집", pane.ready() && selection.size() == 1 && !selection.get(0).directory(), this::edit);
         } else {
             addItem(menu, "서버로 업로드", canTransfer() && any, this::upload);
+            addItem(menu, "편집", pane.ready() && selection.size() == 1 && !selection.get(0).directory(), this::editLocal);
         }
         menu.addSeparator();
         addItem(menu, "새 폴더…", pane.ready(), () -> newFolder(pane));
@@ -788,6 +821,7 @@ public final class SftpDialog extends JDialog {
         upload.setEnabled(transferable && !local.isEmpty());
         download.setEnabled(transferable && !remote.isEmpty());
         edit.setEnabled(files != null && remotePane.ready() && remote.size() == 1 && !remote.get(0).directory());
+        editLocal.setEnabled(localPane.ready() && local.size() == 1 && !local.get(0).directory());
         newLocal.setEnabled(localPane.ready());
         deleteLocal.setEnabled(localPane.ready() && !local.isEmpty());
         newRemote.setEnabled(remotePane.ready());

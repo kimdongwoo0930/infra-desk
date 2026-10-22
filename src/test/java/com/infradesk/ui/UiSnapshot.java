@@ -288,6 +288,44 @@ public final class UiSnapshot {
         } catch (ReflectiveOperationException ex) {
             throw new RuntimeException(ex);
         }
+        // 내 컴퓨터 파일 편집: 서버를 거치지 않고 그 파일 자체를 편집기로 연다("편집" 버튼은 왼쪽이 먼저 나온다).
+        java.nio.file.Path localHome = java.nio.file.Path.of(InfraDeskApp.demoTerminalService().localFiles().home());
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> tables = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JTable", tables);
+            javax.swing.JTable local = (javax.swing.JTable) tables.get(0);
+            for (int row = 0; row < local.getRowCount(); row++) {
+                if (local.getValueAt(row, 0).toString().contains("notes.txt")) {
+                    local.setRowSelectionInterval(row, row);
+                }
+            }
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JButton", buttons);
+            buttons.stream().map(b -> (javax.swing.AbstractButton) b)
+                    .filter(b -> "편집".equals(b.getText())).findFirst().orElseThrow().doClick();
+        });
+        Thread.sleep(500);
+        System.out.println(localHome.resolve("notes.txt").equals(edited.get())
+                ? "LOCAL-EDIT: OK (내 컴퓨터 파일을 바로 열었다)" : "LOCAL-EDIT: FAILED (" + edited.get() + ")");
+        edited.set(null);
+        // 다운로드 버튼(더블클릭과 같은 동작)은 왼쪽 패널이 어느 폴더에 있든 다운로드 폴더(데모는 시작 폴더)로 받는다.
+        try {
+            java.lang.reflect.Field paneField = sftp[0].getClass().getDeclaredField("localPane");
+            paneField.setAccessible(true);
+            Object leftPane = paneField.get(sftp[0]);
+            java.lang.reflect.Method open = leftPane.getClass().getDeclaredMethod("open", String.class);
+            open.setAccessible(true);
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    open.invoke(leftPane, localHome.resolve("Documents").toString());
+                } catch (ReflectiveOperationException ex) {
+                    throw new RuntimeException(ex);
+                }
+            });
+        } catch (ReflectiveOperationException ex) {
+            throw new RuntimeException(ex);
+        }
+        Thread.sleep(800);
         SwingUtilities.invokeAndWait(() -> {
             List<java.awt.Component> tables = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JTable", tables);
@@ -300,7 +338,26 @@ public final class UiSnapshot {
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
             buttons.stream().map(b -> (javax.swing.AbstractButton) b)
-                    .filter(b -> "편집".equals(b.getText())).findFirst().orElseThrow().doClick();
+                    .filter(x -> "내 컴퓨터로 다운로드".equals(x.getText())).findFirst().orElseThrow().doClick();
+        });
+        Thread.sleep(2500);
+        boolean inHome = java.nio.file.Files.exists(localHome.resolve("README.md"));
+        boolean inPaneFolder = java.nio.file.Files.exists(localHome.resolve("Documents").resolve("README.md"));
+        System.out.println(inHome && !inPaneFolder ? "DOWNLOAD-DIR: OK (패널이 Documents에 있어도 다운로드 폴더로 받았다)"
+                : "DOWNLOAD-DIR: FAILED (다운로드 폴더 " + inHome + ", 패널 폴더 " + inPaneFolder + ")");
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> tables = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JTable", tables);
+            javax.swing.JTable remote = (javax.swing.JTable) tables.get(1);
+            for (int row = 0; row < remote.getRowCount(); row++) {
+                if (remote.getValueAt(row, 0).toString().contains("README.md")) {
+                    remote.setRowSelectionInterval(row, row);
+                }
+            }
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JButton", buttons);
+            buttons.stream().map(b -> (javax.swing.AbstractButton) b)
+                    .filter(b -> "편집".equals(b.getText())).reduce((first, second) -> second).orElseThrow().doClick();
         });
         Thread.sleep(1500);
         java.nio.file.Path tempCopy = edited.get();
