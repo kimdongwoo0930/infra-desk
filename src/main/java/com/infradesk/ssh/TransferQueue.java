@@ -8,9 +8,11 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -80,6 +82,12 @@ public final class TransferQueue implements AutoCloseable {
         private final Map<String, String> fingerprints = new HashMap<>();
         private final Set<Path> localPartials = new HashSet<>();
         private final Set<String> remotePartials = new HashSet<>();
+        /** 덮어써서 소유자가 바뀐 서버 파일의 이름. 전송이 끝난 뒤 한 번만 알리려고 모아 둔다. */
+        private final List<String> ownerChanged = new CopyOnWriteArrayList<>();
+        /** 서버가 권한을 알려주지 않아 덮어쓴 파일의 권한을 유지하지 못한 수. */
+        private volatile int permissionUnknown;
+        /** 새로 만든 서버 폴더와 줄 권한. 안에 파일을 다 올린 뒤에 적용한다(읽기 전용 폴더면 파일을 못 올리므로). */
+        private final Map<String, Integer> pendingDirModes = new LinkedHashMap<>();
 
         private Job(Direction direction, String name, String source, String targetDir, RemoteFile remote, boolean overwrite) {
             this.direction = direction;
@@ -126,6 +134,15 @@ public final class TransferQueue implements AutoCloseable {
         /** 사용자에게 보여줄 한 줄. 오류나 건너뛴 항목 같은 것. */
         public String message() {
             return message;
+        }
+
+        /** 덮어써서 소유자가 바뀐 서버 파일 수. 일반 계정은 소유자를 되돌릴 수 없어서 알려야 한다. */
+        public int ownerChangedCount() {
+            return ownerChanged.size();
+        }
+
+        public List<String> ownerChangedNames() {
+            return List.copyOf(ownerChanged);
         }
 
         public int percent() {
@@ -255,8 +272,17 @@ public final class TransferQueue implements AutoCloseable {
             } else {
                 runDownload(job, rf);
             }
-            String note = job.skipped > 0 ? "완료 · " + job.skipped + "개는 이미 있거나 링크라서 건너뛰었어요" : "완료";
-            finish(job, State.DONE, note);
+            List<String> notes = new ArrayList<>();
+            if (job.skipped > 0) {
+                notes.add(job.skipped + "개는 이미 있거나 링크라서 건너뛰었어요");
+            }
+            if (!job.ownerChanged.isEmpty()) {
+                notes.add("소유자가 바뀐 파일 " + job.ownerChanged.size() + "개");
+            }
+            if (job.permissionUnknown > 0) {
+                notes.add("서버가 권한을 알려주지 않아 유지하지 못한 파일 " + job.permissionUnknown + "개");
+            }
+            finish(job, State.DONE, notes.isEmpty() ? "완료" : "완료 · " + String.join(" · ", notes));
         } catch (CancellationException e) {
             finish(job, State.CANCELLED, "취소했어요. 다시 시도하면 이어서 전송해요");
         } catch (Exception e) {
@@ -284,16 +310,17 @@ public final class TransferQueue implements AutoCloseable {
         List<LocalEntry> entries = walkLocal(job, src);
         job.totalBytes = entries.stream().filter(e -> !e.directory).mapToLong(e -> e.size).sum();
         changed(job, true);
-        ensureRemoteDir(rf, rootRemote);
+        ensureRemoteDir(job, rf, rootRemote, localMode(src));
         for (LocalEntry e : entries) {
             checkCancel(job);
             String remotePath = RemoteFiles.join(rootRemote, e.relative);
             if (e.directory) {
-                ensureRemoteDir(rf, remotePath);
+                ensureRemoteDir(job, rf, remotePath, localMode(e.path));
             } else {
                 uploadFile(job, rf, e.path, remotePath, job.name + "/" + e.relative);
             }
         }
+        applyDirModes(job, rf);
     }
 
     private record LocalEntry(Path path, String relative, boolean directory, long size) {
@@ -334,13 +361,27 @@ public final class TransferQueue implements AutoCloseable {
         return root.relativize(p).toString().replace('\\', '/');
     }
 
+    /**
+     * 파일 하나를 올린다. <b>권한은 확인한 뒤에 정한다.</b>
+     * <ul>
+     *   <li>서버에 같은 파일이 있어 덮어쓰면 <b>기존 파일의 권한을 먼저 읽어서 그대로 유지</b>한다(600인 비밀 파일이 644가 되거나
+     *       실행 권한이 사라지지 않게).</li>
+     *   <li>새 파일이면 <b>내 컴퓨터 파일의 권한</b>을 따른다. Windows처럼 권한 정보가 없으면 서버 기본값이다.</li>
+     *   <li>임시 파일을 만들 때 <b>내용을 올리기 전에</b> 그 권한부터 맞춘다. 비밀 파일이 잠깐이라도 넓은 권한으로 올라가지 않는다.
+     *       권한을 맞추지 못하면 내용을 올리지 않고 실패한다.</li>
+     *   <li>이름을 바꾼 뒤에 다시 읽어서 <b>실제로 그 권한인지 확인</b>한다.</li>
+     *   <li>덮어써서 소유자가 바뀌면(일반 계정은 소유자를 되돌릴 수 없다) 기록해 두었다가 전송 하나가 끝나면 한 번만 알린다.</li>
+     * </ul>
+     */
     private void uploadFile(Job job, RemoteFiles rf, Path local, String remotePath, String key) throws IOException {
         long size = Files.size(local);
         if (job.completed.containsKey(key)) {
             return;
         }
         checkCancel(job);
-        boolean exists = rf.exists(remotePath);
+        String name = local.getFileName().toString();
+        RemoteFile existing = statIfExists(rf, remotePath, name);
+        boolean exists = existing != null;
         if (exists && !job.overwrite) {
             job.skipped++;
             job.doneBytes += size;
@@ -357,30 +398,132 @@ public final class TransferQueue implements AutoCloseable {
                 offset = partial;
             }
         }
+        Integer mode = exists ? (existing.permissions() >= 0 ? Integer.valueOf(existing.permissions()) : null) : localMode(local);
+        if (exists && mode == null) {
+            job.permissionUnknown++;
+        }
         job.fingerprints.put(key, fingerprint);
         job.remotePartials.add(part);
+        if (mode != null) {
+            preparePart(rf, part, mode, name);
+        }
         long before = job.doneBytes;
         rf.upload(local, part, offset, done -> {
             checkCancel(job);
             job.doneBytes = before + done;
             changed(job, false);
         });
-        if (rf.stat(part).size() != size) {
+        RemoteFile uploaded = rf.stat(part);
+        if (uploaded.size() != size) {
             throw new IOException(job.name + ": 올린 크기가 원본과 달라요");
         }
         if (exists) {
-            rf.delete(new RemoteFile(local.getFileName().toString(), remotePath, false, 0, null));
+            if (existing.uid() >= 0 && uploaded.uid() >= 0 && existing.uid() != uploaded.uid()
+                    && !job.ownerChanged.contains(key)) {
+                // 폴더 안의 같은 이름 파일을 구분하고, 다시 시도했을 때 중복으로 세지 않게 폴더 기준 경로로 기록한다.
+                job.ownerChanged.add(key);
+            }
+            rf.delete(new RemoteFile(name, remotePath, false, 0, null));
         }
         rf.rename(part, remotePath);
         job.remotePartials.remove(part);
+        if (mode != null) {
+            verifyMode(rf, remotePath, mode, name);
+        }
         job.doneBytes = before + size;
         job.completed.put(key, size);
         changed(job, false);
     }
 
-    private static void ensureRemoteDir(RemoteFiles rf, String path) throws IOException {
+    /** 서버에 이미 있는 항목의 상태. 없으면 null. 끊어진 링크처럼 상태를 못 읽으면 권한·소유자를 모르는 항목으로 돌려준다. */
+    private static RemoteFile statIfExists(RemoteFiles rf, String path, String name) throws IOException {
+        if (!rf.exists(path)) {
+            return null;
+        }
+        try {
+            return rf.stat(path);
+        } catch (IOException e) {
+            return new RemoteFile(name, path, false, 0, null);
+        }
+    }
+
+    /**
+     * 임시 파일을 내용이 없는 상태로 먼저 만들고 권한을 맞춘다. 내용은 그다음에 올라가므로, 비밀 파일이 잠깐이라도 넓은
+     * 권한으로 서버에 놓이는 순간이 없다. 맞추지 못하면 내용을 올리지 않는다(넓은 권한으로 올라가는 것보다 실패가 안전하다).
+     */
+    private static void preparePart(RemoteFiles rf, String part, int mode, String name) throws IOException {
+        try {
+            if (!rf.exists(part)) {
+                rf.createFile(part);
+            }
+            rf.chmod(part, mode);
+        } catch (IOException e) {
+            try {
+                if (rf.exists(part) && rf.stat(part).size() == 0) {
+                    rf.delete(new RemoteFile(part, part, false, 0, null));
+                }
+            } catch (IOException ignored) {
+                // 비어 있는 임시 파일이라 못 지워도 큰일은 아니다.
+            }
+            throw new IOException(name + ": 서버 파일의 권한(" + octal(mode) + ")을 설정하지 못해 올리지 않았어요", e);
+        }
+    }
+
+    /** 이름을 바꾼 뒤 서버에서 다시 읽어서 원하는 권한인지 확인한다. 다르면 한 번 바로잡아 보고, 그래도 다르면 실패로 알린다. */
+    private static void verifyMode(RemoteFiles rf, String path, int mode, String name) throws IOException {
+        int actual = rf.stat(path).permissions();
+        if (actual < 0 || actual == mode) {
+            return;
+        }
+        try {
+            rf.chmod(path, mode);
+            actual = rf.stat(path).permissions();
+        } catch (IOException ignored) {
+            // 바로잡지 못했다. 아래에서 실패로 알린다.
+        }
+        if (actual >= 0 && actual != mode) {
+            throw new IOException(name + ": 올린 뒤 권한이 " + octal(mode) + "이어야 하는데 " + octal(actual) + "(으)로 확인돼요");
+        }
+    }
+
+    private static String octal(int mode) {
+        return String.format("%03o", mode);
+    }
+
+    /** 내 컴퓨터 파일·폴더의 권한(0777 범위). Windows처럼 POSIX 권한이 없으면 null. */
+    static Integer localMode(Path path) {
+        try {
+            int mode = 0;
+            for (PosixFilePermission permission : Files.getPosixFilePermissions(path)) {
+                mode |= 1 << (8 - permission.ordinal());
+            }
+            return mode;
+        } catch (UnsupportedOperationException | IOException | SecurityException e) {
+            return null;
+        }
+    }
+
+    /** 서버에 폴더가 없으면 만든다. 새로 만든 폴더의 권한은 안에 파일을 다 올린 뒤에 적용한다. */
+    private static void ensureRemoteDir(Job job, RemoteFiles rf, String path, Integer mode) throws IOException {
         if (!rf.exists(path)) {
             rf.mkdir(path);
+            if (mode != null) {
+                job.pendingDirModes.put(path, mode);
+            }
+        }
+    }
+
+    /** 새로 만든 폴더에 내 컴퓨터 폴더의 권한을 준다. 안쪽 폴더부터(바깥 폴더 권한이 좁으면 안쪽에 못 들어가므로). */
+    private void applyDirModes(Job job, RemoteFiles rf) throws IOException {
+        List<Map.Entry<String, Integer>> entries = new ArrayList<>(job.pendingDirModes.entrySet());
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            Map.Entry<String, Integer> e = entries.get(i);
+            try {
+                rf.chmod(e.getKey(), e.getValue());
+            } catch (IOException ex) {
+                throw new IOException(e.getKey() + ": 폴더의 권한(" + octal(e.getValue()) + ")을 설정하지 못했어요", ex);
+            }
+            job.pendingDirModes.remove(e.getKey());
         }
     }
 

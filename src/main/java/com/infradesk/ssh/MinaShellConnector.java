@@ -303,6 +303,18 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         }
     }
 
+    /**
+     * 서버가 권한을 알려줬을 때만 그 값을 쓴다. 안 알려주면 -1(알 수 없음)이다. 값이 없는데 0으로 읽으면 "권한 000"으로
+     * 착각해서 파일을 열 수 없게 만들 수 있다.
+     */
+    private static int permissionsOf(SftpClient.Attributes a) {
+        return a.getFlags().contains(SftpClient.Attribute.Perms) ? a.getPermissions() & 0777 : RemoteFile.UNKNOWN_PERMISSIONS;
+    }
+
+    private static int uidOf(SftpClient.Attributes a) {
+        return a.getFlags().contains(SftpClient.Attribute.UidGid) ? a.getUserId() : RemoteFile.UNKNOWN_UID;
+    }
+
     /** 연결 위의 SFTP 채널. 닫으면 채널만 닫고 연결은 풀에 돌려준다. */
     private static final class MinaRemoteFiles implements RemoteFiles {
 
@@ -339,7 +351,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
                 }
                 files.add(new RemoteFile(name, path, dir, a.getSize(),
                         a.getModifyTime() == null ? null : a.getModifyTime().toInstant(),
-                        a.getPermissions() & 0777, a.isSymbolicLink()));
+                        permissionsOf(a), a.isSymbolicLink(), uidOf(a)));
             }
             files.sort(java.util.Comparator.comparing((RemoteFile f) -> !f.directory())
                     .thenComparing(RemoteFile::name, String.CASE_INSENSITIVE_ORDER));
@@ -365,7 +377,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
             String name = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
             name = name.substring(name.lastIndexOf('/') + 1);
             return new RemoteFile(name, path, a.isDirectory(), a.getSize(),
-                    a.getModifyTime() == null ? null : a.getModifyTime().toInstant(), a.getPermissions() & 0777, false);
+                    a.getModifyTime() == null ? null : a.getModifyTime().toInstant(), permissionsOf(a), false, uidOf(a));
         }
 
         @Override

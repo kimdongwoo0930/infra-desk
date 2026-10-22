@@ -10,14 +10,21 @@ import java.time.Instant;
  * @param permissions POSIX 권한 비트(0777 범위). 알 수 없으면 -1
  * @param symlink     심볼릭 링크인지. 링크는 따라가지 않고 링크 자체로 다룬다(재귀 삭제·전송이
  *                    링크가 가리키는 다른 곳의 파일을 건드리지 않게)
+ * @param uid         소유자 번호(SFTP는 이름이 아니라 번호만 준다). 서버가 알려주지 않으면 -1
  */
 public record RemoteFile(String name, String path, boolean directory, long size, Instant modified,
-                         int permissions, boolean symlink) {
+                         int permissions, boolean symlink, int uid) {
 
     public static final int UNKNOWN_PERMISSIONS = -1;
+    public static final int UNKNOWN_UID = -1;
 
     public RemoteFile(String name, String path, boolean directory, long size, Instant modified) {
-        this(name, path, directory, size, modified, UNKNOWN_PERMISSIONS, false);
+        this(name, path, directory, size, modified, UNKNOWN_PERMISSIONS, false, UNKNOWN_UID);
+    }
+
+    public RemoteFile(String name, String path, boolean directory, long size, Instant modified,
+                      int permissions, boolean symlink) {
+        this(name, path, directory, size, modified, permissions, symlink, UNKNOWN_UID);
     }
 
     /** {@code rwxr-xr-x} 형태. 권한을 모르면 빈 문자열. */
