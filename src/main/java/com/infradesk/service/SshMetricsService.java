@@ -56,11 +56,21 @@ public class SshMetricsService {
      * 주기는 같다(1분). 조회(QUERY) 연결은 숨어 있어도 유지되므로 열려 있는 연결에 채널만 연다.
      */
     public Optional<ProcStats.Sample> sample(Server server) {
+        return sample(server, false);
+    }
+
+    /**
+     * {@link #sample(Server)}와 같되, {@code cpuOnly}이면 CPU만 잰다. 창이 보이지 않을 때 사이드바와
+     * 트레이에 필요한 값만 가볍게 읽기 위한 것이다. 이때 메모리·네트워크 차트에는 그 시간대의 점이 비게 된다.
+     */
+    public Optional<ProcStats.Sample> sample(Server server, boolean cpuOnly) {
         if (!canSample(server) || !gate.tryAcquire(server.id())) {
             return Optional.empty();
         }
-        ExecResult r = terminal.run(Purpose.QUERY, server, ProcStats.ONE_SHOT, (host, port, type, fingerprint) -> false, TIMEOUT);
-        Optional<ProcStats.Sample> sample = ProcStats.parseOneShot(r.output(), clock.instant());
+        ExecResult r = terminal.run(Purpose.QUERY, server, cpuOnly ? ProcStats.CPU_ONLY : ProcStats.ONE_SHOT,
+                (host, port, type, fingerprint) -> false, TIMEOUT);
+        Optional<ProcStats.Sample> sample = cpuOnly ? ProcStats.parseCpuOnly(r.output(), clock.instant())
+                : ProcStats.parseOneShot(r.output(), clock.instant());
         if (sample.isEmpty()) {
             boolean stopped = gate.failure(server.id(), r.failureKind());
             if (stopped) {
@@ -95,9 +105,13 @@ public class SshMetricsService {
         }
         return new Metrics(
                 copy.stream().map(s -> new Metrics.Sample(s.time(), s.cpuPercent())).toList(),
-                copy.stream().map(s -> new Metrics.Sample(s.time(), s.memoryPercent())).toList(),
-                copy.stream().map(s -> new Metrics.Sample(s.time(), s.rxBytesPerSec())).toList(),
-                copy.stream().map(s -> new Metrics.Sample(s.time(), s.txBytesPerSec())).toList());
+                // CPU만 잰 샘플(창이 숨어 있던 때)은 메모리·네트워크 차트에서 빠진다.
+                copy.stream().filter(ProcStats.Sample::hasDetails)
+                        .map(s -> new Metrics.Sample(s.time(), s.memoryPercent())).toList(),
+                copy.stream().filter(ProcStats.Sample::hasDetails)
+                        .map(s -> new Metrics.Sample(s.time(), s.rxBytesPerSec())).toList(),
+                copy.stream().filter(ProcStats.Sample::hasDetails)
+                        .map(s -> new Metrics.Sample(s.time(), s.txBytesPerSec())).toList());
     }
 
     /** 샘플이 하나라도 있는 서버별 최신 CPU %. */

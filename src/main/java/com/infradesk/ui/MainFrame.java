@@ -85,6 +85,9 @@ public class MainFrame extends JFrame {
     private boolean trayHidden;
     /** Dock(작업 표시줄)으로 최소화한 상태. */
     private boolean iconified;
+    /** 창이 다시 보일 때 마지막으로 즉시 갱신한 시각. */
+    private java.time.Instant lastReturnRefresh = java.time.Instant.EPOCH;
+    private static final java.time.Duration RETURN_REFRESH_GAP = java.time.Duration.ofSeconds(10);
     /** 서버 id별로 SSH로 읽은 정보. 5분 동안 재사용한다. */
     private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.HostFacts>> factsCache =
             new java.util.HashMap<>();
@@ -137,6 +140,7 @@ public class MainFrame extends JFrame {
             public void componentShown(java.awt.event.ComponentEvent e) {
                 trayHidden = false;
                 updateConnectionMode();
+                refreshOnReturn();
             }
         });
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -166,6 +170,7 @@ public class MainFrame extends JFrame {
             public void windowDeiconified(java.awt.event.WindowEvent e) {
                 iconified = false;
                 updateConnectionMode();
+                refreshOnReturn();
                 if (dashboardVisible) {
                     live.resume();
                 }
@@ -449,12 +454,11 @@ public class MainFrame extends JFrame {
 
     /** 매분: 선택한 서버의 기록(실시간이 아니면)과 사이드바 CPU를 새로 고친다. */
     private void metricsTick() {
-        if (!isShowing()) {
-            // 메뉴 막대에 숨어 있을 때: 사이드바/트레이 CPU와 알림은 최신으로 유지하고 차트는 건너뛴다.
-            if (tray.isPresent()) {
-                refreshCpu();
-                sampleDirectServers(false);
-            }
+        if (windowHidden() || !isShowing()) {
+            // 메뉴 막대에 숨었거나 최소화했을 때: 사이드바/트레이 CPU와 알림은 최신으로 유지하고 차트는 건너뛴다.
+            // 직접 연결 서버는 이때 CPU만 잰다(sampleDirect).
+            refreshCpu();
+            sampleDirectServers(false);
             return;
         }
         findServer(selectedServerId).ifPresent(s -> {
@@ -489,16 +493,45 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /** 창이 사용자에게 보이지 않는 상태: X로 메뉴 막대에만 있거나 Dock으로 최소화. 다른 창에 가려진 것은 보이는 것으로 친다. */
+    private boolean windowHidden() {
+        return trayHidden || iconified;
+    }
+
+    /**
+     * 숨어 있던 창이 다시 보인다: 그동안 쌓인 낡은 값을 기다리지 않고 바로 새로 고친다. 서버 상태 목록,
+     * 사이드바 CPU, 직접 연결 서버의 전체 샘플(CPU·메모리·네트워크), 선택한 서버의 차트를 읽는다.
+     * 창을 연달아 여닫아도 쌓이지 않도록 {@link #RETURN_REFRESH_GAP} 안의 반복은 건너뛴다.
+     * 접속 제한(SamplingGate)의 "멈춤"은 풀지 않는다. 서버 상세 정보와 컨테이너는 기존 캐시 기간을 따른다.
+     */
+    private void refreshOnReturn() {
+        java.time.Instant now = java.time.Instant.now();
+        if (inventory.isEmpty() || java.time.Duration.between(lastReturnRefresh, now).compareTo(RETURN_REFRESH_GAP) < 0) {
+            return;
+        }
+        lastReturnRefresh = now;
+        reload(Set.of(), false);
+        refreshCpu();
+        sampleDirectServers(false);
+        findServer(selectedServerId).ifPresent(s -> {
+            if (!liveActive()) {
+                loadMetrics(s, false);
+            }
+        });
+    }
+
     /** 창이 보이지 않을 때(메뉴 막대에만 있거나 최소화) SSH 풀에 알린다. 조회 연결만 남고 나머지는 쓰는 대로 닫힌다. */
     private void updateConnectionMode() {
-        terminalService.setBackground(trayHidden || iconified);
+        terminalService.setBackground(windowHidden());
     }
 
     private void sampleDirect(Server server) {
         if (!sshMetrics.canSample(server) || !sampling.add(server.id())) {
             return;
         }
-        Async.run(() -> sshMetrics.sample(server), sample -> {
+        // 창이 보이지 않으면 사이드바·트레이에 필요한 CPU만 잰다.
+        boolean cpuOnly = windowHidden();
+        Async.run(() -> sshMetrics.sample(server, cpuOnly), sample -> {
             sampling.remove(server.id());
             if (sample.isEmpty()) {
                 if (server.id().equals(metricsServerId) && !liveActive()) {

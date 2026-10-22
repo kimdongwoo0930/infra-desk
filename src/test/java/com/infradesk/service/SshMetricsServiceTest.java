@@ -210,4 +210,37 @@ class SshMetricsServiceTest {
             return now;
         }
     }
+
+    @Test
+    void cpuOnlyParsesLinuxAndMacOutput() {
+        var linux = ProcStats.parseCpuOnly("cpu  100 0 100 800 0 0 0 0\ncpu  150 0 150 900 0 0 0 0\n", Instant.EPOCH)
+                .orElseThrow();
+        assertEquals(50, linux.cpuPercent(), 0.01);
+        assertFalse(linux.hasDetails());
+        assertEquals(12.5, ProcStats.parseCpuOnly("@cpu 12.5\n", Instant.EPOCH).orElseThrow().cpuPercent(), 0.01);
+        assertTrue(ProcStats.parseCpuOnly("cpu  100 0 100 800 0 0 0 0\n", Instant.EPOCH).isEmpty(), "one line is not enough");
+        assertTrue(ProcStats.parseCpuOnly("ssh: connect failed", Instant.EPOCH).isEmpty());
+        assertTrue(ProcStats.parseCpuOnly("cpu  a b c d\ncpu  1 2 3 4\n", Instant.EPOCH).isEmpty(), "garbage is rejected");
+    }
+
+    @Test
+    void cpuOnlySamplesKeepCpuButLeaveGapsInMemoryAndNetworkCharts() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-09-28T10:00:00Z"));
+        SshMetricsService svc = new SshMetricsService(demoTerminal(), clock);
+
+        assertTrue(svc.sample(MAC, false).isPresent());
+        clock.now = clock.now.plusSeconds(60);
+        var hidden = svc.sample(MAC, true).orElseThrow();
+        assertFalse(hidden.hasDetails());
+        clock.now = clock.now.plusSeconds(60);
+        assertTrue(svc.sample(MAC, false).isPresent());
+
+        var m = svc.metrics(MAC.id());
+        assertEquals(3, m.cpuPercent().size(), "CPU has no gap");
+        assertEquals(2, m.memoryPercent().size());
+        assertEquals(2, m.networkInBps().size());
+        assertEquals(2, m.networkOutBps().size());
+        assertTrue(m.memoryPercent().stream().noneMatch(p -> Double.isNaN(p.value())));
+        assertEquals(svc.latestCpu().get(MAC.id()), m.cpuPercent().getLast().value(), 0.0001);
+    }
 }
