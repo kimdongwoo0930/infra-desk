@@ -1,6 +1,6 @@
 # Git 작업 가이드
 
-이 저장소에서 브랜치를 만들고, 커밋하고, PR을 올리고, 머지하는 방법이다. 직접 작업할 때 보는 용도이고, 명령은 복사해서 그대로 쓸 수 있게 적었다.
+이 저장소에서 브랜치를 만들고, 커밋하고, PR을 올리고, 머지하는 방법이다. 직접 작업할 때 보는 용도이고, 명령은 복사해서 그대로 쓸 수 있게 적었다. PR과 머지는 GitHub CLI(`gh`)로 한다.
 
 > 이 저장소는 **공개(public)** 이다. 커밋하기 전에 실제 서버 IP, 키, 계정 정보, 개인 이메일이 들어가지 않았는지 꼭 확인한다 ([PR 전 체크리스트](#pr-전-체크리스트)).
 
@@ -87,7 +87,21 @@ git commit -m "SFTP 창을 내 컴퓨터/서버 2창 구조로 변경"
 - 실제 서버 IP·서버 이름·개인 이메일 (문서와 테스트에는 `203.0.113.x` 같은 예시 주소와 `my-server` 같은 가짜 이름을 쓴다)
 - `.mcp.json` (이미 `.gitignore`에 있다), `build/` 폴더
 
-## 5. 푸시와 PR
+## 5. 푸시와 PR (gh)
+
+PR은 GitHub CLI(`gh`)로 만든다.
+
+### gh 설치와 로그인 (처음 한 번)
+
+```bash
+brew install gh                    # macOS
+winget install --id GitHub.cli     # Windows (설치 후 터미널을 다시 연다)
+gh --version                       # 설치 확인
+gh auth login                      # GitHub.com → HTTPS → 브라우저로 로그인
+gh auth status                     # 로그인됐는지 확인
+```
+
+이 저장소 폴더 안에서 `gh`를 실행하면 저장소(`kimdongwoo0930/infra-desk`)를 알아서 인식한다. 못 찾는다는 오류가 나면 한 번만 `gh repo set-default kimdongwoo0930/infra-desk`를 실행한다.
 
 ### 푸시
 
@@ -96,23 +110,14 @@ git push -u origin feat/내-작업     # 처음 올릴 때 (-u로 이후 git pus
 git push                           # 같은 브랜치에 커밋을 더 올릴 때
 ```
 
-푸시하면 터미널에 PR을 만드는 링크가 나온다.
-
-```
-remote: Create a pull request for 'feat/내-작업' on GitHub by visiting:
-remote:      https://github.com/kimdongwoo0930/infra-desk/pull/new/feat/내-작업
-```
-
 ### PR 만들기
 
-1. 위 링크를 연다 (또는 GitHub 저장소 → **Compare & pull request** 버튼).
-2. **base를 `develop`으로 바꾼다.** 기본값이 `main`일 수 있다. (아래 [자주 하는 실수](#자주-하는-실수) 참고)
-3. 제목과 설명을 쓴다.
-4. **Create pull request**를 누른다.
+> ⚠ **이 저장소의 기본 브랜치는 `main`이다.** `gh pr create`는 `--base`를 주지 않으면 **`main`을 대상으로** PR을 만든다. 작업 PR에는 **항상 `--base develop`** 을 붙인다. 빠뜨리면 변경이 수십 개 파일로 보이고 "Can't automatically merge"가 뜬다.
 
-PR 설명 예:
-
-```
+```bash
+gh pr create --base develop \
+  --title "SFTP: 끌어서 놓기와 서버 파일 편집" \
+  --body-file - <<'EOF'
 ## 변경
 - 무엇을 바꿨는지 (사용자 입장에서)
 
@@ -125,26 +130,79 @@ PR 설명 예:
 
 ## 확인 필요
 - 리뷰할 때 봐 줬으면 하는 부분
+EOF
 ```
 
-> 터미널에 `gh`(GitHub CLI)가 설치돼 있지 않아서 PR은 웹에서 만든다.
+현재 브랜치가 아직 푸시되지 않았으면 `gh`가 푸시할지 물어본다. 성공하면 PR 주소가 출력되고, 끝의 숫자가 PR 번호다(`…/pull/12` → 12번).
 
-## 6. 머지
+| 옵션 | 뜻 |
+|---|---|
+| `--base`, `-B` | PR을 받을 브랜치. **`develop`** (배포 PR은 `main`) |
+| `--head`, `-H` | 합칠 브랜치. 생략하면 현재 브랜치 |
+| `--title`, `-t` | 제목 |
+| `--body`, `-b` | 설명(짧을 때 한 줄로) |
+| `--body-file`, `-F` | 설명을 파일에서 읽음. `-`이면 위 예시처럼 표준입력(heredoc) |
+| `--fill` | 커밋 메시지로 제목·설명을 자동으로 채움. 커밋이 하나일 때 쓸 만하다 |
+| `--draft`, `-d` | 초안 PR. 아직 머지하면 안 될 때 |
+| `--web`, `-w` | 터미널 대신 브라우저에서 PR 작성 화면을 연다 |
 
-PR 화면 아래의 초록 버튼으로 합친다. **"Create a merge commit"** 을 쓴다. 지금까지 모든 PR이 이 방식이다(`Merge pull request #7 from …`가 생긴다). Squash나 Rebase는 쓰지 않는다. 브랜치의 커밋 기록이 그대로 남아야 나중에 이유를 추적하기 쉽다.
+짧은 PR은 이렇게 한 줄로도 된다.
 
-머지 전에 확인한다.
-- 화면에 **"This branch has no conflicts with the base branch"** (초록색)가 떠 있다. "Can't automatically merge"면 [충돌 해결](#8-내-브랜치를-최신-develop으로-맞추기)을 먼저 한다.
-- base가 의도한 브랜치(`develop`)이다.
+```bash
+gh pr create --base develop --title "docs: Git 가이드 추가" --body "GIT.md 추가"
+```
 
-머지가 끝나면 GitHub의 **Delete branch** 버튼으로 원격 브랜치를 지운다(내용은 이미 `develop`에 들어갔다).
+`--base`를 매번 치기 번거로우면 별칭을 만들어 둘 수 있다. (안 되면 `--base`를 직접 붙인다.)
+
+```bash
+gh alias set prd 'pr create --base develop'     # 한 번만
+gh prd --title "제목" --body "설명"              # 이후 이렇게
+```
+
+### PR 확인과 수정
+
+```bash
+gh pr view                         # 현재 브랜치의 PR 내용 (--web 을 붙이면 브라우저로)
+gh pr list                         # 열려 있는 PR 목록
+gh pr status                       # 내 PR과 현재 브랜치 PR 상태
+gh pr diff                         # PR에 포함된 변경 내용
+gh pr checks                       # CI 결과 (작업 PR에는 CI가 없어서 "no checks reported"가 정상이다)
+gh pr view --json mergeable,mergeStateStatus     # MERGEABLE이면 충돌 없음, CONFLICTING이면 충돌
+```
+
+| 하고 싶은 일 | 명령 |
+|---|---|
+| PR에 변경을 더 올리기 | 같은 브랜치에 커밋하고 `git push` (PR이 자동으로 갱신된다) |
+| 제목·설명 고치기 | `gh pr edit --title "새 제목" --body "새 설명"` |
+| **base를 잘못 지정했다** | `gh pr edit --base develop` |
+| 초안을 정식 PR로 | `gh pr ready` |
+| PR 닫기(머지 없이) | `gh pr close` |
+| 코멘트 남기기 | `gh pr comment --body "내용"` |
+| 다른 PR의 브랜치로 이동 | `gh pr checkout 12` |
+
+## 6. 머지 (gh)
+
+머지는 **머지 커밋**으로 한다. 지금까지 모든 PR이 이 방식이다(`Merge pull request #7 from …`가 생긴다). Squash나 Rebase는 쓰지 않는다. 브랜치의 커밋 기록이 그대로 남아야 나중에 이유를 추적하기 쉽다.
+
+**머지 전에 확인한다.**
+- `gh pr view --json mergeable,mergeStateStatus`에서 `MERGEABLE`이다. `CONFLICTING`이면 [충돌 해결](#8-내-브랜치를-최신-develop으로-맞추기)을 먼저 한다.
+- `gh pr view`에서 **base가 의도한 브랜치**(`develop`)이다.
+
+```bash
+gh pr merge --merge --delete-branch        # 현재 브랜치의 PR을 머지 커밋으로 합치고 브랜치를 지운다
+gh pr merge 12 --merge --delete-branch     # PR 번호로 지정
+```
+
+- **`--merge`를 꼭 붙인다.** 옵션 없이 실행하면 방식을 고르는 메뉴가 뜨는데, 이때 반드시 "Create a merge commit"을 고른다.
+- `--delete-branch`는 머지된 작업 브랜치를 원격과 로컬에서 지운다. 지금 그 브랜치에 있었다면 `gh`가 기본 브랜치(`main`)로 옮겨 놓을 수 있으니, **머지 뒤에는 아래처럼 `develop`으로 돌아간다.**
+- **`develop` → `main` 배포 PR에는 `--delete-branch`를 붙이지 않는다.** `develop` 브랜치가 지워진다. ([7번](#7-develop--main-배포))
 
 ### 머지 후 내 컴퓨터 정리
 
 ```bash
 git switch develop
 git pull origin develop                # 방금 머지된 내용 받기
-git branch -d feat/내-작업             # 머지된 로컬 브랜치 삭제 (머지가 안 됐으면 거부해 준다)
+git branch -d feat/내-작업             # 머지된 로컬 브랜치 삭제 (--delete-branch를 썼다면 이미 지워져 있다)
 git fetch --prune                      # 원격에서 지워진 브랜치 정보 정리
 git branch -vv                         # 남은 로컬 브랜치 확인 ([gone]이면 원격에서 지워진 것)
 ```
@@ -160,11 +218,29 @@ git branch -vv                         # 남은 로컬 브랜치 확인 ([gone]�
 - `main`과 충돌이 없다 (PR 화면에 초록색 "Able to merge").
 - `docs/DEVLOG.md`에 이번에 나가는 변경이 정리돼 있다. (앱 버전은 빌드 번호로 자동 계산되므로 손댈 필요가 없다.)
 
-**PR 만들기**
-1. GitHub → **Pull requests → New pull request**
-2. **base: `main`, compare: `develop`** 으로 설정한다.
-3. 제목은 `릴리스: …`로 시작해서 주요 변경을 한 줄로 쓰고, 설명에 변경 요약과 "확인 필요"를 적는다.
-4. 머지는 **"Create a merge commit"** 으로 한다. 머지 후 `develop` 브랜치는 **지우지 않는다**.
+**PR 만들기와 머지**
+
+```bash
+gh pr create --base main --head develop \
+  --title "릴리스: SFTP 파일 관리와 문서 정비" \
+  --body-file - <<'EOF'
+## 주요 변경
+- ...
+
+## 테스트
+- ./gradlew test 통과 (N개)
+
+## 확인 필요
+- ...
+EOF
+
+gh pr view --json mergeable,mergeStateStatus   # MERGEABLE인지 확인
+gh pr merge 번호 --merge                        # 머지 커밋으로 합치기. --delete-branch는 붙이지 않는다!
+```
+
+- 제목은 `릴리스: …`로 시작해서 주요 변경을 한 줄로 쓴다.
+- `--merge`로 머지 커밋을 만든다. **`develop` 브랜치는 지우지 않는다**(`--delete-branch` 금지).
+- 머지하면 CI가 동작한다. 진행을 보려면 `gh run list --workflow build.yml --limit 3`, 실시간으로 보려면 `gh run watch`.
 
 **`main`에는 `develop`을 거치지 않고 다른 브랜치를 직접 합치지 않는다.** 이전에 `feature/update-message`를 `main`에 바로 머지해서 `main`에만 있는 커밋이 생겼고, 그 뒤 `develop` → `main` PR이 "Can't automatically merge"가 됐다. 그때는 `main`의 변경을 `develop`으로 가져와서(`chore/sync-main`) 해결했다. 급한 수정(hotfix)도 `develop`에서 `fix/…`로 만들어 `develop`을 거쳐서 올린다.
 
@@ -229,13 +305,14 @@ git status                     # 충돌한 파일 확인 ("both modified")
 - [ ] 구조가 바뀌었다면 `docs/architecture/`의 해당 모듈 문서를 고쳤다 (모듈 사이 연결이 바뀌면 `README.md` 개요도)
 - [ ] 비밀값, 실제 IP·서버 이름·이메일이 없다 (`git diff origin/develop...HEAD`로 올라갈 내용을 한 번 훑는다)
 - [ ] 커밋 메시지가 한국어로 무엇을 했는지 알아볼 수 있다
-- [ ] PR의 **base가 `develop`** 이다
+- [ ] PR의 **base가 `develop`** 이다 (`gh pr create --base develop`)
 
 ## 자주 하는 실수
 
 | 실수 | 증상 | 해결 |
 |---|---|---|
-| PR의 base가 `main`으로 돼 있다 | 변경이 수십 개 파일로 보이거나 "Can't automatically merge" | PR 화면 위쪽 `base:`를 `develop`으로 바꾼다 |
+| `gh pr create`에 `--base develop`을 빠뜨렸다 | 변경이 수십 개 파일로 보이거나 "Can't automatically merge" | `gh pr edit --base develop` |
+| 배포 PR을 머지하면서 `--delete-branch`를 붙였다 | `develop` 브랜치가 사라진다 | 머지된 PR 화면에 보통 **Restore branch** 버튼이 있다. 그걸로 되살린다. 안 보이면 바로 도움을 받는다. 배포 PR에는 붙이지 않는다 |
 | 최신 `develop`에서 브랜치를 만들지 않았다 | PR에 남의 커밋이나 오래된 변경이 섞여 보인다 | [8번](#8-내-브랜치를-최신-develop으로-맞추기)처럼 `develop`을 가져온다 |
 | 푸시 때 "remote rejected"가 한 번 뜬다 | 푸시가 실패로 끝난다 | 같은 명령을 한 번 더 해 본다. 계속되면 오류 전체를 `git push 2>&1`로 보고 확인한다 |
 | `git branch -d`가 거부한다 | `not fully merged` | 머지가 안 된 커밋이 있다는 뜻이다. `git log develop..브랜치`로 확인한다 |
@@ -255,3 +332,8 @@ git status                     # 충돌한 파일 확인 ("both modified")
 | 다른 브랜치로 이동 | `git switch 브랜치이름` |
 | 원격 최신 정보 받기(내 파일은 안 바뀜) | `git fetch origin` |
 | 두 브랜치의 충돌 미리 보기 | `git merge-tree --write-tree --name-only origin/main origin/develop` |
+| PR 만들기(작업) | `gh pr create --base develop --title "제목" --body "설명"` |
+| PR 상태·충돌 확인 | `gh pr view --json mergeable,mergeStateStatus` |
+| PR 머지 + 브랜치 삭제 | `gh pr merge --merge --delete-branch` |
+| 열린 PR 목록 | `gh pr list` |
+| 머지 후 CI 진행 보기 | `gh run list --workflow build.yml --limit 3` |
