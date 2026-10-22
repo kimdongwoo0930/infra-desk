@@ -462,17 +462,35 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /**
+     * 앱 창이 눈에 보이는 상태인지. 메뉴 막대에만 있거나 최소화돼 있으면 false. 이때는 직접 연결 서버에
+     * 접속하는 간격을 길게 잡아서 아무도 보지 않는 동안 서버 로그에 접속 기록이 쌓이지 않게 한다.
+     */
+    private boolean windowVisible() {
+        return isShowing() && (getExtendedState() & java.awt.Frame.ICONIFIED) == 0;
+    }
+
     private void sampleDirect(Server server) {
         if (!sshMetrics.canSample(server) || !sampling.add(server.id())) {
             return;
         }
-        Async.run(() -> sshMetrics.sample(server), sample -> {
+        boolean visible = windowVisible();
+        Async.run(() -> sshMetrics.sample(server, visible), sample -> {
             sampling.remove(server.id());
             if (sample.isEmpty()) {
-                if (server.id().equals(metricsServerId) && !liveActive()
-                        && sshMetrics.metrics(server.id()).cpuPercent().isEmpty()) {
-                    metrics().showMessage("SSH로 읽지 못했어요");
-                    metrics().setStatus("터미널로 한 번 접속해 호스트 키를 확인했는지 봐 주세요", true);
+                if (server.id().equals(metricsServerId) && !liveActive()) {
+                    Optional<String> stopped = sshMetrics.blockedReason(server.id());
+                    boolean noHistory = sshMetrics.metrics(server.id()).cpuPercent().isEmpty();
+                    if (stopped.isPresent()) {
+                        // 서버 로그에 접속 시도가 쌓이지 않도록 자동 측정을 멈춘 상태다.
+                        if (noHistory) {
+                            metrics().showMessage("자동 측정을 멈췄어요");
+                        }
+                        metrics().setStatus(stopped.get() + " · 고친 뒤 새로고침하면 다시 시도해요", true);
+                    } else if (noHistory) {
+                        metrics().showMessage("SSH로 읽지 못했어요");
+                        metrics().setStatus("터미널로 한 번 접속해 호스트 키를 확인했는지 봐 주세요", true);
+                    }
                 }
                 return;
             }
@@ -513,7 +531,7 @@ public class MainFrame extends JFrame {
 
     private void showDirectHistory(String serverId) {
         metrics().showHistory(sshMetrics.metrics(serverId));
-        metrics().setStatus("SSH로 1분마다 수집 · 앱이 켜져 있는 동안의 기록", false);
+        metrics().setStatus("SSH로 1분마다 수집 (창이 숨으면 5분마다) · 앱이 켜져 있는 동안의 기록", false);
     }
 
     private void refreshCpu() {
@@ -699,6 +717,10 @@ public class MainFrame extends JFrame {
         if (refreshing && !userInitiated) {
             return;
         }
+        if (userInitiated) {
+            // 사용자가 직접 새로고침했다. 설정 문제로 멈춰 둔 직접 연결 서버의 자동 측정도 다시 시도한다.
+            sshMetrics.resetAll();
+        }
         // 수동 새로고침은 이전 요청이 멈춰 있더라도 항상 새로 시작한다. 늦게 도착한 이전 결과는 버린다.
         long generation = ++reloadGeneration;
         pollTimer.stop();
@@ -794,7 +816,7 @@ public class MainFrame extends JFrame {
                         com.infradesk.core.SshHostProperties.port(a)))
                 .orElse(null);
         if (new SshSettingsDialog(this, terminalService, server, defaults).showDialog()) {
-
+            sshMetrics.reset(server.id());
             terminalView.reconnect(server.id());
             if (server.id().equals(selectedServerId)) {
                 loadFacts(server, true);
@@ -897,6 +919,8 @@ public class MainFrame extends JFrame {
         detail.setFactsMessage("불러오는 중…");
         String id = server.id();
         Async.run(() -> terminalService.facts(server, new HostKeyDialog(this)), facts -> {
+            // 사용자가 연 화면에서 SSH 접속이 됐다. 자동 측정이 멈춰 있었다면 다시 시도한다.
+            sshMetrics.reset(id);
             factsCache.put(id, java.util.Map.entry(java.time.Instant.now(), facts));
             if (id.equals(selectedServerId)) {
                 detail.setFacts(facts);

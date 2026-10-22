@@ -128,7 +128,7 @@ public class TerminalService {
         try {
             session = connector.exec(target(server), prompt, command);
         } catch (RuntimeException e) {
-            return ExecResult.failure(e.getMessage());
+            return ExecResult.failure(e.getMessage(), e instanceof SshException ssh ? ssh.kind() : null);
         }
         AtomicBoolean timedOut = new AtomicBoolean();
         Thread watchdog = Thread.ofVirtual().start(() -> {
