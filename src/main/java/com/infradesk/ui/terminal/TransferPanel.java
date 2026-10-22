@@ -36,11 +36,18 @@ final class TransferPanel extends JPanel {
     private final JButton cancel = Buttons.secondary("취소", "x");
     private final JButton retry = Buttons.secondary("다시 시도", "refresh");
     private final JButton clear = Buttons.secondary("지우기", "trash");
-    private final JButton clearDone = Buttons.ghost("완료 항목 모두 지우기");
+    private final JButton clearDone = Buttons.ghost("끝난 항목 모두 지우기");
+    private final JButton close = Buttons.icon("x", "닫기", 28);
+    private final Runnable onChange;
 
-    TransferPanel(TransferQueue queue) {
+    /**
+     * @param onChange 지우기로 목록이 바뀌었을 때(EDT). 목록이 비었으면 창이 이 패널을 접는다
+     * @param onClose  X로 닫았을 때(EDT). 목록과 진행 중인 전송은 그대로 둔다
+     */
+    TransferPanel(TransferQueue queue, Runnable onChange, Runnable onClose) {
         super(new BorderLayout(0, 6));
         this.queue = queue;
+        this.onChange = onChange;
         setOpaque(false);
         setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
 
@@ -52,6 +59,7 @@ final class TransferPanel extends JPanel {
         buttons.add(retry);
         buttons.add(clear);
         buttons.add(clearDone);
+        buttons.add(close);
         JPanel head = new JPanel(new BorderLayout());
         head.setOpaque(false);
         head.add(title, BorderLayout.WEST);
@@ -77,20 +85,31 @@ final class TransferPanel extends JPanel {
         retry.addActionListener(e -> selectedJobs().forEach(queue::retry));
         clear.addActionListener(e -> {
             selectedJobs().forEach(queue::remove);
-            refresh();
+            changed();
         });
         clearDone.addActionListener(e -> {
-            for (Job j : queue.jobs()) {
-                if (j.state() == State.DONE) {
-                    queue.remove(j);
-                }
-            }
-            refresh();
+            removeFinished();
+            changed();
         });
+        // 닫기는 패널만 접는다. 목록과 진행 중인 전송은 그대로이고, 아래 "전송 목록 보기"로 다시 연다.
+        close.addActionListener(e -> onClose.run());
 
         add(head, BorderLayout.NORTH);
         add(scroll, BorderLayout.CENTER);
         updateButtons();
+    }
+
+    private void removeFinished() {
+        for (Job j : queue.jobs()) {
+            if (j.state().finished()) {
+                queue.remove(j);
+            }
+        }
+    }
+
+    private void changed() {
+        refresh();
+        onChange.run();
     }
 
     boolean isEmpty() {
@@ -139,7 +158,7 @@ final class TransferPanel extends JPanel {
         cancel.setEnabled(selected.stream().anyMatch(j -> !j.state().finished()));
         retry.setEnabled(selected.stream().anyMatch(j -> j.state() == State.FAILED || j.state() == State.CANCELLED));
         clear.setEnabled(selected.stream().anyMatch(j -> j.state().finished()));
-        clearDone.setEnabled(queue.jobs().stream().anyMatch(j -> j.state() == State.DONE));
+        clearDone.setEnabled(queue.jobs().stream().anyMatch(j -> j.state().finished()));
     }
 
     static String statusText(Job job) {

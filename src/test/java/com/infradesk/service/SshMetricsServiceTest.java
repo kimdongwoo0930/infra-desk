@@ -79,6 +79,115 @@ class SshMetricsServiceTest {
         assertTrue(ProcStats.parseOneShot("ssh: connect failed", Instant.EPOCH).isEmpty());
     }
 
+    /** 접속 시도를 세고 정해 둔 실패로 답하는 가짜 접속기. 서버에 몇 번 접속했는지 확인하려는 것이다. */
+    private static final class FailingConnector implements com.infradesk.ssh.ShellConnector {
+        final java.util.concurrent.atomic.AtomicInteger attempts = new java.util.concurrent.atomic.AtomicInteger();
+        volatile com.infradesk.ssh.SshException.Kind kind;
+
+        @Override
+        public com.infradesk.ssh.ShellSession open(com.infradesk.ssh.SshTarget target,
+                                                   com.infradesk.ssh.HostKeyPrompt prompt, int columns, int rows) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public com.infradesk.ssh.ShellSession exec(com.infradesk.ssh.SshTarget target,
+                                                   com.infradesk.ssh.HostKeyPrompt prompt, String command) {
+            attempts.incrementAndGet();
+            throw new com.infradesk.ssh.SshException(kind, "접속 실패 " + kind);
+        }
+
+        @Override
+        public com.infradesk.ssh.RemoteFiles sftp(com.infradesk.ssh.SshTarget target,
+                                                  com.infradesk.ssh.HostKeyPrompt prompt) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private static TerminalService realTerminal(FailingConnector connector) {
+        TerminalService terminal = new TerminalService(new InMemorySshSettingsStore(), new InMemorySecretStore(),
+                connector, new InMemorySavedCommandStore(List.of()), false);
+        terminal.save(new com.infradesk.ssh.SshSettings(MAC.id(), "me", 22), "FAKE-KEY-FOR-TEST", null);
+        return terminal;
+    }
+
+    @Test
+    void stopsConnectingAfterRepeatedAuthenticationFailures() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-10-20T10:00:00Z"));
+        FailingConnector connector = new FailingConnector();
+        connector.kind = com.infradesk.ssh.SshException.Kind.AUTH;
+        SshMetricsService svc = new SshMetricsService(realTerminal(connector), clock);
+
+        assertTrue(svc.sample(MAC).isEmpty());
+        assertEquals(1, connector.attempts.get());
+        assertTrue(svc.blockedReason(MAC.id()).isEmpty(), "한 번으로는 멈추지 않는다");
+
+        clock.now = clock.now.plus(Duration.ofMinutes(3));
+        svc.sample(MAC);
+        assertEquals(2, connector.attempts.get());
+        assertTrue(svc.blockedReason(MAC.id()).orElseThrow().contains("SSH 키"), "멈춘 이유를 알려준다");
+
+        for (int i = 0; i < 100; i++) {
+            clock.now = clock.now.plus(Duration.ofMinutes(1));
+            assertTrue(svc.sample(MAC).isEmpty());
+        }
+        assertEquals(2, connector.attempts.get(), "100분 동안 서버에 한 번도 접속하지 않았다");
+
+        svc.reset(MAC.id());
+        clock.now = clock.now.plus(Duration.ofMinutes(1));
+        svc.sample(MAC);
+        assertEquals(3, connector.attempts.get(), "사용자가 고치면(reset) 다시 시도한다");
+    }
+
+    @Test
+    void anUntrustedHostKeyStopsAtOnceAndNeverPrompts() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-10-20T10:00:00Z"));
+        FailingConnector connector = new FailingConnector();
+        connector.kind = com.infradesk.ssh.SshException.Kind.HOST_KEY_REJECTED;
+        SshMetricsService svc = new SshMetricsService(realTerminal(connector), clock);
+
+        svc.sample(MAC);
+        assertEquals(1, connector.attempts.get());
+        assertTrue(svc.blockedReason(MAC.id()).orElseThrow().contains("호스트 키"));
+
+        clock.now = clock.now.plus(Duration.ofHours(3));
+        svc.sample(MAC);
+        assertEquals(1, connector.attempts.get(), "믿지 않은 호스트 키는 몇 번을 시도해도 같다");
+    }
+
+    @Test
+    void connectionProblemsBackOffInsteadOfRetryingEveryMinute() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-10-20T10:00:00Z"));
+        FailingConnector connector = new FailingConnector();
+        connector.kind = com.infradesk.ssh.SshException.Kind.CONNECT;
+        SshMetricsService svc = new SshMetricsService(realTerminal(connector), clock);
+
+        // 1분마다 불러도 서버에 실제로 접속하는 횟수는 훨씬 적다.
+        for (int minute = 0; minute < 60; minute++) {
+            svc.sample(MAC);
+            clock.now = clock.now.plus(Duration.ofMinutes(1));
+        }
+
+        assertTrue(connector.attempts.get() <= 6, "60번 요청했는데 접속은 " + connector.attempts.get() + "번");
+        assertTrue(svc.blockedReason(MAC.id()).isEmpty(), "연결 문제는 멈추지 않고 간격만 늘린다");
+    }
+
+    @Test
+    void samplesOncePerMinuteWhetherOrNotTheWindowIsVisible() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-10-20T10:00:00Z"));
+        SshMetricsService svc = new SshMetricsService(demoTerminal(), clock);
+
+        int samples = 0;
+        for (int minute = 0; minute < 10; minute++) {
+            if (svc.sample(MAC).isPresent()) {
+                samples++;
+            }
+            clock.now = clock.now.plus(Duration.ofMinutes(1));
+        }
+
+        assertEquals(10, samples);
+    }
+
     private static final class MutableClock extends Clock {
         Instant now;
 
@@ -100,5 +209,38 @@ class SshMetricsServiceTest {
         public Instant instant() {
             return now;
         }
+    }
+
+    @Test
+    void cpuOnlyParsesLinuxAndMacOutput() {
+        var linux = ProcStats.parseCpuOnly("cpu  100 0 100 800 0 0 0 0\ncpu  150 0 150 900 0 0 0 0\n", Instant.EPOCH)
+                .orElseThrow();
+        assertEquals(50, linux.cpuPercent(), 0.01);
+        assertFalse(linux.hasDetails());
+        assertEquals(12.5, ProcStats.parseCpuOnly("@cpu 12.5\n", Instant.EPOCH).orElseThrow().cpuPercent(), 0.01);
+        assertTrue(ProcStats.parseCpuOnly("cpu  100 0 100 800 0 0 0 0\n", Instant.EPOCH).isEmpty(), "one line is not enough");
+        assertTrue(ProcStats.parseCpuOnly("ssh: connect failed", Instant.EPOCH).isEmpty());
+        assertTrue(ProcStats.parseCpuOnly("cpu  a b c d\ncpu  1 2 3 4\n", Instant.EPOCH).isEmpty(), "garbage is rejected");
+    }
+
+    @Test
+    void cpuOnlySamplesKeepCpuButLeaveGapsInMemoryAndNetworkCharts() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-09-28T10:00:00Z"));
+        SshMetricsService svc = new SshMetricsService(demoTerminal(), clock);
+
+        assertTrue(svc.sample(MAC, false).isPresent());
+        clock.now = clock.now.plusSeconds(60);
+        var hidden = svc.sample(MAC, true).orElseThrow();
+        assertFalse(hidden.hasDetails());
+        clock.now = clock.now.plusSeconds(60);
+        assertTrue(svc.sample(MAC, false).isPresent());
+
+        var m = svc.metrics(MAC.id());
+        assertEquals(3, m.cpuPercent().size(), "CPU has no gap");
+        assertEquals(2, m.memoryPercent().size());
+        assertEquals(2, m.networkInBps().size());
+        assertEquals(2, m.networkOutBps().size());
+        assertTrue(m.memoryPercent().stream().noneMatch(p -> Double.isNaN(p.value())));
+        assertEquals(svc.latestCpu().get(MAC.id()), m.cpuPercent().getLast().value(), 0.0001);
     }
 }

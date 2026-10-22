@@ -5,6 +5,7 @@ import com.infradesk.ssh.Container;
 import com.infradesk.ssh.DockerCommands;
 import com.infradesk.ssh.ExecResult;
 import com.infradesk.ssh.HostKeyPrompt;
+import com.infradesk.ssh.Purpose;
 
 import java.time.Duration;
 import java.util.logging.Logger;
@@ -27,7 +28,7 @@ public class ContainerService {
     }
 
     public DockerCommands.Listing list(Server server, HostKeyPrompt prompt) {
-        ExecResult r = terminal.run(server, DockerCommands.list(), prompt, LIST_TIMEOUT);
+        ExecResult r = terminal.run(Purpose.QUERY, server, DockerCommands.list(), prompt, LIST_TIMEOUT);
         if (r.error() != null) {
             throw new IllegalStateException(r.error());
         }
@@ -37,7 +38,7 @@ public class ContainerService {
     /** 컨테이너를 시작, 정지, 재시작한다. 실패하면 Docker의 메시지와 함께 예외를 던진다. */
     public void act(Server server, Container container, DockerCommands.Action action, HostKeyPrompt prompt) {
         LOG.info(() -> "docker " + action + " " + container.name() + " on " + server.name());
-        ExecResult r = terminal.run(server, DockerCommands.action(action, container.id()), prompt, ACTION_TIMEOUT);
+        ExecResult r = terminal.run(Purpose.COMMAND, server, DockerCommands.action(action, container.id()), prompt, ACTION_TIMEOUT);
         if (r.error() != null) {
             throw new IllegalStateException(r.error());
         }
@@ -48,7 +49,7 @@ public class ContainerService {
 
     /** 컨테이너 로그의 마지막 {@code tail}줄(타임스탬프 포함). */
     public String logs(Server server, Container container, int tail, HostKeyPrompt prompt) {
-        ExecResult r = terminal.run(server, DockerCommands.logs(container.id(), tail), prompt, LIST_TIMEOUT);
+        ExecResult r = terminal.run(Purpose.QUERY, server, DockerCommands.logs(container.id(), tail), prompt, LIST_TIMEOUT);
         if (r.error() != null) {
             throw new IllegalStateException(r.error());
         }

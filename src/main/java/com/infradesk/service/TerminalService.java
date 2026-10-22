@@ -6,6 +6,7 @@ import com.infradesk.ssh.HostFacts;
 import com.infradesk.ssh.LocalFiles;
 import com.infradesk.ssh.HostKeyPrompt;
 import com.infradesk.ssh.ProcStats;
+import com.infradesk.ssh.Purpose;
 import com.infradesk.ssh.SshConfig;
 import com.infradesk.ssh.RemoteFiles;
 import com.infradesk.ssh.ShellConnector;
@@ -98,12 +99,22 @@ public class TerminalService {
             }
         }
         settingsStore.put(settings);
+        // 사용자 이름·키·포트가 바뀌었을 수 있다. 옛 설정으로 맺어 둔 연결을 바로 끊는다.
+        connector.invalidate(settings.serverId());
     }
 
     public void forget(String serverId) {
         settingsStore.delete(serverId);
         secretStore.delete(serverKey(serverId, SSH_KEY));
         secretStore.delete(serverKey(serverId, SSH_PASSPHRASE));
+        connector.invalidate(serverId);
+    }
+
+    /**
+     * 앱 창이 메뉴 막대로만 숨었는지 알린다. 숨은 동안은 조회 연결만 남기고 나머지는 쓰는 대로 닫는다.
+     */
+    public void setBackground(boolean background) {
+        connector.setBackground(background);
     }
 
     /** 저장된 설정으로 서버의 공인 IP에 셸을 연다. */
@@ -124,11 +135,19 @@ public class TerminalService {
      * {@link ExecResult#failure}로 돌려준다.
      */
     public ExecResult run(Server server, String command, HostKeyPrompt prompt, Duration timeout) {
+        return run(Purpose.COMMAND, server, command, prompt, timeout);
+    }
+
+    /**
+     * 목적을 밝히고 실행한다. 목적을 밝히지 않은 명령은 서버를 바꿀 수 있다고 보고 {@link Purpose#COMMAND}로
+     * 실행한다(실패해도 자동으로 다시 시도하지 않는다). 읽기만 하는 조회는 {@link Purpose#QUERY}로 부른다.
+     */
+    public ExecResult run(Purpose purpose, Server server, String command, HostKeyPrompt prompt, Duration timeout) {
         ShellSession session;
         try {
-            session = connector.exec(target(server), prompt, command);
+            session = connector.exec(purpose, target(server), prompt, command);
         } catch (RuntimeException e) {
-            return ExecResult.failure(e.getMessage());
+            return ExecResult.failure(e.getMessage(), e instanceof SshException ssh ? ssh.kind() : null);
         }
         AtomicBoolean timedOut = new AtomicBoolean();
         Thread watchdog = Thread.ofVirtual().start(() -> {
@@ -173,7 +192,7 @@ public class TerminalService {
 
     /** SSH로 업타임, OS, 디스크, 수신 대기 포트를 읽는다(짧은 exec 한 번). */
     public HostFacts facts(Server server, HostKeyPrompt prompt) {
-        ExecResult r = run(server, HostFacts.COMMAND, prompt, Duration.ofSeconds(20));
+        ExecResult r = run(Purpose.QUERY, server, HostFacts.COMMAND, prompt, Duration.ofSeconds(20));
         if (r.error() != null) {
             throw new SshException(SshException.Kind.CHANNEL, r.error());
         }
@@ -182,7 +201,12 @@ public class TerminalService {
 
     /** 저장된 SSH 설정으로 서버에 SFTP를 연다. */
     public RemoteFiles openFiles(Server server, HostKeyPrompt prompt) {
-        return connector.sftp(target(server), prompt);
+        return connector.sftp(Purpose.FILES, target(server), prompt);
+    }
+
+    /** SFTP 전송 대기열용. 큰 전송이 폴더 탐색을 막지 않게 탐색용({@link #openFiles})과 연결을 따로 쓴다. */
+    public RemoteFiles openTransferFiles(Server server, HostKeyPrompt prompt) {
+        return connector.sftp(Purpose.TRANSFER, target(server), prompt);
     }
 
     /** SFTP 창 왼쪽에 보여줄 이 컴퓨터의 폴더. 데모 모드는 실제 폴더 대신 가짜 폴더를 쓴다. */
@@ -200,13 +224,13 @@ public class TerminalService {
 
     /** 서버에서 /proc 스냅샷 스트리밍을 시작한다({@link ProcStats#COMMAND} 참고). */
     public ShellSession openStats(Server server, HostKeyPrompt prompt) {
-        return connector.exec(target(server), prompt, ProcStats.COMMAND);
+        return connector.exec(Purpose.QUERY, target(server), prompt, ProcStats.COMMAND);
     }
 
     private SshTarget target(Server server) {
         if (demo) {
             SshSettings s = settingsStore.get(server.id()).orElse(new SshSettings(server.id(), "ubuntu", 22));
-            return new SshTarget("demo:" + server.name(), s.port(), s.username(), "demo", null);
+            return new SshTarget("demo:" + server.name(), s.port(), s.username(), "demo", null, server.id());
         }
         String host = server.publicIpAddress().orElseThrow(() -> new SshException(SshException.Kind.CONNECT,
                 server.name() + "에 공인 IP가 없어요. 공인 IP를 붙이거나 사설망(VPN)으로 접속하세요."));
@@ -215,7 +239,7 @@ public class TerminalService {
         String key = secretStore.get(serverKey(server.id(), SSH_KEY)).orElseThrow(() -> new SshException(SshException.Kind.AUTH,
                 server.name() + "의 SSH 키가 없어요. SSH 키를 먼저 등록하세요."));
         String passphrase = secretStore.get(serverKey(server.id(), SSH_PASSPHRASE)).orElse(null);
-        return new SshTarget(host, s.port(), s.username(), key, passphrase);
+        return new SshTarget(host, s.port(), s.username(), key, passphrase, server.id());
     }
 
     private static String serverKey(String serverId, String name) {

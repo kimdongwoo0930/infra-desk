@@ -30,6 +30,14 @@ public final class ProcStats {
     public static final String ONE_SHOT = command(2, 1);
 
     /**
+     * CPU만 읽는 가벼운 버전. 창이 숨어 있을 때 사이드바와 트레이에 필요한 CPU 사용률 하나만 얻는다
+     * (Linux는 /proc/stat 두 줄을 1초 간격으로, macOS는 iostat 1초 측정). {@link #parseCpuOnly}로 파싱한다.
+     */
+    public static final String CPU_ONLY = "if [ \"$(uname)\" = Darwin ]; then "
+            + "iostat -n0 -c 2 -w 1 | tail -n 1 | awk '{print \"@cpu \" $1+$2}'; "
+            + "else head -n 1 /proc/stat; sleep 1; head -n 1 /proc/stat; fi";
+
+    /**
      * Linux는 실제 /proc 파일을 읽는다. macOS에는 /proc이 없으므로 같은 블록을 자체 도구로 만든다.
      * CPU 사용률은 iostat로 1초 동안 측정하고("@cpu" 줄), 메모리는 hw.memsize와 vm_stat에서
      * (free + inactive + speculative + purgeable 페이지를 가용으로 센다), 인터페이스별 바이트
@@ -71,6 +79,45 @@ public final class ProcStats {
         return Optional.of(between(snapshots.get(snapshots.size() - 2), snapshots.getLast()));
     }
 
+    /**
+     * {@link #CPU_ONLY} 출력에서 CPU 샘플 하나를 얻는다. 메모리·네트워크는 알 수 없는 상태(NaN)로 둔다.
+     * 출력이 불완전하거나 형식이 다르면 빈 값.
+     */
+    public static Optional<Sample> parseCpuOnly(String output, Instant now) {
+        List<long[]> counters = new java.util.ArrayList<>();
+        for (String raw : output.split("\\R")) {
+            String line = raw.strip();
+            try {
+                if (line.startsWith("@cpu ")) {
+                    return Optional.of(Sample.cpuOnly(now, clamp(Double.parseDouble(line.substring(5).strip()))));
+                }
+                if (line.startsWith("cpu ")) {
+                    String[] f = line.split("\\s+");
+                    long total = 0;
+                    long idle = 0;
+                    for (int i = 1; i < f.length && i <= 8; i++) {
+                        long v = Long.parseLong(f[i]);
+                        total += v;
+                        if (i == 4 || i == 5) {
+                            idle += v;
+                        }
+                    }
+                    counters.add(new long[] {total - idle, total});
+                }
+            } catch (NumberFormatException e) {
+                return Optional.empty();
+            }
+        }
+        if (counters.size() < 2) {
+            return Optional.empty();
+        }
+        long[] a = counters.get(counters.size() - 2);
+        long[] b = counters.getLast();
+        long dTotal = b[1] - a[1];
+        double cpu = dTotal <= 0 ? 0 : 100.0 * (b[0] - a[0]) / dTotal;
+        return Optional.of(Sample.cpuOnly(now, clamp(cpu)));
+    }
+
     /** 파싱한 스냅샷 하나. 카운터는 부팅 이후 누적값이다. */
     public record Snapshot(Instant time, long cpuBusy, long cpuTotal, long memTotalKb, long memAvailableKb,
                            long rxBytes, long txBytes, double cpuPercent) {
@@ -82,9 +129,21 @@ public final class ProcStats {
         }
     }
 
-    /** 두 스냅샷 사이의 사용률. */
+    /**
+     * 두 스냅샷 사이의 사용률. CPU만 잰 샘플({@link #cpuOnly})은 나머지 값이 NaN이다.
+     */
     public record Sample(Instant time, double cpuPercent, double memoryPercent, double rxBytesPerSec,
                          double txBytesPerSec) {
+
+        /** 창이 숨어 있을 때처럼 CPU만 잰 샘플. 메모리와 네트워크는 알 수 없다. */
+        public static Sample cpuOnly(Instant time, double cpuPercent) {
+            return new Sample(time, cpuPercent, Double.NaN, Double.NaN, Double.NaN);
+        }
+
+        /** 메모리와 네트워크 값이 있는 완전한 샘플인지. */
+        public boolean hasDetails() {
+            return !Double.isNaN(memoryPercent);
+        }
     }
 
     private ProcStats() {

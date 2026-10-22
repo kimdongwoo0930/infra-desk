@@ -81,6 +81,13 @@ public class MainFrame extends JFrame {
     private final java.util.Set<String> sampling = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private LocalTime lastRefreshAt;
     private boolean hiddenNoticeShown;
+    /** X로 닫아 메뉴 막대에만 있는 상태. */
+    private boolean trayHidden;
+    /** Dock(작업 표시줄)으로 최소화한 상태. */
+    private boolean iconified;
+    /** 창이 다시 보일 때 마지막으로 즉시 갱신한 시각. */
+    private java.time.Instant lastReturnRefresh = java.time.Instant.EPOCH;
+    private static final java.time.Duration RETURN_REFRESH_GAP = java.time.Duration.ofSeconds(10);
     /** 서버 id별로 SSH로 읽은 정보. 5분 동안 재사용한다. */
     private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.HostFacts>> factsCache =
             new java.util.HashMap<>();
@@ -120,6 +127,22 @@ public class MainFrame extends JFrame {
         this.demoMode = demoMode;
         this.titleBar = new TitleBar(demoMode);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        // X로 닫아 메뉴 막대에만 있을 때(HIDE_ON_CLOSE)와 Dock으로 최소화했을 때는 SSH 풀에서 조회 연결만 남기고
+        // 나머지는 쓰는 대로 닫는다. 측정 주기는 그대로 1분이다(조회 연결이 유지되니 접속 기록이 늘지 않는다).
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentHidden(java.awt.event.ComponentEvent e) {
+                trayHidden = true;
+                updateConnectionMode();
+            }
+
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                trayHidden = false;
+                updateConnectionMode();
+                refreshOnReturn();
+            }
+        });
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
@@ -139,10 +162,15 @@ public class MainFrame extends JFrame {
             @Override
             public void windowIconified(java.awt.event.WindowEvent e) {
                 live.pause();
+                iconified = true;
+                updateConnectionMode();
             }
 
             @Override
             public void windowDeiconified(java.awt.event.WindowEvent e) {
+                iconified = false;
+                updateConnectionMode();
+                refreshOnReturn();
                 if (dashboardVisible) {
                     live.resume();
                 }
@@ -426,12 +454,11 @@ public class MainFrame extends JFrame {
 
     /** 매분: 선택한 서버의 기록(실시간이 아니면)과 사이드바 CPU를 새로 고친다. */
     private void metricsTick() {
-        if (!isShowing()) {
-            // 메뉴 막대에 숨어 있을 때: 사이드바/트레이 CPU와 알림은 최신으로 유지하고 차트는 건너뛴다.
-            if (tray.isPresent()) {
-                refreshCpu();
-                sampleDirectServers(false);
-            }
+        if (windowHidden() || !isShowing()) {
+            // 메뉴 막대에 숨었거나 최소화했을 때: 사이드바/트레이 CPU와 알림은 최신으로 유지하고 차트는 건너뛴다.
+            // 직접 연결 서버는 이때 CPU만 잰다(sampleDirect).
+            refreshCpu();
+            sampleDirectServers(false);
             return;
         }
         findServer(selectedServerId).ifPresent(s -> {
@@ -454,6 +481,10 @@ public class MainFrame extends JFrame {
                 continue;
             }
             for (Server s : inv.servers()) {
+                // 실시간 모드로 이 서버를 2초마다 읽는 중이면 1분 측정은 화면에 반영되지 않으므로 건너뛴다.
+                if (liveActive() && s.id().equals(metricsServerId)) {
+                    continue;
+                }
                 if (s.status() == com.infradesk.core.ServerStatus.RUNNING
                         && (!onlyNew || sshMetrics.metrics(s.id()).cpuPercent().isEmpty())) {
                     sampleDirect(s);
@@ -462,17 +493,60 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /** 창이 사용자에게 보이지 않는 상태: X로 메뉴 막대에만 있거나 Dock으로 최소화. 다른 창에 가려진 것은 보이는 것으로 친다. */
+    private boolean windowHidden() {
+        return trayHidden || iconified;
+    }
+
+    /**
+     * 숨어 있던 창이 다시 보인다: 그동안 쌓인 낡은 값을 기다리지 않고 바로 새로 고친다. 서버 상태 목록,
+     * 사이드바 CPU, 직접 연결 서버의 전체 샘플(CPU·메모리·네트워크), 선택한 서버의 차트를 읽는다.
+     * 창을 연달아 여닫아도 쌓이지 않도록 {@link #RETURN_REFRESH_GAP} 안의 반복은 건너뛴다.
+     * 접속 제한(SamplingGate)의 "멈춤"은 풀지 않는다. 서버 상세 정보와 컨테이너는 기존 캐시 기간을 따른다.
+     */
+    private void refreshOnReturn() {
+        java.time.Instant now = java.time.Instant.now();
+        if (inventory.isEmpty() || java.time.Duration.between(lastReturnRefresh, now).compareTo(RETURN_REFRESH_GAP) < 0) {
+            return;
+        }
+        lastReturnRefresh = now;
+        reload(Set.of(), false);
+        refreshCpu();
+        sampleDirectServers(false);
+        findServer(selectedServerId).ifPresent(s -> {
+            if (!liveActive()) {
+                loadMetrics(s, false);
+            }
+        });
+    }
+
+    /** 창이 보이지 않을 때(메뉴 막대에만 있거나 최소화) SSH 풀에 알린다. 조회 연결만 남고 나머지는 쓰는 대로 닫힌다. */
+    private void updateConnectionMode() {
+        terminalService.setBackground(windowHidden());
+    }
+
     private void sampleDirect(Server server) {
         if (!sshMetrics.canSample(server) || !sampling.add(server.id())) {
             return;
         }
-        Async.run(() -> sshMetrics.sample(server), sample -> {
+        // 창이 보이지 않으면 사이드바·트레이에 필요한 CPU만 잰다.
+        boolean cpuOnly = windowHidden();
+        Async.run(() -> sshMetrics.sample(server, cpuOnly), sample -> {
             sampling.remove(server.id());
             if (sample.isEmpty()) {
-                if (server.id().equals(metricsServerId) && !liveActive()
-                        && sshMetrics.metrics(server.id()).cpuPercent().isEmpty()) {
-                    metrics().showMessage("SSH로 읽지 못했어요");
-                    metrics().setStatus("터미널로 한 번 접속해 호스트 키를 확인했는지 봐 주세요", true);
+                if (server.id().equals(metricsServerId) && !liveActive()) {
+                    Optional<String> stopped = sshMetrics.blockedReason(server.id());
+                    boolean noHistory = sshMetrics.metrics(server.id()).cpuPercent().isEmpty();
+                    if (stopped.isPresent()) {
+                        // 서버 로그에 접속 시도가 쌓이지 않도록 자동 측정을 멈춘 상태다.
+                        if (noHistory) {
+                            metrics().showMessage("자동 측정을 멈췄어요");
+                        }
+                        metrics().setStatus(stopped.get() + " · 고친 뒤 새로고침하면 다시 시도해요", true);
+                    } else if (noHistory) {
+                        metrics().showMessage("SSH로 읽지 못했어요");
+                        metrics().setStatus("터미널로 한 번 접속해 호스트 키를 확인했는지 봐 주세요", true);
+                    }
                 }
                 return;
             }
@@ -699,6 +773,10 @@ public class MainFrame extends JFrame {
         if (refreshing && !userInitiated) {
             return;
         }
+        if (userInitiated) {
+            // 사용자가 직접 새로고침했다. 설정 문제로 멈춰 둔 직접 연결 서버의 자동 측정도 다시 시도한다.
+            sshMetrics.resetAll();
+        }
         // 수동 새로고침은 이전 요청이 멈춰 있더라도 항상 새로 시작한다. 늦게 도착한 이전 결과는 버린다.
         long generation = ++reloadGeneration;
         pollTimer.stop();
@@ -794,7 +872,7 @@ public class MainFrame extends JFrame {
                         com.infradesk.core.SshHostProperties.port(a)))
                 .orElse(null);
         if (new SshSettingsDialog(this, terminalService, server, defaults).showDialog()) {
-
+            sshMetrics.reset(server.id());
             terminalView.reconnect(server.id());
             if (server.id().equals(selectedServerId)) {
                 loadFacts(server, true);
@@ -897,6 +975,8 @@ public class MainFrame extends JFrame {
         detail.setFactsMessage("불러오는 중…");
         String id = server.id();
         Async.run(() -> terminalService.facts(server, new HostKeyDialog(this)), facts -> {
+            // 사용자가 연 화면에서 SSH 접속이 됐다. 자동 측정이 멈춰 있었다면 다시 시도한다.
+            sshMetrics.reset(id);
             factsCache.put(id, java.util.Map.entry(java.time.Instant.now(), facts));
             if (id.equals(selectedServerId)) {
                 detail.setFacts(facts);
