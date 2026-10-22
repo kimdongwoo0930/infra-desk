@@ -277,6 +277,20 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
+        // 전송 패널: 끝난 항목을 모두 지우면 패널이 접힌다.
+        boolean[] panelState = new boolean[2];
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> panels = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "TransferPanel", panels);
+            panelState[0] = panels.getFirst().isVisible();
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JButton", buttons);
+            buttons.stream().map(x -> (javax.swing.AbstractButton) x)
+                    .filter(x -> "끝난 항목 모두 지우기".equals(x.getText())).findFirst().orElseThrow().doClick();
+            panelState[1] = panels.getFirst().isVisible();
+        });
+        System.out.println(panelState[0] && !panelState[1] ? "TRANSFER-CLEAR: OK (모두 지우면 패널이 접혔다)"
+                : "TRANSFER-CLEAR: FAILED (전 " + panelState[0] + ", 후 " + panelState[1] + ")");
         // 서버 파일 편집: 실제 편집기를 띄우지 않고, 받은 임시 파일에 저장하는 것을 흉내 낸 뒤
         // 서버에 다시 올라갔는지 확인한다.
         java.util.concurrent.atomic.AtomicReference<java.nio.file.Path> edited = new java.util.concurrent.atomic.AtomicReference<>();
@@ -341,6 +355,20 @@ public final class UiSnapshot {
                     .filter(x -> "내 컴퓨터로 다운로드".equals(x.getText())).findFirst().orElseThrow().doClick();
         });
         Thread.sleep(2500);
+        // 새 전송이 시작되면 패널이 다시 나타나고, X로 닫으면 접힌다(끝난 항목은 함께 지워진다).
+        boolean[] closeState = new boolean[2];
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> panels = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "TransferPanel", panels);
+            closeState[0] = panels.getFirst().isVisible();
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JButton", buttons);
+            buttons.stream().map(x -> (javax.swing.AbstractButton) x)
+                    .filter(x -> "닫기".equals(x.getToolTipText())).findFirst().orElseThrow().doClick();
+            closeState[1] = panels.getFirst().isVisible();
+        });
+        System.out.println(closeState[0] && !closeState[1] ? "TRANSFER-CLOSE: OK (새 전송에 나타나고 X로 접힌다)"
+                : "TRANSFER-CLOSE: FAILED (전 " + closeState[0] + ", 후 " + closeState[1] + ")");
         boolean inHome = java.nio.file.Files.exists(localHome.resolve("README.md"));
         boolean inPaneFolder = java.nio.file.Files.exists(localHome.resolve("Documents").resolve("README.md"));
         System.out.println(inHome && !inPaneFolder ? "DOWNLOAD-DIR: OK (패널이 Documents에 있어도 다운로드 폴더로 받았다)"

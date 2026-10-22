@@ -73,6 +73,8 @@ public final class SftpDialog extends JDialog {
     private final List<EditSession> edits = new ArrayList<>();
     private final javax.swing.Timer editTimer = new javax.swing.Timer(1000, e -> checkEdits());
     private Path editRoot;
+    /** 전송 패널을 X로 닫았다. 새 전송이 시작되거나 실패가 생기면 다시 나타난다. */
+    private boolean transfersDismissed;
     /** 더블클릭·버튼으로 받은 파일이 저장되는 폴더(보통 Downloads). 끌어서 놓기는 놓은 곳에 저장된다. */
     private Path downloadDir;
     private int editSeq;
@@ -87,7 +89,10 @@ public final class SftpDialog extends JDialog {
         this.remotePane = new FilePane("서버 · " + server.name(), "원격 경로");
         this.queue = new TransferQueue(() -> service.openFiles(server, new HostKeyDialog(this)),
                 job -> SwingUtilities.invokeLater(() -> onJobChanged(job)));
-        this.transfers = new TransferPanel(queue);
+        this.transfers = new TransferPanel(queue, this::updateTransfersVisible, () -> {
+            transfersDismissed = true;
+            updateTransfersVisible();
+        });
 
         upload.addActionListener(e -> upload());
         download.addActionListener(e -> download());
@@ -363,14 +368,22 @@ public final class SftpDialog extends JDialog {
         };
     }
 
-    private void onJobChanged(TransferQueue.Job job) {
-        transfers.refresh();
-        boolean show = !transfers.isEmpty();
+    /** 전송 패널은 목록에 항목이 있고 사용자가 닫지 않았을 때만 보인다. */
+    private void updateTransfersVisible() {
+        boolean show = !transfers.isEmpty() && !transfersDismissed;
         if (transfers.isVisible() != show) {
             transfers.setVisible(show);
             south.revalidate();
             south.repaint();
         }
+    }
+
+    private void onJobChanged(TransferQueue.Job job) {
+        transfers.refresh();
+        if (job.state() == TransferQueue.State.QUEUED || job.state() == TransferQueue.State.FAILED) {
+            transfersDismissed = false;
+        }
+        updateTransfersVisible();
         for (EditSession s : edits) {
             if (s.job == job && job.state().finished()) {
                 s.job = null;
