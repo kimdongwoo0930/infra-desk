@@ -81,6 +81,10 @@ public class MainFrame extends JFrame {
     private final java.util.Set<String> sampling = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private LocalTime lastRefreshAt;
     private boolean hiddenNoticeShown;
+    /** X로 닫아 메뉴 막대에만 있는 상태. */
+    private boolean trayHidden;
+    /** Dock(작업 표시줄)으로 최소화한 상태. */
+    private boolean iconified;
     /** 서버 id별로 SSH로 읽은 정보. 5분 동안 재사용한다. */
     private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.HostFacts>> factsCache =
             new java.util.HashMap<>();
@@ -120,17 +124,19 @@ public class MainFrame extends JFrame {
         this.demoMode = demoMode;
         this.titleBar = new TitleBar(demoMode);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        // X로 닫아 메뉴 막대에만 있을 때(HIDE_ON_CLOSE)는 SSH 풀에서 조회 연결만 남기고 나머지는 쓰는 대로 닫는다.
-        // Dock으로 최소화(iconify)하는 것과는 다른 상태라서 창이 숨고 보일 때의 이벤트로 알린다.
+        // X로 닫아 메뉴 막대에만 있을 때(HIDE_ON_CLOSE)와 Dock으로 최소화했을 때는 SSH 풀에서 조회 연결만 남기고
+        // 나머지는 쓰는 대로 닫는다. 측정 주기는 그대로 1분이다(조회 연결이 유지되니 접속 기록이 늘지 않는다).
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentHidden(java.awt.event.ComponentEvent e) {
-                terminalService.setBackground(true);
+                trayHidden = true;
+                updateConnectionMode();
             }
 
             @Override
             public void componentShown(java.awt.event.ComponentEvent e) {
-                terminalService.setBackground(false);
+                trayHidden = false;
+                updateConnectionMode();
             }
         });
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -152,10 +158,14 @@ public class MainFrame extends JFrame {
             @Override
             public void windowIconified(java.awt.event.WindowEvent e) {
                 live.pause();
+                iconified = true;
+                updateConnectionMode();
             }
 
             @Override
             public void windowDeiconified(java.awt.event.WindowEvent e) {
+                iconified = false;
+                updateConnectionMode();
                 if (dashboardVisible) {
                     live.resume();
                 }
@@ -467,6 +477,10 @@ public class MainFrame extends JFrame {
                 continue;
             }
             for (Server s : inv.servers()) {
+                // 실시간 모드로 이 서버를 2초마다 읽는 중이면 1분 측정은 화면에 반영되지 않으므로 건너뛴다.
+                if (liveActive() && s.id().equals(metricsServerId)) {
+                    continue;
+                }
                 if (s.status() == com.infradesk.core.ServerStatus.RUNNING
                         && (!onlyNew || sshMetrics.metrics(s.id()).cpuPercent().isEmpty())) {
                     sampleDirect(s);
@@ -475,20 +489,16 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /**
-     * 앱 창이 눈에 보이는 상태인지. 메뉴 막대에만 있거나 최소화돼 있으면 false. 이때는 직접 연결 서버에
-     * 접속하는 간격을 길게 잡아서 아무도 보지 않는 동안 서버 로그에 접속 기록이 쌓이지 않게 한다.
-     */
-    private boolean windowVisible() {
-        return isShowing() && (getExtendedState() & java.awt.Frame.ICONIFIED) == 0;
+    /** 창이 보이지 않을 때(메뉴 막대에만 있거나 최소화) SSH 풀에 알린다. 조회 연결만 남고 나머지는 쓰는 대로 닫힌다. */
+    private void updateConnectionMode() {
+        terminalService.setBackground(trayHidden || iconified);
     }
 
     private void sampleDirect(Server server) {
         if (!sshMetrics.canSample(server) || !sampling.add(server.id())) {
             return;
         }
-        boolean visible = windowVisible();
-        Async.run(() -> sshMetrics.sample(server, visible), sample -> {
+        Async.run(() -> sshMetrics.sample(server), sample -> {
             sampling.remove(server.id());
             if (sample.isEmpty()) {
                 if (server.id().equals(metricsServerId) && !liveActive()) {
@@ -544,7 +554,7 @@ public class MainFrame extends JFrame {
 
     private void showDirectHistory(String serverId) {
         metrics().showHistory(sshMetrics.metrics(serverId));
-        metrics().setStatus("SSH로 1분마다 수집 (창이 숨으면 5분마다) · 앱이 켜져 있는 동안의 기록", false);
+        metrics().setStatus("SSH로 1분마다 수집 · 앱이 켜져 있는 동안의 기록", false);
     }
 
     private void refreshCpu() {

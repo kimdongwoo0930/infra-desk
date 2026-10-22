@@ -47,21 +47,16 @@ public class SshMetricsService {
         return terminal.isConfigured(server.id());
     }
 
-    public Optional<ProcStats.Sample> sample(Server server) {
-        return sample(server, true);
-    }
-
     /**
      * 샘플을 한 번 찍어 기록에 추가한다. SSH가 설정되지 않았거나, 호스트 키를 아직 신뢰하지 않았거나
      * (백그라운드에서 실행되므로 절대 묻지 않는다) 명령이 실패하면 빈 값.
      *
      * <p>서버에 접속하는 횟수를 {@link SamplingGate}가 제한한다. 지금 접속하면 안 되는 때(최근에 접속했거나,
-     * 실패 뒤 기다리는 중이거나, 설정 문제로 멈춘 상태)는 접속하지 않고 빈 값을 돌려준다.
-     *
-     * @param windowVisible 앱 창이 보이는 상태인지. 숨어 있으면 접속 간격이 길어진다
+     * 실패 뒤 기다리는 중이거나, 설정 문제로 멈춘 상태)는 접속하지 않고 빈 값을 돌려준다. 창이 보이든 숨었든
+     * 주기는 같다(1분). 조회(QUERY) 연결은 숨어 있어도 유지되므로 열려 있는 연결에 채널만 연다.
      */
-    public Optional<ProcStats.Sample> sample(Server server, boolean windowVisible) {
-        if (!canSample(server) || !gate.tryAcquire(server.id(), windowVisible)) {
+    public Optional<ProcStats.Sample> sample(Server server) {
+        if (!canSample(server) || !gate.tryAcquire(server.id())) {
             return Optional.empty();
         }
         ExecResult r = terminal.run(Purpose.QUERY, server, ProcStats.ONE_SHOT, (host, port, type, fingerprint) -> false, TIMEOUT);

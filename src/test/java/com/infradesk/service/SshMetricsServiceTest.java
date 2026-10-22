@@ -173,29 +173,13 @@ class SshMetricsServiceTest {
     }
 
     @Test
-    void hiddenWindowSamplesOnlyEveryFiveMinutes() {
-        MutableClock clock = new MutableClock(Instant.parse("2026-10-20T10:00:00Z"));
-        SshMetricsService svc = new SshMetricsService(demoTerminal(), clock);
-
-        int samples = 0;
-        for (int minute = 0; minute < 30; minute++) {
-            if (svc.sample(MAC, false).isPresent()) {
-                samples++;
-            }
-            clock.now = clock.now.plus(Duration.ofMinutes(1));
-        }
-
-        assertEquals(6, samples, "30분 동안 창이 숨어 있으면 6번(5분마다)");
-    }
-
-    @Test
-    void visibleWindowKeepsTheOncePerMinuteRhythm() {
+    void samplesOncePerMinuteWhetherOrNotTheWindowIsVisible() {
         MutableClock clock = new MutableClock(Instant.parse("2026-10-20T10:00:00Z"));
         SshMetricsService svc = new SshMetricsService(demoTerminal(), clock);
 
         int samples = 0;
         for (int minute = 0; minute < 10; minute++) {
-            if (svc.sample(MAC, true).isPresent()) {
+            if (svc.sample(MAC).isPresent()) {
                 samples++;
             }
             clock.now = clock.now.plus(Duration.ofMinutes(1));
