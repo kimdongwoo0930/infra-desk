@@ -355,20 +355,74 @@ public final class UiSnapshot {
                     .filter(x -> "내 컴퓨터로 다운로드".equals(x.getText())).findFirst().orElseThrow().doClick();
         });
         Thread.sleep(2500);
-        // 새 전송이 시작되면 패널이 다시 나타나고, X로 닫으면 접힌다(끝난 항목은 함께 지워진다).
-        boolean[] closeState = new boolean[2];
+        // 새 전송이 시작되면 패널이 나타난다. X로 접으면 목록은 남고, "전송 목록 보기"로 다시 열 수 있다.
+        boolean[] closeState = new boolean[5];
         SwingUtilities.invokeAndWait(() -> {
             List<java.awt.Component> panels = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "TransferPanel", panels);
-            closeState[0] = panels.getFirst().isVisible();
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
+            java.util.function.Function<String, javax.swing.AbstractButton> byText = t -> buttons.stream()
+                    .map(x -> (javax.swing.AbstractButton) x).filter(x -> x.getText() != null && x.getText().startsWith(t))
+                    .findFirst().orElseThrow();
+            closeState[0] = panels.getFirst().isVisible();
             buttons.stream().map(x -> (javax.swing.AbstractButton) x)
                     .filter(x -> "닫기".equals(x.getToolTipText())).findFirst().orElseThrow().doClick();
             closeState[1] = panels.getFirst().isVisible();
+            closeState[2] = byText.apply("전송 목록 보기").isVisible();
+            byText.apply("전송 목록 보기").doClick();
+            closeState[3] = panels.getFirst().isVisible();
+            buttons.stream().map(x -> (javax.swing.AbstractButton) x)
+                    .filter(x -> "닫기".equals(x.getToolTipText())).findFirst().orElseThrow().doClick();
+            closeState[4] = !panels.getFirst().isVisible();
         });
-        System.out.println(closeState[0] && !closeState[1] ? "TRANSFER-CLOSE: OK (새 전송에 나타나고 X로 접힌다)"
-                : "TRANSFER-CLOSE: FAILED (전 " + closeState[0] + ", 후 " + closeState[1] + ")");
+        boolean closeOk = closeState[0] && !closeState[1] && closeState[2] && closeState[3] && closeState[4];
+        System.out.println(closeOk ? "TRANSFER-CLOSE: OK (X로 접고, 버튼으로 다시 열고, 다시 접는다)"
+                : "TRANSFER-CLOSE: FAILED " + java.util.Arrays.toString(closeState));
+        // 패널을 X로 닫은 뒤, 이미 있는 파일을 덮어쓰며 다시 받는다(확인 창에서 "덮어쓰기"). 패널이 다시 나타나야 한다.
+        SwingUtilities.invokeLater(() -> {
+            List<java.awt.Component> tables = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JTable", tables);
+            javax.swing.JTable remote = (javax.swing.JTable) tables.get(1);
+            for (int row = 0; row < remote.getRowCount(); row++) {
+                if (remote.getValueAt(row, 0).toString().contains("README.md")) {
+                    remote.setRowSelectionInterval(row, row);
+                }
+            }
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "JButton", buttons);
+            buttons.stream().map(x -> (javax.swing.AbstractButton) x)
+                    .filter(x -> "내 컴퓨터로 다운로드".equals(x.getText())).findFirst().orElseThrow().doClick();
+        });
+        boolean answered = false;
+        for (int i = 0; i < 40 && !answered; i++) {
+            Thread.sleep(100);
+            boolean[] clicked = {false};
+            SwingUtilities.invokeAndWait(() -> {
+                for (java.awt.Window w : java.awt.Window.getWindows()) {
+                    if (w.isShowing() && w instanceof JDialog d && d.isModal()) {
+                        List<java.awt.Component> found = new java.util.ArrayList<>();
+                        collect(d.getContentPane(), "JButton", found);
+                        for (java.awt.Component c : found) {
+                            if ("덮어쓰기".equals(((javax.swing.AbstractButton) c).getText())) {
+                                ((javax.swing.AbstractButton) c).doClick();
+                                clicked[0] = true;
+                            }
+                        }
+                    }
+                }
+            });
+            answered = clicked[0];
+        }
+        Thread.sleep(1500);
+        boolean[] overwriteShown = new boolean[1];
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> panels = new java.util.ArrayList<>();
+            collect(sftp[0].getContentPane(), "TransferPanel", panels);
+            overwriteShown[0] = panels.getFirst().isVisible();
+        });
+        System.out.println(answered && overwriteShown[0] ? "REOPEN-ON-OVERWRITE: OK (덮어쓰며 받으면 패널이 나타났다)"
+                : "REOPEN-ON-OVERWRITE: FAILED (확인 창 응답 " + answered + ", 패널 보임 " + overwriteShown[0] + ")");
         boolean inHome = java.nio.file.Files.exists(localHome.resolve("README.md"));
         boolean inPaneFolder = java.nio.file.Files.exists(localHome.resolve("Documents").resolve("README.md"));
         System.out.println(inHome && !inPaneFolder ? "DOWNLOAD-DIR: OK (패널이 Documents에 있어도 다운로드 폴더로 받았다)"

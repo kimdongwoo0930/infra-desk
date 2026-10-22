@@ -73,8 +73,11 @@ public final class SftpDialog extends JDialog {
     private final List<EditSession> edits = new ArrayList<>();
     private final javax.swing.Timer editTimer = new javax.swing.Timer(1000, e -> checkEdits());
     private Path editRoot;
-    /** 전송 패널을 X로 닫았다. 새 전송이 시작되거나 실패가 생기면 다시 나타난다. */
+    /** 전송 패널을 X로 닫았다. 새 전송이 시작되거나 실패가 생기면 다시 나타나고, 버튼으로 다시 열 수 있다. */
     private boolean transfersDismissed;
+    private final JButton showTransfers = Buttons.ghost("전송 목록 보기");
+    /** 화면에 이미 알린 작업. 처음 알리는 작업이 새 전송이다. */
+    private final Set<Long> announced = new HashSet<>();
     /** 더블클릭·버튼으로 받은 파일이 저장되는 폴더(보통 Downloads). 끌어서 놓기는 놓은 곳에 저장된다. */
     private Path downloadDir;
     private int editSeq;
@@ -138,7 +141,16 @@ public final class SftpDialog extends JDialog {
         transfers.setPreferredSize(new Dimension(0, 190));
         south.setOpaque(false);
         south.add(transfers, BorderLayout.CENTER);
-        south.add(status, BorderLayout.SOUTH);
+        JPanel statusRow = new JPanel(new BorderLayout());
+        statusRow.setOpaque(false);
+        statusRow.add(status, BorderLayout.CENTER);
+        statusRow.add(showTransfers, BorderLayout.EAST);
+        showTransfers.setVisible(false);
+        showTransfers.addActionListener(e -> {
+            transfersDismissed = false;
+            updateTransfersVisible();
+        });
+        south.add(statusRow, BorderLayout.SOUTH);
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Theme.PANEL_BG);
@@ -371,6 +383,12 @@ public final class SftpDialog extends JDialog {
     /** 전송 패널은 목록에 항목이 있고 사용자가 닫지 않았을 때만 보인다. */
     private void updateTransfersVisible() {
         boolean show = !transfers.isEmpty() && !transfersDismissed;
+        // 닫아 둔 목록을 다시 열 수 있게, 접혀 있고 항목이 있을 때만 버튼을 보인다.
+        boolean canReopen = !transfers.isEmpty() && transfersDismissed;
+        showTransfers.setVisible(canReopen);
+        if (canReopen) {
+            showTransfers.setText("전송 목록 보기 (" + queue.jobs().size() + ")");
+        }
         if (transfers.isVisible() != show) {
             transfers.setVisible(show);
             south.revalidate();
@@ -380,7 +398,9 @@ public final class SftpDialog extends JDialog {
 
     private void onJobChanged(TransferQueue.Job job) {
         transfers.refresh();
-        if (job.state() == TransferQueue.State.QUEUED || job.state() == TransferQueue.State.FAILED) {
+        // 새 전송이 시작되거나 실패가 생기면 닫아 둔 패널을 다시 연다. 상태는 이 코드가 도는 시점의 값이라
+        // 작은 파일은 이미 끝나 있을 수 있으므로, 새 작업인지는 처음 알림을 받았는지로 판단한다.
+        if (announced.add(job.id()) || job.state() == TransferQueue.State.FAILED) {
             transfersDismissed = false;
         }
         updateTransfersVisible();

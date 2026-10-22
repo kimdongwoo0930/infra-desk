@@ -42,7 +42,7 @@ final class TransferPanel extends JPanel {
 
     /**
      * @param onChange 지우기로 목록이 바뀌었을 때(EDT). 목록이 비었으면 창이 이 패널을 접는다
-     * @param onClose  X로 닫았을 때(EDT). 진행 중인 전송은 멈추지 않는다
+     * @param onClose  X로 닫았을 때(EDT). 목록과 진행 중인 전송은 그대로 둔다
      */
     TransferPanel(TransferQueue queue, Runnable onChange, Runnable onClose) {
         super(new BorderLayout(0, 6));
@@ -91,14 +91,8 @@ final class TransferPanel extends JPanel {
             removeFinished();
             changed();
         });
-        close.addActionListener(e -> {
-            // 진행 중인 전송이 없으면 끝난 항목은 필요 없으니 같이 지운다. 있으면 그대로 두고 패널만 접는다.
-            if (activeCount() == 0) {
-                removeFinished();
-            }
-            refresh();
-            onClose.run();
-        });
+        // 닫기는 패널만 접는다. 목록과 진행 중인 전송은 그대로이고, 아래 "전송 목록 보기"로 다시 연다.
+        close.addActionListener(e -> onClose.run());
 
         add(head, BorderLayout.NORTH);
         add(scroll, BorderLayout.CENTER);
