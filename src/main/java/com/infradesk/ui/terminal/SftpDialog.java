@@ -70,6 +70,7 @@ public final class SftpDialog extends JDialog {
     private final JButton edit = Buttons.secondary("편집", "file");
     private final JButton editLocal = Buttons.secondary("편집", "file");
     private final Set<Long> reloaded = new HashSet<>();
+    private final Set<Long> ownerWarned = new HashSet<>();
     private final List<EditSession> edits = new ArrayList<>();
     private final javax.swing.Timer editTimer = new javax.swing.Timer(1000, e -> checkEdits());
     private Path editRoot;
@@ -90,7 +91,7 @@ public final class SftpDialog extends JDialog {
         this.service = service;
         this.server = server;
         this.remotePane = new FilePane("서버 · " + server.name(), "원격 경로");
-        this.queue = new TransferQueue(() -> service.openFiles(server, new HostKeyDialog(this)),
+        this.queue = new TransferQueue(() -> service.openTransferFiles(server, new HostKeyDialog(this)),
                 job -> SwingUtilities.invokeLater(() -> onJobChanged(job)));
         this.transfers = new TransferPanel(queue, this::updateTransfersVisible, () -> {
             transfersDismissed = true;
@@ -418,6 +419,9 @@ public final class SftpDialog extends JDialog {
                 }
             }
         }
+        if (job.state() == TransferQueue.State.DONE && job.ownerChangedCount() > 0 && ownerWarned.add(job.id())) {
+            warnOwnerChanged(job);
+        }
         if (job.state() == TransferQueue.State.DONE && reloaded.add(job.id())) {
             if (job.direction() == TransferQueue.Direction.UPLOAD && job.targetDir().equals(remotePane.cwd())) {
                 remotePane.reload();
@@ -425,6 +429,20 @@ public final class SftpDialog extends JDialog {
                 localPane.reload();
             }
         }
+    }
+
+    /**
+     * 덮어쓴 서버 파일의 소유자가 바뀌었다고 알린다. 일반 계정은 소유자를 되돌릴 수 없어서, 다른 사용자(웹 서버·서비스 계정 등)
+     * 소유였던 파일이면 서버에서 직접 맞춰야 할 수 있다. 전송 하나당 한 번만 띄운다.
+     */
+    private void warnOwnerChanged(TransferQueue.Job job) {
+        List<String> names = job.ownerChangedNames();
+        String shown = String.join(", ", names.stream().limit(3).toList()) + (names.size() > 3 ? " 외 " + (names.size() - 3) + "개" : "");
+        JOptionPane.showMessageDialog(this,
+                "덮어쓴 서버 파일 " + names.size() + "개의 소유자가 이 계정으로 바뀌었어요.\n" + shown
+                        + "\n\n권한(rwx)은 그대로 유지했지만 소유자는 일반 계정으로 되돌릴 수 없어요.\n"
+                        + "다른 사용자(웹 서버, 서비스 계정 등)가 이 파일을 읽거나 써야 한다면 서버에서 소유자를 다시 맞춰 주세요.",
+                "소유자 변경", JOptionPane.WARNING_MESSAGE);
     }
 
     // ---- 새 폴더, 이름 바꾸기, 삭제, 권한 ----

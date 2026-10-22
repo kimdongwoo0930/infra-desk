@@ -19,16 +19,13 @@ import java.util.Optional;
  *       인증이 두 번 연속 실패하면 사용자가 고치기 전까지 자동 접속을 하지 않는다. 사용자가 설정을 저장하거나
  *       새로고침하면({@link #reset}) 다시 시도한다.</li>
  *   <li><b>그 밖의 실패(연결 끊김, 시간 초과)는 점점 길게 기다린다.</b> 2분, 5분, 이후 15분.</li>
- *   <li><b>창이 숨어 있으면 {@value #HIDDEN_MINUTES}분에 한 번만</b> 접속한다.</li>
  *   <li><b>어떤 경우에도 {@value #MIN_GAP_SECONDS}초 안에 두 번 접속하지 않는다</b>(여러 곳에서 동시에 요청해도).</li>
  * </ul>
  */
 final class SamplingGate {
 
     static final int MIN_GAP_SECONDS = 15;
-    static final int HIDDEN_MINUTES = 5;
     private static final Duration MIN_GAP = Duration.ofSeconds(MIN_GAP_SECONDS);
-    private static final Duration HIDDEN_INTERVAL = Duration.ofMinutes(HIDDEN_MINUTES);
     private static final Duration[] BACKOFF = {Duration.ofMinutes(2), Duration.ofMinutes(5), Duration.ofMinutes(15)};
     /** 인증이 이만큼 연속으로 실패하면 멈춘다. */
     private static final int AUTH_FAILURES_BEFORE_STOP = 2;
@@ -50,10 +47,8 @@ final class SamplingGate {
 
     /**
      * 지금 접속해도 되는지 묻고, 된다면 접속한 것으로 기록한다(동시에 두 곳에서 물어도 한쪽만 통과한다).
-     *
-     * @param windowVisible 앱 창이 보이는 상태인지. 아니면 접속 간격을 길게 잡는다
      */
-    synchronized boolean tryAcquire(String serverId, boolean windowVisible) {
+    synchronized boolean tryAcquire(String serverId) {
         State s = states.computeIfAbsent(serverId, id -> new State());
         if (s.blockedBy != null) {
             return false;
@@ -61,7 +56,7 @@ final class SamplingGate {
         Instant now = clock.instant();
         if (s.lastAttempt != null) {
             Duration gap = Duration.between(s.lastAttempt, now);
-            if (gap.compareTo(MIN_GAP) < 0 || (!windowVisible && gap.compareTo(HIDDEN_INTERVAL) < 0)) {
+            if (gap.compareTo(MIN_GAP) < 0) {
                 return false;
             }
         }

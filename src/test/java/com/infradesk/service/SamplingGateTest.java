@@ -23,101 +23,90 @@ class SamplingGateTest {
 
     @Test
     void neverConnectsTwiceWithinTheMinimumGap() {
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
         advance(Duration.ofSeconds(10));
-        assertFalse(gate.tryAcquire("s", true), "15초 안에는 다시 접속하지 않는다");
+        assertFalse(gate.tryAcquire("s"), "15초 안에는 다시 접속하지 않는다");
         advance(Duration.ofSeconds(6));
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
     }
 
     @Test
     void twoCallersAskingAtTheSameTimeOnlyOneGetsThrough() {
-        assertTrue(gate.tryAcquire("s", true));
-        assertFalse(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
+        assertFalse(gate.tryAcquire("s"));
     }
 
     @Test
     void serversAreIndependent() {
-        assertTrue(gate.tryAcquire("a", true));
-        assertTrue(gate.tryAcquire("b", true));
+        assertTrue(gate.tryAcquire("a"));
+        assertTrue(gate.tryAcquire("b"));
     }
 
     @Test
-    void hiddenWindowConnectsOnlyEveryFiveMinutes() {
-        assertTrue(gate.tryAcquire("s", false));
-        for (int minute = 1; minute < 5; minute++) {
-            advance(Duration.ofMinutes(1));
-            assertFalse(gate.tryAcquire("s", false), minute + "분 뒤에는 아직");
-        }
+    void connectsOncePerMinuteWhenTheTimerAsks() {
+        assertTrue(gate.tryAcquire("s"));
         advance(Duration.ofMinutes(1));
-        assertTrue(gate.tryAcquire("s", false), "5분이 지났다");
-    }
-
-    @Test
-    void visibleWindowIsNotSlowedDown() {
-        assertTrue(gate.tryAcquire("s", true));
-        advance(Duration.ofMinutes(1));
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
     }
 
     @Test
     void transientFailuresBackOffTwoFiveThenFifteenMinutes() {
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
         assertFalse(gate.failure("s", Kind.CONNECT), "일시적 실패는 멈추지 않는다");
 
         advance(Duration.ofMinutes(1));
-        assertFalse(gate.tryAcquire("s", true), "첫 실패 뒤 2분은 기다린다");
+        assertFalse(gate.tryAcquire("s"), "첫 실패 뒤 2분은 기다린다");
         advance(Duration.ofMinutes(1));
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
         gate.failure("s", null);
 
         advance(Duration.ofMinutes(4));
-        assertFalse(gate.tryAcquire("s", true), "두 번째 실패 뒤 5분");
+        assertFalse(gate.tryAcquire("s"), "두 번째 실패 뒤 5분");
         advance(Duration.ofMinutes(1));
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
         gate.failure("s", Kind.CHANNEL);
 
         advance(Duration.ofMinutes(14));
-        assertFalse(gate.tryAcquire("s", true), "세 번째부터는 15분");
+        assertFalse(gate.tryAcquire("s"), "세 번째부터는 15분");
         advance(Duration.ofMinutes(1));
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
         gate.failure("s", Kind.CONNECT);
 
         advance(Duration.ofMinutes(14));
-        assertFalse(gate.tryAcquire("s", true), "그 뒤로도 15분을 넘기지 않는다");
+        assertFalse(gate.tryAcquire("s"), "그 뒤로도 15분을 넘기지 않는다");
         advance(Duration.ofMinutes(1));
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
         assertTrue(gate.blocked("s").isEmpty(), "연결 문제는 멈추지 않고 계속 간격만 늘린다");
     }
 
     @Test
     void successClearsTheBackoff() {
-        gate.tryAcquire("s", true);
+        gate.tryAcquire("s");
         gate.failure("s", Kind.CONNECT);
         advance(Duration.ofMinutes(2));
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
         gate.success("s");
 
         advance(Duration.ofMinutes(1));
-        assertTrue(gate.tryAcquire("s", true), "성공했으니 바로 다음 주기에 다시 접속한다");
+        assertTrue(gate.tryAcquire("s"), "성공했으니 바로 다음 주기에 다시 접속한다");
         gate.failure("s", Kind.CONNECT);
         advance(Duration.ofMinutes(1));
-        assertFalse(gate.tryAcquire("s", true), "실패 횟수도 처음부터 센다(2분)");
+        assertFalse(gate.tryAcquire("s"), "실패 횟수도 처음부터 센다(2분)");
     }
 
     @Test
     void authenticationStopsAfterTheSecondConsecutiveFailure() {
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
         assertFalse(gate.failure("s", Kind.AUTH), "첫 인증 실패로는 멈추지 않는다");
         assertTrue(gate.blocked("s").isEmpty());
 
         advance(Duration.ofMinutes(3));
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
         assertTrue(gate.failure("s", Kind.AUTH), "두 번째에 멈추고, 멈춘 것을 한 번 알린다");
         assertEquals(Kind.AUTH, gate.blocked("s").orElseThrow());
 
         advance(Duration.ofHours(6));
-        assertFalse(gate.tryAcquire("s", true), "몇 시간이 지나도 사용자가 고치기 전에는 접속하지 않는다");
+        assertFalse(gate.tryAcquire("s"), "몇 시간이 지나도 사용자가 고치기 전에는 접속하지 않는다");
         assertFalse(gate.failure("s", Kind.AUTH), "이미 멈췄으니 또 알리지 않는다");
     }
 
@@ -125,46 +114,46 @@ class SamplingGateTest {
     void hostKeyProblemsStopImmediately() {
         for (Kind kind : new Kind[] {Kind.HOST_KEY_CHANGED, Kind.HOST_KEY_REJECTED, Kind.KEY_FORMAT}) {
             SamplingGate g = new SamplingGate(clock);
-            assertTrue(g.tryAcquire("s", true));
+            assertTrue(g.tryAcquire("s"));
             assertTrue(g.failure("s", kind), kind + "은 첫 실패에 멈춘다");
             advance(Duration.ofHours(1));
-            assertFalse(g.tryAcquire("s", true), kind + ": 다시 시도해도 성공할 수 없다");
+            assertFalse(g.tryAcquire("s"), kind + ": 다시 시도해도 성공할 수 없다");
         }
     }
 
     @Test
     void anAuthFailureFollowedBySuccessDoesNotCountTowardStopping() {
-        gate.tryAcquire("s", true);
+        gate.tryAcquire("s");
         gate.failure("s", Kind.AUTH);
         advance(Duration.ofMinutes(3));
-        gate.tryAcquire("s", true);
+        gate.tryAcquire("s");
         gate.success("s");
 
         advance(Duration.ofMinutes(1));
-        gate.tryAcquire("s", true);
+        gate.tryAcquire("s");
         assertFalse(gate.failure("s", Kind.AUTH), "연속이 아니므로 다시 처음부터");
         assertTrue(gate.blocked("s").isEmpty());
     }
 
     @Test
     void resetLetsAStoppedServerTryAgainButKeepsTheMinimumGap() {
-        gate.tryAcquire("s", true);
+        gate.tryAcquire("s");
         gate.failure("s", Kind.HOST_KEY_REJECTED);
         assertTrue(gate.blocked("s").isPresent());
 
         advance(Duration.ofSeconds(5));
         gate.reset("s");
         assertTrue(gate.blocked("s").isEmpty());
-        assertFalse(gate.tryAcquire("s", true), "새로고침을 연타해도 15초 간격은 지킨다");
+        assertFalse(gate.tryAcquire("s"), "새로고침을 연타해도 15초 간격은 지킨다");
         advance(Duration.ofSeconds(11));
-        assertTrue(gate.tryAcquire("s", true));
+        assertTrue(gate.tryAcquire("s"));
     }
 
     @Test
     void resetAllClearsEveryServer() {
-        gate.tryAcquire("a", true);
+        gate.tryAcquire("a");
         gate.failure("a", Kind.KEY_FORMAT);
-        gate.tryAcquire("b", true);
+        gate.tryAcquire("b");
         gate.failure("b", Kind.HOST_KEY_CHANGED);
 
         gate.resetAll();

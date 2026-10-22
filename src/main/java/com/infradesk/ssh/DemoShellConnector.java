@@ -60,6 +60,9 @@ public class DemoShellConnector implements ShellConnector {
         if (command.equals(ProcStats.ONE_SHOT)) {
             return new FinishedSession(target.address(), demoOneShot(hostnameOf(target)), 0);
         }
+        if (command.equals(ProcStats.CPU_ONLY)) {
+            return new FinishedSession(target.address(), demoCpuOnly(hostnameOf(target)), 0);
+        }
         if (command.startsWith(DockerCommands.PRELUDE)) {
             return new FinishedSession(target.address(), DemoDocker.run(hostnameOf(target), command), 0);
         }
@@ -102,6 +105,15 @@ public class DemoShellConnector implements ShellConnector {
                 + " kB\nMemAvailable: " + avail + " kB\n  eth0: " + (rx + 40_000 + r.nextInt(80_000)) + " 0 0 0 0 0 0 0 "
                 + (rx / 3 + 12_000 + r.nextInt(30_000)) + " 0 0 0 0 0 0 0\n---\n";
         return first + second;
+    }
+
+    /** 1초 간격의 /proc/stat cpu 줄 두 개. */
+    private static String demoCpuOnly(String host) {
+        java.util.Random r = new java.util.Random();
+        double cpu = 0.08 + Math.floorMod(host.hashCode(), 20) / 100.0 + r.nextDouble() * 0.15;
+        long busy = Math.round(400 * cpu);
+        return "cpu  1000 0 500 8500 0 0 0 0 0 0\ncpu  " + (1000 + busy) + " 0 500 " + (8500 + 400 - busy)
+                + " 0 0 0 0 0 0\n";
     }
 
     /** 호스트마다 조금씩 다른, 그럴듯한 HostFacts 출력. */
