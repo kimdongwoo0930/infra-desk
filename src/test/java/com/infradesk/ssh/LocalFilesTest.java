@@ -149,4 +149,16 @@ class LocalFilesTest {
         assertThrows(IOException.class, () -> new LocalFiles(dir.resolve("root"), dir.resolve("root"))
                 .createFile(dir.resolve("outside.txt").toString()), "제한된 루트 밖에는 만들 수 없다");
     }
+
+    @Test
+    void startsInDownloadsWhenItExistsAndInHomeOtherwise() throws Exception {
+        assertEquals(dir, LocalFiles.startFolder(dir), "no Downloads folder: stay in home");
+
+        Files.writeString(dir.resolve("Downloads"), "a file, not a folder");
+        assertEquals(dir, LocalFiles.startFolder(dir), "a file named Downloads does not count");
+        Files.delete(dir.resolve("Downloads"));
+
+        Files.createDirectories(dir.resolve("Downloads"));
+        assertEquals(dir.resolve("Downloads"), LocalFiles.startFolder(dir));
+    }
 }
