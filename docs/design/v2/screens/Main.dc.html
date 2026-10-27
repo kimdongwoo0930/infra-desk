@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>InfraDesk · 개요</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#1E1F22}
+a{color:#79A3F2;text-decoration:none}a:hover{color:#A9C4F7}
+button{font:inherit;cursor:pointer}
+.hv:hover{background:#313338}
+.nav:hover{background:#313338}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #1E1F22; color: #DFE1E5; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 13px; line-height: 1.45">
+
+  <header style="height: 44px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 12px 0 16px; background: #2B2D30; border-bottom: 1px solid #393B40">
+    <div style="display: flex; align-items: center; gap: 8px; width: 212px; flex: none">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#79A3F2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
+      <span style="font-weight: 700; font-size: 14px">InfraDesk</span>
+    </div>
+    <a href="Palette.dc.html" class="hv" style="flex: 0 1 420px; min-width: 0; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #9A9DA3; font-size: 12.5px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">서버, 작업, 저장된 명령어 찾기</span>
+      <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #B4B8BF; border: 1px solid #43454A; border-radius: 4px; padding: 0 5px">⌘K</kbd>
+    </a>
+    <div style="flex: 1"></div>
+    <a href="AgentDock.dc.html" class="hv" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; color: #DFE1E5; font-size: 12px; white-space: nowrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A9C4F7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+      에이전트 <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #9A9DA3">⌘J</kbd>
+    </a>
+    <span style="font-size: 12px; color: #B4B8BF; white-space: nowrap">실행 4 · 정지 2</span>
+    <button type="button" aria-pressed="false" class="hv" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #B4B8BF; font-size: 12px; white-space: nowrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      읽기 전용
+      <span style="width: 22px; height: 12px; border-radius: 6px; background: #43454A; position: relative; display: inline-block"><span style="position: absolute; left: 2px; top: 2px; width: 8px; height: 8px; border-radius: 50%; background: #B4B8BF"></span></span>
+    </button>
+    <span style="font-size: 12px; color: #9A9DA3; white-space: nowrap">15:31 갱신</span>
+    <button type="button" aria-label="새로고침" class="hv" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: transparent; color: #B4B8BF">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0">
+
+    <nav aria-label="탐색" style="flex: 1 1 240px; display: flex; flex-direction: column; background: #2B2D30; border-right: 1px solid #393B40">
+      <div style="padding: 10px 8px 4px; display: flex; flex-direction: column; gap: 2px">
+        <a href="Main.dc.html" class="nav" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 6px; background: #2E436E; color: #FFFFFF; font-size: 13px; font-weight: 600">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          <span style="flex: 1">개요</span>
+          <span style="min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #4A3E22; color: #F0CD8A; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">2</span>
+        </a>
+        <a href="Activity.dc.html" class="nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 6px; color: #B4B8BF; font-size: 13px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span style="flex: 1">활동 기록</span>
+        </a>
+      </div>
+      <div style="padding: 8px 10px 4px">
+        <input type="search" placeholder="서버 검색" aria-label="서버 검색" style="width: 100%; box-sizing: border-box; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font: inherit; font-size: 12.5px">
+      </div>
+      <div style="flex: 1; overflow: auto; padding: 0 8px 8px">
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+          <div style="display: flex; justify-content: space-between; padding: 12px 10px 4px; font-size: 11.5px; color: #9A9DA3"><span>{{g.label}}</span><span>{{g.region}}</span></div>
+          <sc-for list="{{g.servers}}" as="s" hint-placeholder-count="2">
+            <a href="Server.dc.html" class="nav" style="{{s.rowStyle}}">
+              <sc-if value="{{s.run}}" hint-placeholder-val="{{true}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: #5FB865; flex: none"></span></sc-if>
+              <sc-if value="{{s.stop}}" hint-placeholder-val="{{false}}"><span style="width: 5px; height: 5px; border-radius: 50%; border: 1.5px solid #9A9DA3; flex: none"></span></sc-if>
+              <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{s.name}}</span>
+              <sc-if value="{{s.warn}}" hint-placeholder-val="{{false}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E5C07B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="확인 필요"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg></sc-if>
+              <span style="font-size: 11.5px; color: #9A9DA3; font-variant-numeric: tabular-nums">{{s.right}}</span>
+            </a>
+          </sc-for>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 8px; padding: 10px; border-top: 1px solid #393B40">
+        <button type="button" class="hv" style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px dashed #4E5157; border-radius: 6px; background: transparent; color: #B4B8BF; font-size: 12.5px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          계정·서버 추가
+        </button>
+        <a href="Settings.dc.html" aria-label="설정" class="hv" style="width: 32px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #4E5157; border-radius: 6px; color: #B4B8BF">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+        </a>
+      </div>
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; padding: 24px 28px 32px; box-sizing: border-box">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px">
+        <div style="flex: 1 1 280px">
+          <h1 style="margin: 0; font-size: 22px; font-weight: 700">개요</h1>
+          <p style="margin: 4px 0 0; font-size: 12.5px; color: #B4B8BF">서버 6대 · 클라우드 계정 3개 · 직접 연결 1대</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 18px">
+        <div style="padding: 14px 16px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40">
+          <div style="font-size: 12px; color: #B4B8BF">실행 중</div>
+          <div style="margin-top: 4px; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums">4 <span style="font-size: 14px; font-weight: 500; color: #9A9DA3">/ 6대</span></div>
+        </div>
+        <div style="padding: 14px 16px; border-radius: 8px; background: #2B2D30; border: 1px solid #5A4A27">
+          <div style="font-size: 12px; color: #E5C07B">확인 필요</div>
+          <div style="margin-top: 4px; font-size: 24px; font-weight: 700; color: #F0CD8A">2 <span style="font-size: 14px; font-weight: 500; color: #B4B8BF">건</span></div>
+        </div>
+        <div style="padding: 14px 16px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40">
+          <div style="font-size: 12px; color: #B4B8BF">평균 CPU <span style="color: #9A9DA3">(실행 중)</span></div>
+          <div style="margin-top: 4px; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums">19%</div>
+        </div>
+        <div style="padding: 14px 16px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40">
+          <div style="font-size: 12px; color: #B4B8BF">컨테이너 실행</div>
+          <div style="margin-top: 4px; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums">12 <span style="font-size: 14px; font-weight: 500; color: #9A9DA3">/ 13개</span></div>
+        </div>
+      </div>
+
+      <section aria-labelledby="attn" style="margin-top: 22px">
+        <h2 id="attn" style="margin: 0 0 10px; font-size: 14px; font-weight: 600">확인이 필요해요</h2>
+        <div style="display: flex; flex-direction: column; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; border-bottom: 1px solid #393B40">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E5C07B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg>
+            <div style="flex: 1 1 320px; min-width: 0">
+              <div><b style="font-weight: 600">web-server</b> · 디스크(/) 사용량이 <b style="font-weight: 600; color: #F0CD8A">91%</b>예요</div>
+              <div style="font-size: 12px; color: #9A9DA3">91 / 100 GB · SSH로 확인 · 15:26</div>
+            </div>
+            <a href="Files.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; color: #DFE1E5; font-size: 12px">파일 열기</a>
+            <a href="Terminal.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; color: #DFE1E5; font-size: 12px">터미널</a>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E5C07B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg>
+            <div style="flex: 1 1 320px; min-width: 0">
+              <div><b style="font-weight: 600">discord-bot</b> · <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px">watchtower</span> 컨테이너가 멈춰 있어요</div>
+              <div style="font-size: 12px; color: #9A9DA3">3일 전 종료 · 종료 코드 0</div>
+            </div>
+            <a href="ContainersStacked.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; color: #DFE1E5; font-size: 12px">로그 보기</a>
+            <button type="button" class="hv" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12px">시작</button>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="srv" style="margin-top: 24px">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px">
+          <h2 id="srv" style="margin: 0; font-size: 14px; font-weight: 600">서버</h2>
+          <div role="group" aria-label="상태로 거르기" style="display: flex; flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{chips}}" as="ch" hint-placeholder-count="4">
+              <button type="button" aria-pressed="{{ch.on}}" onClick="{{ch.pick}}" style="{{ch.style}}">{{ch.label}} <span style="color: #9A9DA3">{{ch.count}}</span></button>
+            </sc-for>
+          </div>
+          <div style="flex: 1"></div>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #B4B8BF">묶기
+            <select style="height: 28px; padding: 0 8px; border: 1px solid #43454A; border-radius: 6px; background: #2B2D30; color: #DFE1E5; font: inherit; font-size: 12px">
+              <option>계정별</option>
+              <option>상태별</option>
+              <option>묶지 않음</option>
+            </select>
+          </label>
+          <div role="group" aria-label="보기 방식" style="display: flex; border: 1px solid #43454A; border-radius: 6px; overflow: hidden">
+            <button type="button" aria-pressed="true" style="height: 26px; padding: 0 10px; border: none; background: #393B40; color: #DFE1E5; font-size: 12px">카드</button>
+            <button type="button" aria-pressed="false" style="height: 26px; padding: 0 10px; border: none; background: transparent; color: #B4B8BF; font-size: 12px">목록</button>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px">
+          <sc-for list="{{cards}}" as="c" hint-placeholder-count="6">
+            <article style="{{c.cardStyle}}">
+              <div style="display: flex; align-items: center; gap: 10px">
+                <input type="checkbox" checked="{{c.sel}}" disabled="{{c.stop}}" onChange="{{c.toggle}}" aria-label="{{c.selLabel}}" style="width: 15px; height: 15px; margin: 0; accent-color: #3469D4">
+                <sc-if value="{{c.run}}" hint-placeholder-val="{{true}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: #5FB865; flex: none"></span></sc-if>
+                <sc-if value="{{c.stop}}" hint-placeholder-val="{{false}}"><span style="width: 5px; height: 5px; border-radius: 50%; border: 1.5px solid #9A9DA3; flex: none"></span></sc-if>
+                <a href="Server.dc.html" style="flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: #DFE1E5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{c.name}}</a>
+                <button type="button" aria-label="{{c.moreLabel}}" class="hv" style="width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: transparent; color: #B4B8BF">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+                </button>
+              </div>
+              <div style="margin: 2px 0 0 33px; font-size: 12px; color: #9A9DA3">{{c.meta}}</div>
+
+              <sc-if value="{{c.run}}" hint-placeholder-val="{{true}}">
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px">
+                  <sc-for list="{{c.bars}}" as="b" hint-placeholder-count="3">
+                    <div style="display: flex; align-items: center; gap: 10px; font-size: 12px">
+                      <span style="width: 40px; flex: none; color: #B4B8BF">{{b.label}}</span>
+                      <span style="flex: 1; display: block; height: 6px; border-radius: 3px; background: #393B40; overflow: hidden"><span style="{{b.fill}}"></span></span>
+                      <span style="{{b.valStyle}}">{{b.text}}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #393B40; font-size: 12px; color: #B4B8BF">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
+                  <span>{{c.ctr}}</span>
+                  <sc-if value="{{c.hasWarn}}" hint-placeholder-val="{{false}}"><span style="color: #E5C07B">· {{c.warn}}</span></sc-if>
+                  <span style="flex: 1"></span>
+                  <span style="color: #9A9DA3">{{c.uptime}}</span>
+                </div>
+                <div style="display: flex; gap: 6px; margin-top: 12px">
+                  <a href="Terminal.dc.html" class="hv" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; color: #DFE1E5; font-size: 12px">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>SSH</a>
+                  <a href="Files.dc.html" class="hv" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; color: #DFE1E5; font-size: 12px">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>파일</a>
+                  <a href="Monitor.dc.html" class="hv" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; color: #DFE1E5; font-size: 12px">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>모니터링</a>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{c.stop}}" hint-placeholder-val="{{false}}">
+                <div style="flex: 1; margin-top: 14px; padding: 14px; border-radius: 6px; background: #26272A; font-size: 12.5px; color: #B4B8BF">{{c.stopText}}</div>
+                <div style="display: flex; gap: 6px; margin-top: 12px">
+                  <button type="button" class="hv" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12px">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>시작</button>
+                </div>
+              </sc-if>
+            </article>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{hasSel}}" hint-placeholder-val="{{true}}">
+          <div style="margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-radius: 8px; background: #263049; border: 1px solid #44568A">
+            <span style="font-weight: 600">{{selText}}</span>
+            <span style="font-size: 12px; color: #B4B8BF">{{selNames}}</span>
+            <span style="flex: 1"></span>
+            <a href="Terminal.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 6px; background: #3469D4; color: #FFFFFF; font-size: 12.5px; font-weight: 600">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>명령 실행</a>
+            <a href="Terminal.dc.html" style="display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid #5A6C9E; border-radius: 6px; color: #DFE1E5; font-size: 12.5px">SSH 탭 열기</a>
+            <button type="button" onClick="{{clearSel}}" style="height: 30px; padding: 0 10px; border: none; border-radius: 6px; background: transparent; color: #B4B8BF; font-size: 12.5px">선택 해제</button>
+          </div>
+        </sc-if>
+      </section>
+    </main>
+  </div>
+
+  <footer style="height: 26px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 14px; background: #2B2D30; border-top: 1px solid #393B40; font-size: 11.5px; color: #9A9DA3; white-space: nowrap; overflow: hidden">
+    <span style="display: flex; align-items: center; gap: 6px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #5FB865"></span>SSH 연결 3 · 조회 2 · 파일 1</span>
+    <span>실시간 꺼짐</span>
+    <span>전송 1개 진행 중 · 63%</span>
+    <span style="flex: 1"></span>
+    <span>상태 30초 · 메트릭 1분마다</span>
+    <span>v1.1.9</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: 'all', sel: { 'discord-bot': true, 'api-gateway': true } };
+  }
+  renderVals() {
+    const active = '';
+    const rowBase = 'display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; ';
+    const groups = [
+      { label: 'Oracle · 계정 A', region: '춘천', servers: [
+        { name: 'discord-bot', st: 'run', right: '24%', warn: true },
+        { name: 'api-gateway', st: 'run', right: '11%' },
+        { name: 'batch-worker', st: 'stop', right: '정지됨' } ] },
+      { label: 'Oracle · 계정 B', region: '서울', servers: [ { name: 'web-server', st: 'run', right: '32%', warn: true } ] },
+      { label: 'Oracle · 계정 C', region: '서울', servers: [ { name: 'test-box', st: 'stop', right: '정지됨' } ] },
+      { label: '직접 연결', region: 'SSH', servers: [ { name: 'mac-mini', st: 'run', right: '8%' } ] }
+    ].map(g => ({ ...g, servers: g.servers.map(s => ({ ...s, run: s.st === 'run', stop: s.st !== 'run', warn: !!s.warn,
+      rowStyle: rowBase + (s.name === active ? 'background: #2E436E; color: #FFFFFF;' : (s.st === 'run' ? 'color: #DFE1E5;' : 'color: #B4B8BF;')) })) }));
+
+    const servers = [
+      { name: 'discord-bot', meta: '계정 A · 춘천 · A1.Flex · 2 OCPU', st: 'run', cpu: 24, mem: 45, disk: 42, ctr: '컨테이너 3/4', warn: '1개 멈춤', uptime: '업타임 9일' },
+      { name: 'api-gateway', meta: '계정 A · 춘천 · A1.Flex · 1 OCPU', st: 'run', cpu: 11, mem: 38, disk: 27, ctr: '컨테이너 2/2', uptime: '업타임 21일' },
+      { name: 'web-server', meta: '계정 B · 서울 · A1.Flex · 4 OCPU', st: 'run', cpu: 32, mem: 61, disk: 91, ctr: '컨테이너 2/2', uptime: '업타임 4일', diskWarn: true },
+      { name: 'mac-mini', meta: '직접 연결 · macOS 15 · SSH', st: 'run', cpu: 8, mem: 52, disk: 64, ctr: '컨테이너 5/5', uptime: '업타임 33일' },
+      { name: 'batch-worker', meta: '계정 A · 춘천 · A1.Flex · 1 OCPU', st: 'stop', stopText: '정지됨 · 2일 전부터. 시작하면 보통 1~2분 뒤에 연결할 수 있어요.' },
+      { name: 'test-box', meta: '계정 C · 서울 · E2.1.Micro', st: 'stop', stopText: '정지됨 · 지난주부터. 디스크 요금은 계속 나올 수 있어요.' }
+    ];
+    const f = this.state.filter;
+    const sel = this.state.sel;
+    const bar = (label, v, warn) => ({
+      label, text: v + '%',
+      fill: 'display: block; height: 100%; border-radius: 3px; width: ' + v + '%; background: ' + (warn ? '#E5A84B' : '#5B8DEF') + ';',
+      valStyle: 'width: 38px; flex: none; text-align: right; font-variant-numeric: tabular-nums; ' + (warn ? 'color: #F0CD8A; font-weight: 600;' : 'color: #DFE1E5;')
+    });
+    const visible = servers.filter(s => f === 'all' || (f === 'run' && s.st === 'run') || (f === 'stop' && s.st === 'stop') || (f === 'warn' && (s.warn || s.diskWarn)));
+    const cards = visible.map(s => {
+      const isSel = !!sel[s.name] && s.st === 'run';
+      return {
+        name: s.name, meta: s.meta, run: s.st === 'run', stop: s.st !== 'run', sel: isSel,
+        selLabel: s.name + ' 선택', moreLabel: s.name + ' 작업 더 보기',
+        cardStyle: 'display: flex; flex-direction: column; padding: 14px 16px 16px; border-radius: 8px; background: #2B2D30; border: 1px solid ' + (isSel ? '#5B8DEF' : '#393B40') + ';' + (s.st === 'run' ? '' : ' opacity: 0.92;'),
+        bars: s.st === 'run' ? [bar('CPU', s.cpu), bar('메모리', s.mem), bar('디스크', s.disk, s.diskWarn)] : [],
+        ctr: s.ctr || '', warn: s.warn || '', hasWarn: !!s.warn, uptime: s.uptime || '', stopText: s.stopText || '',
+        toggle: () => this.setState({ sel: { ...this.state.sel, [s.name]: !this.state.sel[s.name] } })
+      };
+    });
+    const chosen = servers.filter(s => s.st === 'run' && sel[s.name]).map(s => s.name);
+    const chipDefs = [
+      { id: 'all', label: '전체', count: 6 },
+      { id: 'run', label: '실행 중', count: 4 },
+      { id: 'stop', label: '정지', count: 2 },
+      { id: 'warn', label: '확인 필요', count: 2 }
+    ];
+    const chips = chipDefs.map(c => ({ ...c, on: f === c.id,
+      style: 'height: 28px; padding: 0 10px; border-radius: 14px; font-size: 12px; ' + (f === c.id ? 'border: 1px solid #5B8DEF; background: #263049; color: #DFE1E5;' : 'border: 1px solid #43454A; background: transparent; color: #B4B8BF;'),
+      pick: () => this.setState({ filter: c.id }) }));
+    return {
+      groups, cards, chips,
+      hasSel: chosen.length > 0,
+      selText: chosen.length + '대 선택됨',
+      selNames: chosen.join(', '),
+      clearSel: () => this.setState({ sel: {} })
+    };
+  }
+}
+</script>
+</body>
+</html>

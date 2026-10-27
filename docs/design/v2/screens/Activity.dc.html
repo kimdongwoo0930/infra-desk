@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>InfraDesk · 활동 기록</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#1E1F22}
+a{color:#79A3F2;text-decoration:none}a:hover{color:#A9C4F7}
+button{font:inherit;cursor:pointer}
+.hv:hover{background:#313338}
+.nav:hover{background:#313338}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #1E1F22; color: #DFE1E5; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 13px; line-height: 1.45">
+
+  <header style="height: 44px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 12px 0 16px; background: #2B2D30; border-bottom: 1px solid #393B40">
+    <div style="display: flex; align-items: center; gap: 8px; width: 212px; flex: none">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#79A3F2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
+      <span style="font-weight: 700; font-size: 14px">InfraDesk</span>
+    </div>
+    <a href="Palette.dc.html" class="hv" style="flex: 0 1 420px; min-width: 0; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #9A9DA3; font-size: 12.5px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">서버, 작업, 저장된 명령어 찾기</span>
+      <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #B4B8BF; border: 1px solid #43454A; border-radius: 4px; padding: 0 5px">⌘K</kbd>
+    </a>
+    <div style="flex: 1"></div>
+    <a href="AgentDock.dc.html" class="hv" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; color: #DFE1E5; font-size: 12px; white-space: nowrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A9C4F7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+      에이전트 <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #9A9DA3">⌘J</kbd>
+    </a>
+    <span style="font-size: 12px; color: #B4B8BF; white-space: nowrap">실행 4 · 정지 2</span>
+    <button type="button" aria-pressed="false" class="hv" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #B4B8BF; font-size: 12px; white-space: nowrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      읽기 전용
+      <span style="width: 22px; height: 12px; border-radius: 6px; background: #43454A; position: relative; display: inline-block"><span style="position: absolute; left: 2px; top: 2px; width: 8px; height: 8px; border-radius: 50%; background: #B4B8BF"></span></span>
+    </button>
+    <span style="font-size: 12px; color: #9A9DA3; white-space: nowrap">15:31 갱신</span>
+    <button type="button" aria-label="새로고침" class="hv" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: transparent; color: #B4B8BF">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0">
+
+    <nav aria-label="탐색" style="flex: 1 1 240px; display: flex; flex-direction: column; background: #2B2D30; border-right: 1px solid #393B40">
+      <div style="padding: 10px 8px 4px; display: flex; flex-direction: column; gap: 2px">
+        <a href="Main.dc.html" class="nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 6px; color: #B4B8BF; font-size: 13px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          <span style="flex: 1">개요</span>
+          <span style="min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #4A3E22; color: #F0CD8A; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">2</span>
+        </a>
+        <a href="Activity.dc.html" class="nav" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 6px; background: #2E436E; color: #FFFFFF; font-size: 13px; font-weight: 600">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span style="flex: 1">활동 기록</span>
+        </a>
+      </div>
+      <div style="padding: 8px 10px 4px">
+        <input type="search" placeholder="서버 검색" aria-label="서버 검색" style="width: 100%; box-sizing: border-box; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font: inherit; font-size: 12.5px">
+      </div>
+      <div style="flex: 1; overflow: auto; padding: 0 8px 8px">
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+          <div style="display: flex; justify-content: space-between; padding: 12px 10px 4px; font-size: 11.5px; color: #9A9DA3"><span>{{g.label}}</span><span>{{g.region}}</span></div>
+          <sc-for list="{{g.servers}}" as="s" hint-placeholder-count="2">
+            <a href="Server.dc.html" class="nav" style="{{s.rowStyle}}">
+              <sc-if value="{{s.run}}" hint-placeholder-val="{{true}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: #5FB865; flex: none"></span></sc-if>
+              <sc-if value="{{s.stop}}" hint-placeholder-val="{{false}}"><span style="width: 5px; height: 5px; border-radius: 50%; border: 1.5px solid #9A9DA3; flex: none"></span></sc-if>
+              <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{s.name}}</span>
+              <sc-if value="{{s.warn}}" hint-placeholder-val="{{false}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E5C07B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="확인 필요"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg></sc-if>
+              <span style="font-size: 11.5px; color: #9A9DA3; font-variant-numeric: tabular-nums">{{s.right}}</span>
+            </a>
+          </sc-for>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 8px; padding: 10px; border-top: 1px solid #393B40">
+        <button type="button" class="hv" style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px dashed #4E5157; border-radius: 6px; background: transparent; color: #B4B8BF; font-size: 12.5px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          계정·서버 추가
+        </button>
+        <a href="Settings.dc.html" aria-label="설정" class="hv" style="width: 32px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #4E5157; border-radius: 6px; color: #B4B8BF">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+        </a>
+      </div>
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; padding: 24px 28px 32px; box-sizing: border-box">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700">활동 기록</h1>
+      <p style="margin: 4px 0 0; font-size: 12.5px; color: #B4B8BF">이 PC에서 한 작업과 앱이 보낸 알림을 시간순으로 남겨요.</p>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 18px">
+        <div role="group" aria-label="종류로 거르기" style="display: flex; flex-wrap: wrap; gap: 6px">
+          <sc-for list="{{chips}}" as="ch" hint-placeholder-count="6">
+            <button type="button" aria-pressed="{{ch.on}}" onClick="{{ch.pick}}" style="{{ch.style}}">{{ch.label}}</button>
+          </sc-for>
+        </div>
+        <div style="flex: 1"></div>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #B4B8BF">서버
+          <select style="height: 28px; padding: 0 8px; border: 1px solid #43454A; border-radius: 6px; background: #2B2D30; color: #DFE1E5; font: inherit; font-size: 12px">
+            <option>전체</option>
+            <option>discord-bot</option>
+            <option>api-gateway</option>
+            <option>web-server</option>
+            <option>mac-mini</option>
+          </select>
+        </label>
+        <input type="search" placeholder="기록에서 찾기" aria-label="기록에서 찾기" style="width: 200px; height: 28px; box-sizing: border-box; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #2B2D30; color: #DFE1E5; font: inherit; font-size: 12px">
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 18px; align-items: flex-start">
+        <div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+          <sc-for list="{{days}}" as="d" hint-placeholder-count="2">
+            <section>
+              <h2 style="margin: 0 0 8px; font-size: 12.5px; font-weight: 600; color: #B4B8BF">{{d.label}}</h2>
+              <div style="border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+                <sc-for list="{{d.items}}" as="it" hint-placeholder-count="4">
+                  <div style="{{it.rowStyle}}">
+                    <span style="width: 42px; flex: none; padding-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9A9DA3">{{it.time}}</span>
+                    <span style="width: 30px; height: 30px; flex: none; border-radius: 50%; background: #1E1F22; border: 1px solid #393B40; display: inline-flex; align-items: center; justify-content: center; color: #B4B8BF">
+                      <sc-if value="{{it.isCtl}}" hint-placeholder-val="{{false}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 7a8 8 0 1 0 11.4 0"/></svg></sc-if>
+                      <sc-if value="{{it.isCtr}}" hint-placeholder-val="{{false}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></sc-if>
+                      <sc-if value="{{it.isFile}}" hint-placeholder-val="{{false}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></sc-if>
+                      <sc-if value="{{it.isCmd}}" hint-placeholder-val="{{true}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg></sc-if>
+                      <sc-if value="{{it.isAgent}}" hint-placeholder-val="{{false}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A9C4F7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></sc-if>
+                      <sc-if value="{{it.isAlert}}" hint-placeholder-val="{{false}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E5C07B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></sc-if>
+                    </span>
+                    <div style="flex: 1; min-width: 0; padding-top: 2px">
+                      <div><b style="font-weight: 600">{{it.server}}</b> <span style="color: #B4B8BF">·</span> {{it.title}}</div>
+                      <div style="{{it.detailStyle}}">{{it.detail}}</div>
+                    </div>
+                    <span style="{{it.badgeStyle}}">{{it.result}}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+          </sc-for>
+        </div>
+
+        <aside style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+          <section style="padding: 16px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <h2 style="margin: 0; flex: 1; font-size: 13.5px; font-weight: 600">디스코드 알림</h2>
+              <span style="padding: 1px 8px; border-radius: 10px; background: #1F3A24; color: #7FD184; font-size: 11.5px; font-weight: 600">켜짐</span>
+            </div>
+            <ul style="margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: #DFE1E5">
+              <li style="display: flex; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7FD184" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 12l5 5 9-10"/></svg>서버가 예상치 않게 멈추거나 다시 켜졌을 때</li>
+              <li style="display: flex; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7FD184" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 12l5 5 9-10"/></svg>계정에 연결하지 못하거나 복구됐을 때</li>
+              <li style="display: flex; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7FD184" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 12l5 5 9-10"/></svg>CPU 90% 이상이 5분 넘게 계속될 때</li>
+            </ul>
+            <button type="button" class="hv" style="margin-top: 14px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12px">설정에서 바꾸기</button>
+          </section>
+          <section style="padding: 16px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40">
+            <h2 style="margin: 0; font-size: 13.5px; font-weight: 600">기록 보관</h2>
+            <p style="margin: 8px 0 0; font-size: 12.5px; color: #B4B8BF">최근 30일을 이 PC에만 저장해요. 명령어 출력, 비밀값, 공인 IP는 남기지 않아요.</p>
+            <button type="button" class="hv" style="margin-top: 12px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12px">CSV로 내보내기</button>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <footer style="height: 26px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 14px; background: #2B2D30; border-top: 1px solid #393B40; font-size: 11.5px; color: #9A9DA3; white-space: nowrap; overflow: hidden">
+    <span style="display: flex; align-items: center; gap: 6px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #5FB865"></span>SSH 연결 3 · 조회 2 · 파일 1</span>
+    <span>실시간 꺼짐</span>
+    <span>전송 1개 진행 중 · 63%</span>
+    <span style="flex: 1"></span>
+    <span>상태 30초 · 메트릭 1분마다</span>
+    <span>v1.1.9</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: 'all' };
+  }
+  renderVals() {
+    const active = '';
+    const rowBase = 'display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; ';
+    const groups = [
+      { label: 'Oracle · 계정 A', region: '춘천', servers: [
+        { name: 'discord-bot', st: 'run', right: '24%', warn: true },
+        { name: 'api-gateway', st: 'run', right: '11%' },
+        { name: 'batch-worker', st: 'stop', right: '정지됨' } ] },
+      { label: 'Oracle · 계정 B', region: '서울', servers: [ { name: 'web-server', st: 'run', right: '32%', warn: true } ] },
+      { label: 'Oracle · 계정 C', region: '서울', servers: [ { name: 'test-box', st: 'stop', right: '정지됨' } ] },
+      { label: '직접 연결', region: 'SSH', servers: [ { name: 'mac-mini', st: 'run', right: '8%' } ] }
+    ].map(g => ({ ...g, servers: g.servers.map(s => ({ ...s, run: s.st === 'run', stop: s.st !== 'run', warn: !!s.warn,
+      rowStyle: rowBase + (s.name === active ? 'background: #2E436E; color: #FFFFFF;' : (s.st === 'run' ? 'color: #DFE1E5;' : 'color: #B4B8BF;')) })) }));
+
+    const badge = {
+      ok: 'background: #1F3A24; color: #7FD184;',
+      fail: 'background: #3F2424; color: #F08A8A;',
+      part: 'background: #3D3320; color: #F0CD8A;',
+      sent: 'background: #263049; color: #A9C4F7;'
+    };
+    const raw = [
+      { day: '오늘 · 10월 23일', items: [
+        { time: '15:20', type: 'agent', server: 'discord-bot', title: '에이전트 제안 "discord-bot 컨테이너 재시작"', detail: 'docker restart discord-bot · 내가 허용함 · 대화 "느려진 원인 찾기"', result: '허용 · 성공', r: 'ok' },
+        { time: '15:18', type: 'agent', server: 'discord-bot', title: '에이전트가 읽기 명령 3개를 실행', detail: 'docker stats --no-stream · docker logs nginx · docker logs discord-bot', mono: true, result: '자동 실행', r: 'sent' },
+        { time: '15:16', type: 'agent', server: 'web-server', title: '에이전트 제안 "docker system prune -a --volumes"', detail: '위험 명령 규칙에 걸려 실행하지 않았어요', result: '막힘', r: 'fail' },
+        { time: '15:12', type: 'cmd', server: 'discord-bot', title: '저장된 명령어 "봇 재시작" 실행', detail: 'docker restart bot-app', mono: true, result: '성공', r: 'ok' },
+        { time: '15:02', type: 'ctl', server: 'web-server', title: '재부팅', detail: '15:04에 다시 실행 중으로 확인했어요', result: '성공', r: 'ok' },
+        { time: '14:40', type: 'ctr', server: 'discord-bot', title: 'nginx 컨테이너 재시작', detail: 'docker restart nginx · 1.2초', result: '성공', r: 'ok' },
+        { time: '13:55', type: 'file', server: 'discord-bot', title: 'docker-compose.yml 업로드 (1.2 KB)', detail: '/home/ubuntu · 같은 이름 파일을 덮어썼어요', result: '성공', r: 'ok' },
+        { time: '13:48', type: 'alert', server: 'api-gateway', title: 'CPU 90% 이상이 5분 넘게 계속됐어요', detail: '최대 96% · 13:43부터', result: '알림 보냄', r: 'sent' },
+        { time: '11:20', type: 'cmd', server: '서버 3대', title: '일괄 실행', detail: 'uptime · discord-bot, api-gateway, web-server', mono: true, result: '2 성공 · 1 실패', r: 'part' }
+      ] },
+      { day: '어제 · 10월 22일', items: [
+        { time: '22:05', type: 'alert', server: '계정 C', title: '계정에 연결하지 못했어요', detail: '22:20에 복구됐어요', result: '알림 보냄', r: 'sent' },
+        { time: '18:31', type: 'ctl', server: 'test-box', title: '정지', detail: '18:33에 정지됨으로 확인했어요', result: '성공', r: 'ok' },
+        { time: '17:10', type: 'file', server: 'discord-bot', title: 'logs/app.log 다운로드', detail: '서버에서 읽을 권한이 없어요 (PERMISSION_DENIED)', result: '실패', r: 'fail' }
+      ] }
+    ];
+    const f = this.state.filter;
+    const days = raw.map(d => {
+      const items = d.items.filter(it => f === 'all' || it.type === f);
+      return {
+        label: d.day,
+        items: items.map((it, i) => ({
+          ...it,
+          isCtl: it.type === 'ctl', isCtr: it.type === 'ctr', isFile: it.type === 'file', isCmd: it.type === 'cmd', isAlert: it.type === 'alert', isAgent: it.type === 'agent',
+          rowStyle: 'display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px;' + (i < items.length - 1 ? ' border-bottom: 1px solid #393B40;' : ''),
+          detailStyle: 'margin-top: 2px; font-size: 12px; color: #9A9DA3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' + (it.mono ? " font-family: 'JetBrains Mono', monospace;" : ''),
+          badgeStyle: 'flex: none; margin-top: 4px; padding: 2px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; ' + badge[it.r]
+        }))
+      };
+    }).filter(d => d.items.length > 0);
+    const chipDefs = [
+      { id: 'all', label: '전체' }, { id: 'ctl', label: '서버 제어' }, { id: 'ctr', label: '컨테이너' },
+      { id: 'file', label: '파일' }, { id: 'cmd', label: '명령' }, { id: 'agent', label: '에이전트' }, { id: 'alert', label: '알림' }
+    ];
+    const chips = chipDefs.map(c => ({ ...c, on: f === c.id,
+      style: 'height: 28px; padding: 0 12px; border-radius: 14px; font-size: 12px; ' + (f === c.id ? 'border: 1px solid #5B8DEF; background: #263049; color: #DFE1E5;' : 'border: 1px solid #43454A; background: transparent; color: #B4B8BF;'),
+      pick: () => this.setState({ filter: c.id }) }));
+    return { groups, days, chips };
+  }
+}
+</script>
+</body>
+</html>
