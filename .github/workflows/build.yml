@@ -1,30 +1,77 @@
 name: build
 
-# Builds only on pushes to main (or a manual run), then publishes the result to the
-# rolling "beta" pre-release: same download links every time, replaced by each build.
+# main에 푸시할 때마다(또는 수동 실행) 테스트하고, 패키징해서 정식 릴리스를 만든다.
+#   태그      v<MAJOR>.<MINOR>.<PATCH> (v1.0.0부터, 푸시마다 PATCH가 하나씩 올라간다)
+#   릴리스    "InfraDesk <버전>", GitHub의 "latest". 앱은 이것만 보고 업데이트한다.
+#   에셋      버전이 이름에 들어가지 않는다: 항상 같은 다운로드 주소
+#             InfraDesk-macOS.dmg, InfraDesk-macOS.zip(앱 안 업데이트용), InfraDesk-windows.zip, SHA256SUMS.txt
+# 첫 정식 릴리스(1.0.0)를 만들 때만 한 번, 이미 설치된 베타 앱이 업데이트로 넘어올 수 있게 같은 빌드를 롤링
+# "beta" 릴리스에도 올린다(옛 앱은 그 릴리스만 본다). 그 뒤에는 beta를 건드리지 않는다.
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "버전을 직접 정한다(예: 1.1.0). 비워 두면 마지막 v* 태그에서 PATCH를 하나 올린다."
+        required: false
 
 concurrency:
-  group: beta-release
-  cancel-in-progress: true
+  group: release
+  # 릴리스를 올리는 도중에 취소되면 반쯤 만들어진 릴리스가 남는다. 새 푸시는 앞 실행이 끝난 뒤에 돈다.
+  cancel-in-progress: false
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+      first: ${{ steps.next.outputs.first }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # 태그를 보려고
+      - name: Next version from the v* tags
+        id: next
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          last=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
+          if [ -z "$last" ]; then first=true; else first=false; fi
+          if [ -n "$REQUESTED" ]; then
+            version="$REQUESTED"
+          elif [ -z "$last" ]; then
+            version=1.0.0
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            version="$major.$minor.$((patch + 1))"
+          fi
+          if ! echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error title=Bad version::'$version' is not MAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::error title=Version exists::tag v$version already exists"
+            exit 1
+          fi
+          echo "last tag: ${last:-none} -> $version (first release: $first)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "first=$first" >> "$GITHUB_OUTPUT"
+
   package:
+    needs: version
     strategy:
       fail-fast: false
       matrix:
         include:
-          # "renames" maps each built file to its fixed name in the beta release.
+          # "renames" maps each built file to its fixed name in the release.
           - os: macos-latest
             tasks: dmg macUpdateZip
-            renames: "build/dist/*.dmg=InfraDesk-beta-macOS.dmg build/dist/*-macOS.zip=InfraDesk-beta-macOS.zip"
+            renames: "build/dist/*.dmg=InfraDesk-macOS.dmg build/dist/*-macOS.zip=InfraDesk-macOS.zip"
             artifact: macos
           - os: windows-latest
             tasks: windowsZip
-            renames: "build/dist/*-windows.zip=InfraDesk-beta-windows.zip"
+            renames: "build/dist/*-windows.zip=InfraDesk-windows.zip"
             artifact: windows
     runs-on: ${{ matrix.os }}
     steps:
@@ -36,7 +83,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build metadata
         shell: bash
-        run: echo "BUILD_ARGS=-PbuildNumber=${GITHUB_RUN_NUMBER} -Pcommit=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+        run: echo "BUILD_ARGS=-PappVersion=${{ needs.version.outputs.version }} -PbuildNumber=${GITHUB_RUN_NUMBER} -Pcommit=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
       - name: Test
         shell: bash
         run: ./gradlew test $BUILD_ARGS
@@ -56,7 +103,7 @@ jobs:
       - name: Package (includes --self-test of the packaged app)
         shell: bash
         run: ./gradlew ${{ matrix.tasks }} $BUILD_ARGS
-      - name: Name for the beta release
+      - name: Name for the release
         shell: bash
         run: |
           mkdir -p out
@@ -70,35 +117,60 @@ jobs:
           path: out/*
           if-no-files-found: error
 
-  # Two kinds of release per build:
-  #   beta     rolling "latest" pointer: fixed download links, and what installed apps check for updates
-  #   beta-N   permanent archive of build N (kept until delete-beta-archives.yml is run by hand)
-  beta-release:
-    needs: package
+  release:
+    needs: [version, package]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
       BUILD: ${{ github.run_number }}
+      VERSION: ${{ needs.version.outputs.version }}
+      FIRST: ${{ needs.version.outputs.first }}
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0 # tags and history for the change list
+          fetch-depth: 0 # 태그와 변경 목록을 위해
       - uses: actions/download-artifact@v5
         with:
           path: dist
           merge-multiple: true
-      - name: App version from the run number (keep 0 = runOffset in build.gradle.kts)
-        run: |
-          n=$(( BUILD - 0 )); [ "$n" -lt 0 ] && n=0
-          echo "VERSION=1.$(( n / 10 )).$(( n % 10 ))" >> "$GITHUB_ENV"
       - name: Checksums (the app verifies its update download against these)
         run: |
           cd dist
-          sha256sum InfraDesk-beta-* > SHA256SUMS.txt
+          sha256sum InfraDesk-* > SHA256SUMS.txt
           cat SHA256SUMS.txt
-      - name: Archive the build currently in "beta" if it has no beta-N release yet
+      - name: Release notes
+        run: |
+          last=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
+          {
+            echo "> 빌드 #${BUILD} · 커밋 [\`${GITHUB_SHA::7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) · $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo
+            if [ -n "$last" ]; then
+              echo "## 바뀐 점 (${last} 이후)"
+              git log --no-merges --pretty='- %s ([`%h`]('"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"'/commit/%H))' "${last}..${GITHUB_SHA}"
+              echo
+            fi
+            cat .github/release-notes.md
+          } > notes.md
+          cat notes.md
+      - name: Publish the release (tag v${{ env.VERSION }}, marked as latest)
+        run: |
+          # 앱이 "latest"만 보므로, 이 단계가 성공한 뒤에만 아래의 옛 beta 릴리스를 갱신한다.
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            gh release upload "v${VERSION}" dist/* --clobber
+            gh release edit "v${VERSION}" --title "InfraDesk ${VERSION}" --notes-file notes.md --latest
+          else
+            gh release create "v${VERSION}" dist/* --target "$GITHUB_SHA" \
+              --title "InfraDesk ${VERSION}" --notes-file notes.md --latest
+          fi
+
+      # ---- 첫 정식 릴리스에서만: 이미 설치된 베타 앱이 업데이트로 넘어오게 하는 마지막 beta ----
+      # 옛 앱은 롤링 "beta" 릴리스의 빌드 번호(제목의 "빌드 N")가 자기보다 크면 InfraDesk-beta-* 파일을 받아
+      # SHA256SUMS.txt로 확인하고 설치한다. 같은 빌드를 그 이름으로 한 번 더 올리면 업데이트하면서 곧바로 정식 1.0.0이
+      # 된다. 새 앱은 이 릴리스를 보지 않고 정식 릴리스만 본다.
+      - name: Legacy beta - archive the previous beta as beta-N
+        if: env.FIRST == 'true'
         run: |
           # Errors go to an annotation too: those are readable without signing in, logs are not.
           archive() {
@@ -128,44 +200,44 @@ jobs:
           }
           if ! (archive) > archive.log 2>&1; then
             cat archive.log
-            echo "::error title=Archiving the previous build failed::$(tail -n 8 archive.log | tr '\n' ' ' | cut -c1-900)"
+            echo "::error title=Archiving the previous beta failed::$(tail -n 8 archive.log | tr '\n' ' ' | cut -c1-900)"
             exit 1
           fi
           cat archive.log
-      - name: Release notes
+      - name: Legacy beta - files and notes for installed beta apps
+        if: env.FIRST == 'true'
         run: |
-          last=$(git tag -l 'beta-[0-9]*' --sort=-v:refname | grep -v "^beta-${BUILD}$" | head -1)
+          mkdir -p legacy
+          for f in dist/InfraDesk-*; do
+            cp "$f" "legacy/InfraDesk-beta-${f##*/InfraDesk-}"
+          done
+          (cd legacy && sha256sum InfraDesk-beta-* > SHA256SUMS.txt && cat SHA256SUMS.txt)
           {
-            echo "> ⚠️ **베타 버전**이에요. 빌드 #${BUILD} · 커밋 [\`${GITHUB_SHA::7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) · $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo "> ⚠️ **마지막 베타**예요. 이 빌드는 정식 릴리스 **${VERSION}** 과 같은 앱이고, 이 앱부터는 정식 릴리스에서 업데이트를 받아요."
             echo ">"
-            echo "> 최신 빌드는 [\`beta\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/beta), 지난 빌드는 \`beta-<번호>\` 릴리스에 모두 남아 있어요."
-            echo
-            if [ -n "$last" ]; then
-              echo "## 바뀐 점 (${last} 이후)"
-              git log --no-merges --pretty='- %s ([`%h`]('"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"'/commit/%H))' "${last}..${GITHUB_SHA}"
-              echo
-            fi
-            cat .github/release-notes.md
-          } > notes.md
-          cat notes.md
-      - name: Move the beta tag to this commit
+            echo "> 빌드 #${BUILD} · 커밋 [\`${GITHUB_SHA::7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) · $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo ">"
+            echo "> 정식 릴리스: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/v${VERSION}"
+          } > legacy-notes.md
+          cat legacy-notes.md
+      - name: Legacy beta - move the beta tag and publish
+        if: env.FIRST == 'true'
         run: |
           git tag -f beta "$GITHUB_SHA"
           git push -f origin refs/tags/beta
-      - name: Publish the rolling beta
-        run: |
           title="InfraDesk ${VERSION} Beta (빌드 ${BUILD})"
           if gh release view beta >/dev/null 2>&1; then
-            gh release edit beta --title "$title" --notes-file notes.md --prerelease
-            gh release upload beta dist/* --clobber
+            gh release edit beta --title "$title" --notes-file legacy-notes.md --prerelease
+            gh release upload beta legacy/* --clobber
           else
-            gh release create beta dist/* --title "$title" --notes-file notes.md --prerelease
+            gh release create beta legacy/* --title "$title" --notes-file legacy-notes.md --prerelease
           fi
-      - name: Archive this build as beta-N
+      - name: Legacy beta - archive this build as beta-N
+        if: env.FIRST == 'true'
         run: |
           if gh release view "beta-$BUILD" >/dev/null 2>&1; then
-            gh release upload "beta-$BUILD" dist/* --clobber
+            gh release upload "beta-$BUILD" legacy/* --clobber
           else
-            gh release create "beta-$BUILD" dist/* --target "$GITHUB_SHA" \
-              --title "InfraDesk ${VERSION} Beta (빌드 ${BUILD})" --notes-file notes.md --prerelease
+            gh release create "beta-$BUILD" legacy/* --target "$GITHUB_SHA" \
+              --title "InfraDesk ${VERSION} Beta (빌드 ${BUILD})" --notes-file legacy-notes.md --prerelease
           fi

@@ -99,5 +99,9 @@ SSH 접속은 서버의 인증 로그에 남고, 인증이 계속 실패하면 �
 
 | 클래스 | 역할 |
 |---|---|
-| `UpdateService` | GitHub `beta` 릴리스에서 최신 빌드 번호·다운로드·`SHA256SUMS.txt` 주소 확인, 자동 확인 설정 저장 |
+| `UpdateService` | GitHub 최신 정식 릴리스(`releases/latest`)에서 버전·다운로드·`SHA256SUMS.txt` 주소 확인, **버전 번호로** 새 버전 비교(`isNewer`: 1.0.10 > 1.0.9), 자동 확인 설정 저장. 태그가 `v1.0.0` 모양이 아니거나 프리릴리스·초안이면(옛 베타 릴리스) 정식 릴리스가 아니라고 본다 |
 | `UpdateInstaller` | 앱 안 업데이트: 받기(리디렉트 따라감) → SHA-256 대조 → 앱 옆 `.infradesk-update`에 풀기(macOS `ditto`) → 새 앱 `--self-test` → `update-swap.sh`/`.ps1`가 앱 종료를 기다려 교체하고 다시 실행(실패하면 원래 앱 복원) |
+
+### 베타에서 정식 릴리스로 넘어온 방법
+
+베타 때 설치된 앱은 롤링 `beta` 릴리스만 보고 빌드 번호로 새 버전을 비교했다. 정식 릴리스(1.0.0)로 옮길 때 설치된 앱이 끊기지 않도록, **첫 정식 릴리스를 만들 때 CI가 같은 빌드를 `InfraDesk-beta-*` 이름으로 `beta` 릴리스에도 한 번 올렸다**(`.github/workflows/build.yml`의 "Legacy beta" 단계, 첫 릴리스에서만). 옛 앱은 평소처럼 빌드 번호가 더 큰 `beta` 릴리스를 받아 설치하고, 그 앱은 이미 1.0.0이라 그 뒤로는 정식 릴리스(`latest`)만 본다. 새 앱 코드에는 베타를 보는 부분이 없다. 옛 `beta`, `beta-N` 릴리스는 기록으로 남아 있고 `delete-beta-archives.yml`로 지울 수 있다.

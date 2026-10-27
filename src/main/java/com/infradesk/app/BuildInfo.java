@@ -7,7 +7,7 @@ import java.util.Properties;
 /**
  * 빌드 시점에 Gradle이 기록한 버전, 빌드 번호, 커밋.
  *
- * @param build 베타 빌드는 CI 실행 번호, 로컬 빌드는 "dev"
+ * @param build 릴리스 빌드는 CI 실행 번호, 로컬 빌드는 "dev"
  */
 public record BuildInfo(String version, String build, String commit) {
 
@@ -17,8 +17,8 @@ public record BuildInfo(String version, String build, String commit) {
         return CURRENT;
     }
 
-    /** CI 베타 빌드(숫자 빌드 번호)이면 true. 이런 빌드만 업데이트 확인에 참여한다. */
-    public boolean isBeta() {
+    /** CI가 만든 릴리스 빌드(숫자 빌드 번호)이면 true. 이런 빌드만 업데이트 확인에 참여한다. */
+    public boolean isRelease() {
         return buildNumber() > 0;
     }
 
@@ -31,10 +31,10 @@ public record BuildInfo(String version, String build, String commit) {
         }
     }
 
-    /** "1.0.0 Beta (빌드 12 · f4102ce)" or "1.0.0 개발 빌드 (f4102ce)". */
+    /** "1.0.0 (빌드 12 · f4102ce)" or "1.0.0 개발 빌드 (f4102ce)". */
     public String display() {
-        return isBeta()
-                ? version + " Beta (빌드 " + build + " · " + commit + ")"
+        return isRelease()
+                ? version + " (빌드 " + build + " · " + commit + ")"
                 : version + " 개발 빌드 (" + commit + ")";
     }
 

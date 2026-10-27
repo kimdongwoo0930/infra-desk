@@ -59,7 +59,7 @@ public final class AboutPage extends SettingsPage {
         SettingsCard card = new SettingsCard();
         card.add(new SettingsRow("InfraDesk " + com.infradesk.app.BuildInfo.current().display(),
                 "빌드 번호와 커밋은 앱 정보에서 볼 수 있어요", check));
-        card.add(new SettingsRow("새 베타 빌드 자동 확인", "시작할 때, 그리고 6시간마다", autoCheck));
+        card.add(new SettingsRow("새 버전 자동 확인", "시작할 때, 그리고 6시간마다", autoCheck));
         card.add(new SettingsRow("업데이트 파일 확인", "받은 파일이 릴리스의 해시와 같아야 설치해요",
                 Controls.value("SHA256SUMS.txt 대조 · 자가 점검 후 교체")));
         card.add(new SettingsRow("로그 폴더", "키·웹훅·공인 IP·OCID는 가려서 기록해요", logs));

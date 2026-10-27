@@ -24,12 +24,16 @@ installDist → appImage (jpackage + jlink 필요한 모듈만) → selfTestAppI
 
 ## CI (`.github/workflows/build.yml`)
 
-`main` 푸시 때만 macOS·Windows에서 테스트 → 패키징(자가 점검) → **`beta` 시험판 릴리스**를 갱신한다.
+`main` 푸시 때(또는 수동 실행) macOS·Windows에서 테스트 → 패키징(자가 점검) → **정식 릴리스**를 만든다.
 
-- 교체되는 파일: `InfraDesk-beta-macOS.dmg`(첫 설치용), `InfraDesk-beta-macOS.zip`(앱 안 업데이트용), `InfraDesk-beta-windows.zip`, `SHA256SUMS.txt`
-- 같은 파일을 빌드별 보관 릴리스 `beta-<번호>`(직전 빌드 이후 커밋 목록 포함)로도 올린다.
-- 보관 릴리스는 `delete-beta-archives.yml`을 손으로 실행해야 지워진다(확인란에 `DELETE` 입력).
+- **버전:** `v1.0.0`부터 시작해서 푸시마다 마지막 `v*` 태그의 PATCH가 하나 올라간다(`v1.0.1`, `v1.0.2`, …). 1.1.0처럼 올리고 싶으면 Actions → build → Run workflow의 `version`에 직접 적는다. 정한 버전은 Gradle에 `-PappVersion`으로 넘어가 앱 안의 버전 표시와 `jpackage` 버전이 된다.
+- **릴리스:** 제목 "InfraDesk <버전>", GitHub의 "latest". 앱은 `releases/latest`만 보고 **버전 번호**(1.0.9 < 1.0.10)로 새 버전을 판단한다.
+- **파일(버전이 이름에 들어가지 않아 다운로드 주소가 고정):** `InfraDesk-macOS.dmg`(첫 설치용), `InfraDesk-macOS.zip`(앱 안 업데이트용), `InfraDesk-windows.zip`, `SHA256SUMS.txt`
+- 이전 버전은 릴리스 목록에 그대로 남는다(보관용 릴리스를 따로 만들지 않는다). 변경 목록은 직전 `v*` 태그 이후 커밋이다.
 - 릴리스 설명은 `.github/release-notes.md`.
+- 새 푸시는 앞 실행이 끝난 뒤에 돈다(`cancel-in-progress: false`): 릴리스를 올리는 도중에 취소되면 반쯤 만들어진 릴리스가 남기 때문이다.
+
+**첫 정식 릴리스(1.0.0)에서만:** 베타 때 설치된 앱은 롤링 `beta` 릴리스만 보므로, 같은 빌드를 `InfraDesk-beta-*` 이름으로 `beta` 릴리스에도 한 번 올린다(직전 beta는 `beta-<번호>`로 보관). 옛 앱이 평소처럼 업데이트하면서 정식 1.0.0이 되고, 그 뒤로는 정식 릴리스만 본다. 이 단계는 첫 릴리스(`v*` 태그가 하나도 없을 때)에만 돌고 이후에는 `beta`를 건드리지 않는다. 오래된 `beta-<번호>` 보관 릴리스는 `delete-beta-archives.yml`을 손으로 실행하면 지워진다(확인란에 `DELETE` 입력).
 
 ## 실행 옵션
 
