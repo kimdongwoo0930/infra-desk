@@ -25,11 +25,11 @@ import javax.crypto.spec.SecretKeySpec;
  * 256비트 키만 OS 키체인에 항목 하나로 둔다. 키체인은 실행당 최대 한 번 읽고,
  * 복호화한 값은 메모리에만 둔다.
  *
- * <p>이유: 비밀값마다 키체인 항목을 만들면 패키징된(ad-hoc 서명) 앱에서 거의 클릭마다 macOS가
+ * 이유: 비밀값마다 키체인 항목을 만들면 패키징된(ad-hoc 서명) 앱에서 거의 클릭마다 macOS가
  * 로그인 비밀번호를 물었다. "항상 허용"은 항목별로 적용되고, 서명되지 않은 앱에서는 기억이
  * 안정적이지 않기 때문이다.
  *
- * <p>파일 형식: {@code "IDV1"} 매직 값, 12바이트 IV, JSON 맵의 AES-GCM 암호문(128비트 태그).
+ * 파일 형식: {@code "IDV1"} 매직 값, 12바이트 IV, JSON 맵의 AES-GCM 암호문(128비트 태그).
  * 금고에 없는 비밀값은 {@code legacy}(이전 항목별 키체인 저장소)에서 한 번 찾아 복사해 넣는다.
  */
 public class VaultSecretStore implements SecretStore {
