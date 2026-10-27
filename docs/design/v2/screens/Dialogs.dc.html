@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>InfraDesk · 확인 창</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#141517}
+a{color:#79A3F2;text-decoration:none}a:hover{color:#A9C4F7}
+button{font:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 1280px; height: 560px; box-sizing: border-box; padding: 40px; display: flex; gap: 24px; align-items: flex-start; justify-content: center; background: #141517; color: #DFE1E5; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 13px; line-height: 1.5">
+
+  <div role="dialog" aria-labelledby="d1" style="width: 380px; flex: none; box-sizing: border-box; padding: 22px; border-radius: 12px; background: #2B2D30; border: 1px solid #4E5157; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45)">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 32px; height: 32px; border-radius: 50%; background: #3F2424; display: inline-flex; align-items: center; justify-content: center; color: #F08A8A">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+      </span>
+      <h2 id="d1" style="margin: 0; font-size: 16px; font-weight: 700">discord-bot을 정지할까요?</h2>
+    </div>
+    <ul style="margin: 16px 0 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px; color: #DFE1E5">
+      <li>실행 중인 컨테이너 3개도 함께 멈춰요</li>
+      <li>예약 IP가 아니면 다시 켤 때 공인 IP가 바뀔 수 있어요</li>
+      <li>정지해도 부트 볼륨 요금은 나올 수 있어요</li>
+    </ul>
+    <div style="margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: #1E1F22; font-size: 12px; color: #B4B8BF">계정 A · ap-chuncheon-1 · 지금 CPU 24%, 터미널 탭 2개 열림</div>
+    <div style="display: flex; align-items: center; gap: 8px; margin-top: 20px">
+      <span style="flex: 1; font-size: 11.5px; color: #9A9DA3">esc 취소</span>
+      <button type="button" style="height: 34px; padding: 0 14px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 13px">취소</button>
+      <button type="button" style="height: 34px; padding: 0 14px; border: none; border-radius: 6px; background: #A8423C; color: #FFFFFF; font-size: 13px; font-weight: 600">정지</button>
+    </div>
+  </div>
+
+  <div role="dialog" aria-labelledby="d2" style="width: 380px; flex: none; box-sizing: border-box; padding: 22px; border-radius: 12px; background: #2B2D30; border: 1px solid #4E5157; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45)">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 32px; height: 32px; border-radius: 50%; background: #3F2424; display: inline-flex; align-items: center; justify-content: center; color: #F08A8A">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>
+      </span>
+      <h2 id="d2" style="margin: 0; font-size: 16px; font-weight: 700">서버에서 <span style="font-family: 'JetBrains Mono', monospace">app</span> 폴더를 지울까요?</h2>
+    </div>
+    <p style="margin: 14px 0 0">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px">/home/ubuntu/app</span> 안의 항목 <b style="font-weight: 600">1,284개</b>가 함께 지워져요.
+      <span style="color: #F08A8A">서버에서 지운 파일은 되돌릴 수 없어요.</span>
+    </p>
+    <label for="confirmName" style="display: block; margin-top: 14px; font-size: 12.5px; color: #B4B8BF">확인하려면 폴더 이름 <b style="font-family: 'JetBrains Mono', monospace; color: #DFE1E5">app</b>을 입력하세요</label>
+    <input id="confirmName" type="text" value="{{typed}}" onChange="{{onType}}" autocomplete="off" style="{{inputStyle}}">
+    <div style="display: flex; align-items: center; gap: 8px; margin-top: 20px">
+      <span style="flex: 1; font-size: 11.5px; color: #9A9DA3">{{hint}}</span>
+      <button type="button" style="height: 34px; padding: 0 14px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 13px">취소</button>
+      <button type="button" disabled="{{locked}}" style="{{delStyle}}">영구 삭제</button>
+    </div>
+  </div>
+
+  <div style="width: 380px; flex: none; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: #9A9DA3">
+      타이틀바 스위치가 켜진 모습
+      <span style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #6B5A33; border-radius: 6px; background: #3D3320; color: #F0CD8A; font-size: 12px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        읽기 전용
+        <span style="width: 22px; height: 12px; border-radius: 6px; background: #C9993F; position: relative; display: inline-block"><span style="position: absolute; right: 2px; top: 2px; width: 8px; height: 8px; border-radius: 50%; background: #FFFFFF"></span></span>
+      </span>
+    </div>
+    <div role="dialog" aria-labelledby="d3" style="box-sizing: border-box; padding: 22px; border-radius: 12px; background: #2B2D30; border: 1px solid #4E5157; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45)">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <span style="width: 32px; height: 32px; border-radius: 50%; background: #3D3320; display: inline-flex; align-items: center; justify-content: center; color: #F0CD8A">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </span>
+        <h2 id="d3" style="margin: 0; font-size: 16px; font-weight: 700">읽기 전용 모드예요</h2>
+      </div>
+      <p style="margin: 14px 0 0">정지·재부팅·삭제·덮어쓰기·일괄 실행을 막아 두었어요. 조회, 모니터링, 로그, 다운로드는 그대로 쓸 수 있어요.</p>
+      <p style="margin: 8px 0 0; font-size: 12px; color: #B4B8BF">터미널은 열 수 있지만, 저장된 명령어 실행 버튼은 잠겨요.</p>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 20px">
+        <span style="flex: 1"></span>
+        <button type="button" style="height: 34px; padding: 0 14px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 13px">닫기</button>
+        <button type="button" style="height: 34px; padding: 0 14px; border: none; border-radius: 6px; background: #3469D4; color: #FFFFFF; font-size: 13px; font-weight: 600">읽기 전용 끄기</button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":560}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { typed: 'ap' };
+  }
+  renderVals() {
+    const typed = this.state.typed || '';
+    const ok = typed === 'app';
+    return {
+      typed,
+      onType: (e) => this.setState({ typed: e.target.value }),
+      locked: !ok,
+      hint: ok ? '이름이 맞아요' : '이름이 맞아야 지울 수 있어요',
+      inputStyle: 'margin-top: 6px; width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font-family: \'JetBrains Mono\', monospace; font-size: 13px; border: 1px solid ' + (ok ? '#A8423C' : '#43454A') + ';',
+      delStyle: 'height: 34px; padding: 0 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; ' + (ok ? 'background: #A8423C; color: #FFFFFF;' : 'background: #3A3335; color: #8A8D93; cursor: not-allowed;')
+    };
+  }
+}
+</script>
+</body>
+</html>

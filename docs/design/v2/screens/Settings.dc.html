@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>InfraDesk · 설정</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#1E1F22}
+a{color:#79A3F2;text-decoration:none}a:hover{color:#A9C4F7}
+button{font:inherit;cursor:pointer}
+.hv:hover{background:#313338}
+.nav:hover{background:#313338}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #1E1F22; color: #DFE1E5; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 13px; line-height: 1.45">
+
+  <header style="height: 44px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 12px 0 16px; background: #2B2D30; border-bottom: 1px solid #393B40">
+    <div style="display: flex; align-items: center; gap: 8px; width: 212px; flex: none">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#79A3F2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
+      <span style="font-weight: 700; font-size: 14px">InfraDesk</span>
+    </div>
+    <a href="Palette.dc.html" class="hv" style="flex: 0 1 420px; min-width: 0; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #9A9DA3; font-size: 12.5px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">설정 항목, 서버, 작업 찾기</span>
+      <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #B4B8BF; border: 1px solid #43454A; border-radius: 4px; padding: 0 5px">⌘K</kbd>
+    </a>
+    <div style="flex: 1"></div>
+    <a href="AgentDock.dc.html" class="hv" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; color: #DFE1E5; font-size: 12px; white-space: nowrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A9C4F7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+      에이전트 <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #9A9DA3">⌘J</kbd>
+    </a>
+    <span style="font-size: 12px; color: #B4B8BF; white-space: nowrap">실행 4 · 정지 2</span>
+    <span style="font-size: 12px; color: #9A9DA3; white-space: nowrap">15:31 갱신</span>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0">
+
+    <nav aria-label="설정 항목" style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px; padding: 14px 8px; box-sizing: border-box; background: #2B2D30; border-right: 1px solid #393B40">
+      <a href="Main.dc.html" class="nav" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 6px; color: #B4B8BF; font-size: 12.5px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>개요로 돌아가기</a>
+      <div style="padding: 12px 10px 8px; font-size: 18px; font-weight: 700">설정</div>
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="6">
+        <button type="button" aria-current="{{n.current}}" class="nav" onClick="{{n.pick}}" style="{{n.style}}">
+          <span style="flex: 1">{{n.label}}</span>
+          <sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{false}}"><span style="padding: 0 6px; border-radius: 8px; background: #263049; color: #A9C4F7; font-size: 10.5px; font-weight: 600">{{n.badge}}</span></sc-if>
+        </button>
+      </sc-for>
+      <div style="flex: 1"></div>
+      <p style="margin: 12px 10px 0; font-size: 11.5px; color: #9A9DA3">바꾼 설정은 바로 저장돼요. 비밀값은 금고(secrets.vault)에 암호화해 둬요.</p>
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; padding: 28px 40px 80px; box-sizing: border-box">
+      <div style="max-width: 800px">
+
+        <sc-if value="{{showGeneral}}" hint-placeholder-val="{{true}}">
+        <section id="s-general" style="margin-bottom: 40px">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">일반</h2>
+          <p style="margin: 4px 0 14px; font-size: 12.5px; color: #B4B8BF">앱이 켜지고 닫힐 때의 동작</p>
+          <div style="border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+            <sc-for list="{{general}}" as="r" hint-placeholder-count="5">
+              <div style="{{r.rowStyle}}">
+                <div style="flex: 1 1 300px; min-width: 0">
+                  <div style="font-weight: 500">{{r.label}}</div>
+                  <div style="{{r.descStyle}}">{{r.desc}}</div>
+                </div>
+                <sc-if value="{{r.isSwitch}}" hint-placeholder-val="{{true}}"><button type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.toggle}}" style="{{r.track}}"><span style="{{r.knob}}"></span></button></sc-if>
+                <sc-if value="{{r.isPick}}" hint-placeholder-val="{{false}}"><button type="button" aria-haspopup="listbox" aria-label="{{r.label}}" class="hv" style="display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></sc-if>
+                <sc-if value="{{r.isInfo}}" hint-placeholder-val="{{false}}"><span style="font-size: 12.5px; color: #B4B8BF">{{r.value}}</span></sc-if>
+                <sc-if value="{{r.isBtn}}" hint-placeholder-val="{{false}}"><button type="button" class="hv" style="height: 30px; padding: 0 12px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}</button></sc-if>
+                <sc-if value="{{r.isText}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 6px; max-width: 100%"><input type="text" aria-label="{{r.label}}" value="{{r.value}}" readonly style="{{r.textStyle}}"><span style="font-size: 12px; color: #9A9DA3">{{r.suffix}}</span></span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        </sc-if>
+        <sc-if value="{{showAlerts}}" hint-placeholder-val="{{false}}">
+        <section id="s-alerts" style="margin-bottom: 40px">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">알림</h2>
+          <p style="margin: 4px 0 14px; font-size: 12.5px; color: #B4B8BF">앱이 켜져 있는 동안 디스코드와 화면 구석으로 알려요</p>
+          <div style="border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+            <sc-for list="{{alerts}}" as="r" hint-placeholder-count="3">
+              <div style="{{r.rowStyle}}">
+                <div style="flex: 1 1 300px; min-width: 0">
+                  <div style="font-weight: 500">{{r.label}}</div>
+                  <div style="{{r.descStyle}}">{{r.desc}}</div>
+                </div>
+                <sc-if value="{{r.isSwitch}}" hint-placeholder-val="{{true}}"><button type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.toggle}}" style="{{r.track}}"><span style="{{r.knob}}"></span></button></sc-if>
+                <sc-if value="{{r.isPick}}" hint-placeholder-val="{{false}}"><button type="button" aria-haspopup="listbox" aria-label="{{r.label}}" class="hv" style="display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></sc-if>
+                <sc-if value="{{r.isInfo}}" hint-placeholder-val="{{false}}"><span style="font-size: 12.5px; color: #B4B8BF">{{r.value}}</span></sc-if>
+                <sc-if value="{{r.isBtn}}" hint-placeholder-val="{{false}}"><button type="button" class="hv" style="height: 30px; padding: 0 12px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}</button></sc-if>
+                <sc-if value="{{r.isText}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 6px; max-width: 100%"><input type="text" aria-label="{{r.label}}" value="{{r.value}}" readonly style="{{r.textStyle}}"><span style="font-size: 12px; color: #9A9DA3">{{r.suffix}}</span></span></sc-if>
+              </div>
+            </sc-for>
+            <div style="padding: 12px 16px 6px; border-top: 1px solid #393B40; font-size: 12px; font-weight: 600; color: #B4B8BF">이럴 때 알려 주세요</div>
+            <sc-for list="{{rules}}" as="ru" hint-placeholder-count="6">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 7px 16px">
+                <input type="checkbox" checked="{{ru.on}}" onChange="{{ru.toggle}}" aria-label="{{ru.aria}}" style="margin: 0 4px 0 0; width: 15px; height: 15px; accent-color: #3469D4">
+                <sc-if value="{{ru.plain}}" hint-placeholder-val="{{true}}"><span>{{ru.text}}</span></sc-if>
+                <sc-if value="{{ru.nums}}" hint-placeholder-val="{{false}}">
+                  <span>{{ru.pre}}</span>
+                  <input type="text" aria-label="{{ru.aLabel}}" value="{{ru.a}}" readonly style="width: 46px; height: 26px; box-sizing: border-box; padding: 0 6px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font: inherit; font-size: 12.5px; text-align: right">
+                  <span>{{ru.mid}}</span>
+                  <sc-if value="{{ru.hasB}}" hint-placeholder-val="{{false}}">
+                    <input type="text" aria-label="{{ru.bLabel}}" value="{{ru.b}}" readonly style="width: 40px; height: 26px; box-sizing: border-box; padding: 0 6px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font: inherit; font-size: 12.5px; text-align: right">
+                    <span>{{ru.post}}</span>
+                  </sc-if>
+                </sc-if>
+                <sc-if value="{{ru.hasTag}}" hint-placeholder-val="{{false}}"><span style="{{ru.tagStyle}}">{{ru.tag}}</span></sc-if>
+              </div>
+            </sc-for>
+            <div style="height: 8px"></div>
+          </div>
+        </section>
+
+        </sc-if>
+        <sc-if value="{{showSecurity}}" hint-placeholder-val="{{false}}">
+        <section id="s-security" style="margin-bottom: 40px">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">보안·안전</h2>
+          <p style="margin: 4px 0 14px; font-size: 12.5px; color: #B4B8BF">실수로 서버를 바꾸지 않도록, 그리고 비밀값이 새지 않도록</p>
+          <div style="border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+            <sc-for list="{{security}}" as="r" hint-placeholder-count="5">
+              <div style="{{r.rowStyle}}">
+                <div style="flex: 1 1 300px; min-width: 0">
+                  <div style="font-weight: 500">{{r.label}}</div>
+                  <div style="{{r.descStyle}}">{{r.desc}}</div>
+                </div>
+                <sc-if value="{{r.isSwitch}}" hint-placeholder-val="{{true}}"><button type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.toggle}}" style="{{r.track}}"><span style="{{r.knob}}"></span></button></sc-if>
+                <sc-if value="{{r.isPick}}" hint-placeholder-val="{{false}}"><button type="button" aria-haspopup="listbox" aria-label="{{r.label}}" class="hv" style="display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></sc-if>
+                <sc-if value="{{r.isInfo}}" hint-placeholder-val="{{false}}"><span style="font-size: 12.5px; color: #B4B8BF">{{r.value}}</span></sc-if>
+                <sc-if value="{{r.isBtn}}" hint-placeholder-val="{{false}}"><button type="button" class="hv" style="height: 30px; padding: 0 12px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}</button></sc-if>
+                <sc-if value="{{r.isText}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 6px; max-width: 100%"><input type="text" aria-label="{{r.label}}" value="{{r.value}}" readonly style="{{r.textStyle}}"><span style="font-size: 12px; color: #9A9DA3">{{r.suffix}}</span></span></sc-if>
+              </div>
+            </sc-for>
+            <div style="padding: 12px 16px 8px; border-top: 1px solid #393B40">
+              <div style="font-weight: 500">알고 있는 호스트 키</div>
+              <div style="margin-top: 2px; font-size: 12px; color: #9A9DA3">처음 접속할 때 확인한 키예요. 키가 바뀌면 연결을 막고 알려요.</div>
+            </div>
+            <sc-for list="{{hostKeys}}" as="hk" hint-placeholder-count="3">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 16px">
+                <span style="width: 120px; font-weight: 500">{{hk.name}}</span>
+                <span style="flex: 1 1 240px; min-width: 0; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #B4B8BF; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{hk.fp}}</span>
+                <span style="font-size: 12px; color: #9A9DA3">{{hk.seen}}</span>
+                <button type="button" class="hv" style="height: 26px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12px">잊기</button>
+              </div>
+            </sc-for>
+            <div style="height: 8px"></div>
+          </div>
+        </section>
+
+        </sc-if>
+        <sc-if value="{{showConn}}" hint-placeholder-val="{{false}}">
+        <section id="s-conn" style="margin-bottom: 40px">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">연결·조회</h2>
+          <p style="margin: 4px 0 14px; font-size: 12.5px; color: #B4B8BF">얼마나 자주 묻고, SSH 연결을 어떻게 유지할지</p>
+          <div style="border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+            <sc-for list="{{conn}}" as="r" hint-placeholder-count="5">
+              <div style="{{r.rowStyle}}">
+                <div style="flex: 1 1 300px; min-width: 0">
+                  <div style="font-weight: 500">{{r.label}}</div>
+                  <div style="{{r.descStyle}}">{{r.desc}}</div>
+                </div>
+                <sc-if value="{{r.isSwitch}}" hint-placeholder-val="{{true}}"><button type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.toggle}}" style="{{r.track}}"><span style="{{r.knob}}"></span></button></sc-if>
+                <sc-if value="{{r.isPick}}" hint-placeholder-val="{{false}}"><button type="button" aria-haspopup="listbox" aria-label="{{r.label}}" class="hv" style="display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></sc-if>
+                <sc-if value="{{r.isInfo}}" hint-placeholder-val="{{false}}"><span style="font-size: 12.5px; color: #B4B8BF">{{r.value}}</span></sc-if>
+                <sc-if value="{{r.isBtn}}" hint-placeholder-val="{{false}}"><button type="button" class="hv" style="height: 30px; padding: 0 12px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}</button></sc-if>
+                <sc-if value="{{r.isText}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 6px; max-width: 100%"><input type="text" aria-label="{{r.label}}" value="{{r.value}}" readonly style="{{r.textStyle}}"><span style="font-size: 12px; color: #9A9DA3">{{r.suffix}}</span></span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="margin-top: 14px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow-x: auto">
+            <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 12px 16px">
+              <h3 style="margin: 0; font-size: 13.5px; font-weight: 600">지금 열린 SSH 연결</h3>
+              <span style="font-size: 12px; color: #9A9DA3">서버마다 용도별로 하나씩 · 연결 3개</span>
+            </div>
+            <div role="table" aria-label="SSH 연결" style="min-width: 640px">
+              <div role="row" style="display: grid; grid-template-columns: minmax(120px, 1.4fr) repeat(4, 64px) minmax(140px, 1fr); align-items: center; padding: 6px 16px; border-top: 1px solid #393B40; border-bottom: 1px solid #393B40; font-size: 11.5px; color: #9A9DA3">
+                <span role="columnheader">서버</span>
+                <span role="columnheader" style="text-align: center">조회</span>
+                <span role="columnheader" style="text-align: center">명령</span>
+                <span role="columnheader" style="text-align: center">파일</span>
+                <span role="columnheader" style="text-align: center">전송</span>
+                <span role="columnheader">상태</span>
+              </div>
+              <sc-for list="{{pool}}" as="pl" hint-placeholder-count="4">
+                <div role="row" style="display: grid; grid-template-columns: minmax(120px, 1.4fr) repeat(4, 64px) minmax(140px, 1fr); align-items: center; padding: 8px 16px; border-bottom: 1px solid #393B40; font-size: 12.5px">
+                  <span role="cell" style="font-weight: 500">{{pl.name}}</span>
+                  <sc-for list="{{pl.slots}}" as="sl" hint-placeholder-count="4">
+                    <span role="cell" style="display: flex; justify-content: center"><span style="{{sl.style}}" role="img" aria-label="{{sl.aria}}"></span></span>
+                  </sc-for>
+                  <span role="cell" style="{{pl.stateStyle}}">{{pl.state}}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px">
+              <span style="flex: 1 1 300px; font-size: 12px; color: #9A9DA3">터미널 탭 2개는 이 표와 따로 연결돼요. 서버를 바꾸는 명령(명령 연결)은 실패해도 저절로 다시 보내지 않아요.</span>
+              <button type="button" class="hv" style="height: 30px; padding: 0 12px; border: 1px solid #6B3A3A; border-radius: 6px; background: transparent; color: #F08A8A; font-size: 12.5px">모든 연결 끊기</button>
+            </div>
+          </div>
+        </section>
+
+        </sc-if>
+        <sc-if value="{{showAgent}}" hint-placeholder-val="{{false}}">
+        <section id="s-agent" style="margin-bottom: 40px">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700">에이전트</h2>
+            <span style="padding: 1px 8px; border-radius: 10px; background: #263049; color: #A9C4F7; font-size: 11.5px; font-weight: 600">베타 · 처음엔 꺼져 있어요</span>
+          </div>
+          <p style="margin: 4px 0 14px; font-size: 12.5px; color: #B4B8BF">언어 모델이 서버 상태를 보고 명령을 제안해요. 실행은 내가 허용한 것만 InfraDesk가 해요.</p>
+
+          <div style="display: flex; gap: 12px; padding: 14px 16px; border-radius: 8px; background: #22293A; border: 1px solid #3A4A70">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A9C4F7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+            <div style="min-width: 0">
+              <div style="font-weight: 600">에이전트는 제안만 해요</div>
+              <p style="margin: 4px 0 0; font-size: 12.5px; color: #DFE1E5">모델은 SSH 키·API 키를 받지 않고, 서버에 직접 접속하지 않아요. 명령은 InfraDesk가 규칙을 검사하고 내 허용을 받은 뒤 SSH 연결 풀의 명령 연결로 실행해요.</p>
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px">
+                <sc-for list="{{flow}}" as="fl" hint-placeholder-count="6">
+                  <span style="padding: 2px 8px; border-radius: 10px; background: #2B3550; color: #DFE1E5; white-space: nowrap">{{fl.label}}</span>
+                  <sc-if value="{{fl.arrow}}" hint-placeholder-val="{{true}}"><span aria-hidden="true" style="color: #9A9DA3">→</span></sc-if>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 14px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+            <sc-for list="{{agentBasic}}" as="r" hint-placeholder-count="2">
+              <div style="{{r.rowStyle}}">
+                <div style="flex: 1 1 300px; min-width: 0">
+                  <div style="font-weight: 500">{{r.label}}</div>
+                  <div style="{{r.descStyle}}">{{r.desc}}</div>
+                </div>
+                <sc-if value="{{r.isSwitch}}" hint-placeholder-val="{{true}}"><button type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.toggle}}" style="{{r.track}}"><span style="{{r.knob}}"></span></button></sc-if>
+                <sc-if value="{{r.isInfo}}" hint-placeholder-val="{{false}}"><span style="font-size: 12.5px; color: #B4B8BF">{{r.value}}</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="margin-top: 14px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid #393B40">
+              <h3 style="margin: 0; flex: 1; font-size: 13.5px; font-weight: 600">모델</h3>
+              <div role="group" aria-label="모델 연결 방식" style="display: flex; padding: 2px; border: 1px solid #43454A; border-radius: 8px; background: #1E1F22">
+                <sc-for list="{{providers}}" as="pv" hint-placeholder-count="2">
+                  <button type="button" aria-pressed="{{pv.on}}" onClick="{{pv.pick}}" style="{{pv.style}}">{{pv.label}}</button>
+                </sc-for>
+              </div>
+            </div>
+
+            <sc-if value="{{isLocal}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid #393B40">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: #5FB865"></span>
+                <span style="flex: 1 1 260px">Ollama에 연결됨 · <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">http://127.0.0.1:11434</span> · 설치된 모델 4개</span>
+                <button type="button" class="hv" style="height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12px">다시 확인</button>
+              </div>
+
+              <div style="display: flex; flex-wrap: wrap; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #393B40">
+                <div style="flex: 1 1 260px; min-width: 0">
+                  <div style="font-size: 12px; font-weight: 600; color: #B4B8BF">이 PC</div>
+                  <dl style="margin: 8px 0 0; display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 6px 10px; font-size: 12.5px">
+                    <dt style="color: #9A9DA3">칩</dt><dd style="margin: 0">Apple M2 Pro · GPU 가속(Metal)</dd>
+                    <dt style="color: #9A9DA3">메모리</dt><dd style="margin: 0">16 GB (CPU·GPU 함께 씀)</dd>
+                    <dt style="color: #9A9DA3">지금 여유</dt><dd style="margin: 0">약 9.8 GB</dd>
+                  </dl>
+                </div>
+                <div style="flex: 1 1 300px; min-width: 0; padding: 12px 14px; border-radius: 8px; background: #1F3A24; border: 1px solid #3F6B45">
+                  <div style="font-weight: 600; color: #7FD184">추천: 7~8B 모델 (4비트)</div>
+                  <p style="margin: 4px 0 0; font-size: 12.5px; color: #DFE1E5">이 메모리에서 무리 없이 돌아가요. 14B 이상은 메모리가 빠듯해 느려지거나 다른 앱이 버벅일 수 있어요.</p>
+                  <p style="margin: 4px 0 0; font-size: 11.5px; color: #B4B8BF">명령을 제안하려면 '도구 호출'을 지원하는 모델이어야 해요.</p>
+                </div>
+              </div>
+
+              <div role="radiogroup" aria-label="쓸 모델" style="padding: 6px 0">
+                <sc-for list="{{models}}" as="m" hint-placeholder-count="4">
+                  <button type="button" role="radio" aria-checked="{{m.on}}" disabled="{{m.off}}" onClick="{{m.pick}}" class="hv" style="{{m.rowStyle}}">
+                    <span style="{{m.radio}}"><span style="{{m.dot}}"></span></span>
+                    <span style="flex: 1 1 160px; min-width: 0; text-align: left">
+                      <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 12.5px">{{m.name}}</span>
+                      <span style="display: block; font-size: 11.5px; color: #9A9DA3">{{m.size}}</span>
+                    </span>
+                    <span style="{{m.toolStyle}}">{{m.tool}}</span>
+                    <span style="{{m.fitStyle}}">{{m.fit}}</span>
+                  </button>
+                </sc-for>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px 14px; border-top: 1px solid #393B40">
+                <button type="button" class="hv" style="height: 30px; padding: 0 12px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12.5px">다른 모델 받기…</button>
+                <span style="flex: 1 1 260px; font-size: 12px; color: #9A9DA3">ollama pull로 받아요. 추천과 다르게 직접 골라도 돼요.</span>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{isRemote}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px">
+                <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px">주소
+                  <input type="text" value="https://[서비스 주소]/v1" readonly style="height: 30px; box-sizing: border-box; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font-family: 'JetBrains Mono', monospace; font-size: 12px"></label>
+                <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px">API 키
+                  <input type="text" value="••••••••••••" readonly style="height: 30px; box-sizing: border-box; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font-family: 'JetBrains Mono', monospace; font-size: 12px"></label>
+                <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px">모델 이름
+                  <input type="text" value="[모델 이름]" readonly style="height: 30px; box-sizing: border-box; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font-family: 'JetBrains Mono', monospace; font-size: 12px"></label>
+                <div style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 8px; background: #2E2A21; border: 1px solid #5A4A27; font-size: 12.5px">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E5C07B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg>
+                  <span>명령 출력과 로그가 이 주소로 보내져요. 키·토큰·공인 IP는 가리지만, 로그 속 개인 정보까지 모두 걸러지지는 않아요. API 키는 금고에 암호화해 둬요.</span>
+                </div>
+                <div><button type="button" class="hv" style="height: 30px; padding: 0 12px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12.5px">연결 테스트</button></div>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="margin-top: 14px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow-x: auto">
+            <div style="padding: 12px 16px; border-bottom: 1px solid #393B40">
+              <h3 style="margin: 0; font-size: 13.5px; font-weight: 600">명령 실행 규칙</h3>
+              <p style="margin: 2px 0 0; font-size: 12px; color: #9A9DA3">에이전트가 제안한 명령을 InfraDesk가 먼저 나눠 보고 처리해요</p>
+            </div>
+            <div role="table" aria-label="명령 분류" style="min-width: 640px">
+              <sc-for list="{{policy}}" as="po" hint-placeholder-count="4">
+                <div role="row" style="display: grid; grid-template-columns: 120px minmax(0, 1fr) 210px; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #393B40">
+                  <span role="cell" style="display: flex; flex-direction: column; gap: 4px">
+                    <span style="{{po.badge}}">{{po.kind}}</span>
+                    <span style="font-size: 11.5px; color: #9A9DA3">{{po.what}}</span>
+                  </span>
+                  <span role="cell" style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #B4B8BF">{{po.ex}}</span>
+                  <span role="cell" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px">
+                    <sc-if value="{{po.isRead}}" hint-placeholder-val="{{false}}">
+                      <span role="group" aria-label="읽기 명령 처리" style="display: flex; padding: 2px; border: 1px solid #43454A; border-radius: 8px; background: #1E1F22">
+                        <sc-for list="{{readOpts}}" as="ro" hint-placeholder-count="2">
+                          <button type="button" aria-pressed="{{ro.on}}" onClick="{{ro.pick}}" style="{{ro.style}}">{{ro.label}}</button>
+                        </sc-for>
+                      </span>
+                    </sc-if>
+                    <sc-if value="{{po.fixed}}" hint-placeholder-val="{{true}}">
+                      <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #DFE1E5">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9A9DA3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{{po.action}}</span>
+                    </sc-if>
+                    <span style="font-size: 11.5px; color: #9A9DA3">{{po.note}}</span>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+            <p style="margin: 0; padding: 10px 16px; font-size: 12px; color: #9A9DA3">파이프(<span style="font-family: 'JetBrains Mono', monospace">|</span>)·리다이렉트(<span style="font-family: 'JetBrains Mono', monospace">&gt;</span>)·<span style="font-family: 'JetBrains Mono', monospace">sudo</span>·여러 명령 묶음(<span style="font-family: 'JetBrains Mono', monospace">;</span> <span style="font-family: 'JetBrains Mono', monospace">&amp;&amp;</span>)이 들어가면 한 단계 위로 봐요. 읽기 전용 모드에서는 읽기 명령만 실행해요.</p>
+          </div>
+
+          <div style="display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px">
+            <div style="flex: 1 1 320px; min-width: 0; padding: 12px 16px 14px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40">
+              <h3 style="margin: 0; font-size: 13.5px; font-weight: 600">항상 읽기로 보는 명령</h3>
+              <p style="margin: 2px 0 10px; font-size: 12px; color: #9A9DA3">이 모양 그대로일 때만 맞아요</p>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px">
+                <sc-for list="{{allow}}" as="al" hint-placeholder-count="5">
+                  <span style="padding: 2px 8px; border-radius: 4px; background: #1F3A24; color: #7FD184; font-family: 'JetBrains Mono', monospace; font-size: 11.5px">{{al.cmd}}</span>
+                </sc-for>
+                <button type="button" class="hv" style="height: 22px; padding: 0 8px; border: 1px dashed #4E5157; border-radius: 4px; background: transparent; color: #B4B8BF; font-size: 11.5px">+ 추가</button>
+              </div>
+            </div>
+            <div style="flex: 1 1 320px; min-width: 0; padding: 12px 16px 14px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40">
+              <h3 style="margin: 0; font-size: 13.5px; font-weight: 600">항상 막는 명령</h3>
+              <p style="margin: 2px 0 10px; font-size: 12px; color: #9A9DA3">허용 버튼 자체를 보여주지 않아요</p>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px">
+                <sc-for list="{{deny}}" as="dn" hint-placeholder-count="5">
+                  <span style="padding: 2px 8px; border-radius: 4px; background: #3F2424; color: #F08A8A; font-family: 'JetBrains Mono', monospace; font-size: 11.5px">{{dn.cmd}}</span>
+                </sc-for>
+                <button type="button" class="hv" style="height: 22px; padding: 0 8px; border: 1px dashed #4E5157; border-radius: 4px; background: transparent; color: #B4B8BF; font-size: 11.5px">+ 추가</button>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="margin: 22px 0 8px; font-size: 13.5px; font-weight: 600">에이전트가 볼 수 있는 정보</h3>
+          <div style="border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+            <sc-for list="{{agentData}}" as="r" hint-placeholder-count="6">
+              <div style="{{r.rowStyle}}">
+                <div style="flex: 1 1 300px; min-width: 0">
+                  <div style="font-weight: 500">{{r.label}}</div>
+                  <div style="{{r.descStyle}}">{{r.desc}}</div>
+                </div>
+                <sc-if value="{{r.isSwitch}}" hint-placeholder-val="{{true}}"><button type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.toggle}}" style="{{r.track}}"><span style="{{r.knob}}"></span></button></sc-if>
+                <sc-if value="{{r.isInfo}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #B4B8BF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9A9DA3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{{r.value}}</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <h3 style="margin: 22px 0 8px; font-size: 13.5px; font-weight: 600">한도와 기록</h3>
+          <div style="border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+            <sc-for list="{{agentLimits}}" as="r" hint-placeholder-count="4">
+              <div style="{{r.rowStyle}}">
+                <div style="flex: 1 1 300px; min-width: 0">
+                  <div style="font-weight: 500">{{r.label}}</div>
+                  <div style="{{r.descStyle}}">{{r.desc}}</div>
+                </div>
+                <sc-if value="{{r.isSwitch}}" hint-placeholder-val="{{true}}"><button type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.toggle}}" style="{{r.track}}"><span style="{{r.knob}}"></span></button></sc-if>
+                <sc-if value="{{r.isPick}}" hint-placeholder-val="{{false}}"><button type="button" aria-haspopup="listbox" aria-label="{{r.label}}" class="hv" style="display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></sc-if>
+                <sc-if value="{{r.isInfo}}" hint-placeholder-val="{{false}}"><span style="font-size: 12.5px; color: #B4B8BF">{{r.value}}</span></sc-if>
+                <sc-if value="{{r.isBtn}}" hint-placeholder-val="{{false}}"><button type="button" class="hv" style="height: 30px; padding: 0 12px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}</button></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        </sc-if>
+        <sc-if value="{{showAbout}}" hint-placeholder-val="{{false}}">
+        <section id="s-about">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">업데이트·정보</h2>
+          <p style="margin: 4px 0 14px; font-size: 12.5px; color: #B4B8BF">버전과 업데이트, 문제를 찾을 때 필요한 것</p>
+          <div style="border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+            <sc-for list="{{about}}" as="r" hint-placeholder-count="5">
+              <div style="{{r.rowStyle}}">
+                <div style="flex: 1 1 300px; min-width: 0">
+                  <div style="font-weight: 500">{{r.label}}</div>
+                  <div style="{{r.descStyle}}">{{r.desc}}</div>
+                </div>
+                <sc-if value="{{r.isSwitch}}" hint-placeholder-val="{{true}}"><button type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.toggle}}" style="{{r.track}}"><span style="{{r.knob}}"></span></button></sc-if>
+                <sc-if value="{{r.isInfo}}" hint-placeholder-val="{{false}}"><span style="font-size: 12.5px; color: #B4B8BF">{{r.value}}</span></sc-if>
+                <sc-if value="{{r.isBtn}}" hint-placeholder-val="{{false}}"><button type="button" class="hv" style="height: 30px; padding: 0 12px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12.5px; white-space: nowrap">{{r.value}}</button></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { on: {}, rules: {}, active: 'general', provider: 'local', model: 'qwen2.5:7b', readPolicy: 'auto' };
+  }
+  renderVals() {
+    const S = this.state;
+    const mono = "'JetBrains Mono', monospace";
+    const sw = (id, label, desc, def) => ({ id, label, desc, kind: 'switch', def });
+    const pick = (label, desc, value) => ({ label, desc, kind: 'pick', value });
+    const info = (label, desc, value) => ({ label, desc, kind: 'info', value });
+    const btn = (label, desc, value) => ({ label, desc, kind: 'btn', value });
+    const text = (label, desc, value, suffix, width) => ({ label, desc, kind: 'text', value, suffix, width });
+    const build = (rows) => rows.map((r, i) => {
+      const on = r.kind === 'switch' ? (S.on[r.id] ?? r.def) : false;
+      return {
+        ...r,
+        isSwitch: r.kind === 'switch', isPick: r.kind === 'pick', isInfo: r.kind === 'info', isBtn: r.kind === 'btn', isText: r.kind === 'text',
+        on,
+        rowStyle: 'display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 16px;' + (i ? ' border-top: 1px solid #393B40;' : ''),
+        descStyle: r.desc ? 'margin-top: 2px; font-size: 12px; color: #9A9DA3;' : 'display: none;',
+        track: 'position: relative; flex: none; width: 34px; height: 20px; padding: 0; border: none; border-radius: 10px; background: ' + (on ? '#3469D4' : '#4E5157') + ';',
+        knob: 'position: absolute; top: 3px; left: ' + (on ? '17px' : '3px') + '; width: 14px; height: 14px; border-radius: 50%; background: ' + (on ? '#FFFFFF' : '#DFE1E5') + ';',
+        textStyle: 'width: ' + (r.width || 300) + 'px; max-width: 100%; height: 30px; box-sizing: border-box; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font-family: ' + mono + '; font-size: 12px;',
+        suffix: r.suffix || '',
+        toggle: () => this.setState({ on: { ...this.state.on, [r.id]: !on } })
+      };
+    });
+
+    const navDefs = [
+      { id: 'general', label: '일반', href: '#s-general' },
+      { id: 'alerts', label: '알림', href: '#s-alerts' },
+      { id: 'security', label: '보안·안전', href: '#s-security' },
+      { id: 'conn', label: '연결·조회', href: '#s-conn' },
+      { id: 'agent', label: '에이전트', href: '#s-agent', badge: '베타' },
+      { id: 'about', label: '업데이트·정보', href: '#s-about' }
+    ];
+    const nav = navDefs.map(n => ({
+      ...n, hasBadge: !!n.badge, badge: n.badge || '', current: S.active === n.id ? 'page' : 'false',
+      style: 'width: 100%; display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: none; border-radius: 6px; text-align: left; font-size: 13px; ' + (S.active === n.id ? 'background: #2E436E; color: #FFFFFF; font-weight: 600;' : 'background: transparent; color: #B4B8BF;'),
+      pick: () => this.setState({ active: n.id })
+    }));
+
+    const general = build([
+      sw('login', '로그인할 때 InfraDesk 실행', '메뉴 막대에서 조용히 시작해요 · 실행 대상: /Applications/InfraDesk.app', true),
+      sw('hide', '창을 닫으면 메뉴 막대로 숨기기', '끄면 창을 닫을 때 앱이 종료돼요', true),
+      pick('시작 화면', '앱을 열 때 처음 보여줄 화면', '개요'),
+      pick('서버 목록 묶기', '사이드바와 개요에서 서버를 묶는 방법', '계정별'),
+      btn('단축키', '⌘K 빠른 실행 · ⌘J 에이전트 · ⌘T 새 터미널 탭 · ⌘1~6 서버 탭', '단축키 모두 보기')
+    ]);
+    const alerts = build([
+      sw('discord', '디스코드 알림', '앱이 켜져 있는 동안만 보내요', true),
+      text('웹훅 URL', '디스코드 채널 설정 → 연동 → 웹후크 · 암호화해서 이 PC에만 저장돼요', 'https://discord.com/api/webhooks/…', '', 340),
+      btn('테스트 메시지', '지금 설정으로 한 번 보내 봐요', '테스트 메시지 보내기'),
+      sw('toast', '앱 안 알림', '오른쪽 아래에 잠깐 띄워요', true),
+      pick('같은 알림 다시 보내기', '문제가 계속될 때 반복 알림 간격', '30분마다')
+    ]);
+    const ruleDefs = [
+      { id: 'down', text: '서버가 예상치 않게 멈추거나 다시 켜졌을 때', def: true },
+      { id: 'acct', text: '계정에 연결하지 못하거나 복구됐을 때', def: true },
+      { id: 'cpu', nums: true, pre: 'CPU가', a: '90', mid: '% 이상이', b: '5', post: '분 넘게 계속될 때', def: true },
+      { id: 'disk', nums: true, pre: '디스크(/) 사용량이', a: '90', mid: '%를 넘을 때', def: true, tag: '새 규칙' },
+      { id: 'ctr', text: '컨테이너가 예상치 않게 멈췄을 때', def: false, tag: '새 규칙' },
+      { id: 'agent', text: '에이전트가 허용을 기다릴 때', def: false, tag: '에이전트' }
+    ];
+    const rules = ruleDefs.map(r => {
+      const on = S.rules[r.id] ?? r.def;
+      return {
+        ...r, on, plain: !r.nums, nums: !!r.nums, hasB: !!r.b, hasTag: !!r.tag, tag: r.tag || '',
+        text: r.text || '', pre: r.pre || '', a: r.a || '', mid: r.mid || '', b: r.b || '', post: r.post || '',
+        aria: r.text || ((r.pre || '') + ' 알림'), aLabel: (r.pre || '') + ' 기준(%)', bLabel: '지속 시간(분)',
+        tagStyle: 'padding: 0 6px; border-radius: 4px; font-size: 10.5px; ' + (r.tag === '에이전트' ? 'background: #263049; color: #A9C4F7;' : 'background: #393B40; color: #B4B8BF;'),
+        toggle: () => this.setState({ rules: { ...this.state.rules, [r.id]: !on } })
+      };
+    });
+    const security = build([
+      sw('maskip', '공인 IP 기본으로 가리기', '화면·로그에서 가리고, 눈 모양 버튼을 눌러야 보여요', true),
+      sw('ro', '앱을 시작할 때 읽기 전용으로', '정지·재부팅·삭제·덮어쓰기·일괄 실행을 막은 채로 시작해요', false),
+      pick('되돌릴 수 없는 작업 확인', '서버 파일·폴더 삭제에 적용돼요', '이름 입력까지'),
+      pick('활동 기록 보관', '이 PC에만 저장 · 명령 출력과 비밀값은 남기지 않아요', '30일'),
+      info('비밀값 저장', 'API 개인키·SSH 키·웹훅·에이전트 API 키', 'secrets.vault · AES-256-GCM · 키는 OS 키체인')
+    ]);
+    const hostKeys = [
+      { name: 'discord-bot', fp: 'ED25519 · SHA256:q3Vt…f9Ak', seen: '2025-11-03 처음 확인' },
+      { name: 'web-server', fp: 'ED25519 · SHA256:Lm8c…2xQe', seen: '2026-02-14 처음 확인' },
+      { name: 'mac-mini', fp: 'ED25519 · SHA256:7Hra…Kp0w', seen: '2026-05-29 처음 확인' }
+    ];
+    const conn = build([
+      pick('서버 상태 새로고침', 'OCI API 요청 제한 때문에 30~60초 사이로 정해요 · 시작·정지 직후에는 5초 간격', '30초'),
+      info('메트릭', 'OCI는 1분 단위로 모아요 · 직접 연결 서버는 SSH로 1분마다 읽어요', '1분마다'),
+      pick('실시간 모드 자동 꺼짐', '켜 둔 걸 잊어도 SSH로 계속 읽지 않게', '10분 뒤'),
+      pick('창이 메뉴 막대로 숨으면', '사이드바·메뉴 막대 CPU만 계속 보여줘요', '조회 연결만 남기기'),
+      info('SSH 연결 새로 맺기', '오래 열린 연결은 쓰지 않는 틈에 다시 맺어요 · 5분 넘게 안 쓰면 닫아요', '12시간마다')
+    ]);
+    const dot = (on, kind) => ({
+      style: on ? 'width: 9px; height: 9px; border-radius: 50%; background: #5FB865;' : 'width: 9px; height: 2px; border-radius: 1px; background: #4E5157;',
+      aria: kind + (on ? ' 연결됨' : ' 없음')
+    });
+    const kinds = ['조회', '명령', '파일', '전송'];
+    const poolDefs = [
+      { name: 'discord-bot', slots: [true, false, true, false], state: '3시간 12분째 · 컨테이너·파일', live: true },
+      { name: 'mac-mini', slots: [true, false, false, false], state: '1시간 4분째 · 1분 수집', live: true },
+      { name: 'api-gateway', slots: [false, false, false, false], state: '쉬는 중 (5분 넘게 안 씀)', live: false },
+      { name: 'web-server', slots: [false, false, false, false], state: '쉬는 중 (5분 넘게 안 씀)', live: false }
+    ];
+    const pool = poolDefs.map(p => ({
+      name: p.name, state: p.state,
+      slots: p.slots.map((on, i) => dot(on, kinds[i])),
+      stateStyle: 'font-size: 12px; ' + (p.live ? 'color: #DFE1E5;' : 'color: #9A9DA3;')
+    }));
+
+    const flow = ['질문', '모델이 명령 제안', '규칙 검사', '내가 허용', 'InfraDesk가 SSH로 실행', '가린 출력을 모델에게'].map((label, i, a) => ({ label, arrow: i < a.length - 1 }));
+    const agentBasic = build([
+      sw('agentOn', '에이전트 사용', '끄면 패널과 ⌘J가 사라지고 모델에도 연결하지 않아요', true),
+      info('패널 열기', '서버 화면 오른쪽에 열려요', '⌘J')
+    ]);
+    const providers = [ { id: 'local', label: '이 PC (Ollama)' }, { id: 'remote', label: 'OpenAI 호환 주소' } ].map(p => ({
+      ...p, on: S.provider === p.id,
+      style: 'height: 26px; padding: 0 12px; border: none; border-radius: 6px; font-size: 12.5px; ' + (S.provider === p.id ? 'background: #3469D4; color: #FFFFFF; font-weight: 600;' : 'background: transparent; color: #B4B8BF;'),
+      pick: () => this.setState({ provider: p.id })
+    }));
+    const modelDefs = [
+      { name: 'qwen2.5:7b', size: '4.7 GB · 4비트', tool: true, fit: 'good' },
+      { name: 'llama3.1:8b', size: '4.9 GB · 4비트', tool: true, fit: 'good' },
+      { name: 'qwen2.5:14b', size: '9.0 GB · 4비트', tool: true, fit: 'slow' },
+      { name: 'gemma2:2b', size: '1.6 GB · 4비트', tool: false, fit: 'none' }
+    ];
+    const models = modelDefs.map(m => {
+      const on = S.model === m.name;
+      return {
+        name: m.name, size: m.size, on, off: !m.tool,
+        tool: m.tool ? '도구 호출 지원' : '도구 호출 미지원',
+        toolStyle: 'font-size: 11.5px; white-space: nowrap; ' + (m.tool ? 'color: #B4B8BF;' : 'color: #F08A8A;'),
+        fit: m.fit === 'good' ? '이 PC에 맞아요' : (m.fit === 'slow' ? '느릴 수 있어요' : '쓸 수 없어요'),
+        fitStyle: 'min-width: 96px; text-align: center; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; ' + (m.fit === 'good' ? 'background: #1F3A24; color: #7FD184;' : (m.fit === 'slow' ? 'background: #3D3320; color: #F0CD8A;' : 'background: #393B40; color: #B4B8BF;')),
+        rowStyle: 'width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 9px 16px; border: none; color: #DFE1E5; font-size: 12.5px; ' + (on ? 'background: #263049;' : 'background: transparent;') + (m.tool ? '' : ' opacity: 0.75; cursor: not-allowed;'),
+        radio: 'width: 16px; height: 16px; box-sizing: border-box; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 2px solid ' + (on ? '#5B8DEF' : '#6E7178') + ';',
+        dot: on ? 'width: 8px; height: 8px; border-radius: 50%; background: #5B8DEF;' : 'display: none;',
+        pick: () => { if (m.tool) this.setState({ model: m.name }); }
+      };
+    });
+
+    const badge = (bg, fg) => 'align-self: flex-start; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; background: ' + bg + '; color: ' + fg + ';';
+    const policy = [
+      { kind: '읽기', what: '상태만 보는 명령', ex: 'df -h · free -m · docker ps · docker logs · cat /proc/…', isRead: true, fixed: false, action: '', note: S.readPolicy === 'auto' ? '출력만 읽어요 · 처음 켰을 땐 물어보기' : '읽기 명령도 하나씩 허용해요', badge: badge('#1F3A24', '#7FD184') },
+      { kind: '변경', what: '서비스·컨테이너·파일을 바꿈', ex: 'docker restart · systemctl restart · 파일 쓰기 · 패키지 설치', isRead: false, fixed: true, action: '항상 물어보기', note: '자동으로 바꿀 수 없어요', badge: badge('#263049', '#A9C4F7') },
+      { kind: '위험', what: '되돌리기 어렵거나 영향이 큼', ex: 'rm -r · docker system prune · 서버 정지·재부팅 · chmod -R · 사용자·방화벽 변경', isRead: false, fixed: true, action: '막기', note: '터미널에 붙여 넣어 직접 실행할 수는 있어요', badge: badge('#3F2424', '#F08A8A') },
+      { kind: '알 수 없음', what: '규칙으로 판단 못 함', ex: '처음 보는 스크립트 · 알 수 없는 실행 파일', isRead: false, fixed: true, action: '변경처럼 물어보기', note: '이유를 같이 보여줘요', badge: badge('#393B40', '#DFE1E5') }
+    ];
+    const readOpts = [ { id: 'ask', label: '물어보기' }, { id: 'auto', label: '자동 실행' } ].map(o => ({
+      ...o, on: S.readPolicy === o.id,
+      style: 'height: 24px; padding: 0 10px; border: none; border-radius: 6px; font-size: 12px; ' + (S.readPolicy === o.id ? 'background: #3469D4; color: #FFFFFF; font-weight: 600;' : 'background: transparent; color: #B4B8BF;'),
+      pick: () => this.setState({ readPolicy: o.id })
+    }));
+    const allow = ['uptime', 'free -m', 'df -h', 'docker ps', 'docker stats --no-stream', 'systemctl status *'].map(cmd => ({ cmd }));
+    const deny = ['curl … | sh', 'wget … | sh', 'rm -rf /', 'mkfs*', 'dd of=/dev/*', 'chmod -R 777 *'].map(cmd => ({ cmd }));
+    const agentData = build([
+      sw('dServers', '서버 목록과 상태', '이름·상태·계정·리전 (공인 IP는 빼고)', true),
+      sw('dMetrics', '메트릭', 'CPU·메모리·네트워크·디스크 사용량', true),
+      sw('dCtr', '컨테이너 목록', '이름·이미지·상태·사용량', true),
+      sw('dOut', '실행한 명령의 출력', '한 번에 최대 8 KB까지 잘라서 보내요', true),
+      sw('dLogs', '컨테이너 로그', '최근 200줄 · 에이전트가 읽기 명령으로 요청할 때만', true),
+      sw('dFiles', '서버 파일 내용', '켜도 파일마다 허용을 물어봐요', false),
+      { label: '키·토큰·비밀번호·공인 IP', desc: '모델에 보내기 전에 항상 가려요 · 끌 수 없어요', kind: 'info', value: '항상 가림' }
+    ]);
+    const agentLimits = build([
+      pick('한 대화에서 실행할 수 있는 명령', '넘으면 대화를 멈추고 물어봐요', '20개'),
+      pick('명령 하나의 제한 시간', '넘으면 멈추고 알려줘요', '30초'),
+      sw('interactive', '대화형 명령은 바꿔서 제안', 'top·vim처럼 화면을 계속 그리는 명령은 한 번만 찍는 형태로 바꿔요', true),
+      info('대화 기록', '모든 제안·허용·거절·출력 요약이 활동 기록에 남아요', '이 PC에만 · 30일'),
+      btn('대화 기록 지우기', '활동 기록의 에이전트 항목은 남아요', '지우기…')
+    ]);
+    const about = build([
+      btn('InfraDesk 1.1.9 베타', '빌드 번호와 커밋은 앱 정보에서 볼 수 있어요', '업데이트 확인'),
+      sw('autoUpd', '새 베타 빌드 자동 확인', '시작할 때, 그리고 6시간마다', true),
+      info('업데이트 파일 확인', '받은 파일이 릴리스의 해시와 같아야 설치해요', 'SHA256SUMS.txt 대조 · 자가 점검 후 교체'),
+      btn('로그 폴더', '키·웹훅·공인 IP·OCID는 가려서 기록해요', '로그 폴더 열기'),
+      btn('오픈소스 라이선스', '앱에 포함된 라이브러리', '라이선스 보기')
+    ]);
+
+    return {
+      showGeneral: S.active === 'general', showAlerts: S.active === 'alerts', showSecurity: S.active === 'security',
+      showConn: S.active === 'conn', showAgent: S.active === 'agent', showAbout: S.active === 'about',
+      nav, general, alerts, rules, security, hostKeys, conn, pool,
+      flow, agentBasic, providers, isLocal: S.provider === 'local', isRemote: S.provider === 'remote',
+      models, policy, readOpts, allow, deny, agentData, agentLimits, about
+    };
+  }
+}
+</script>
+</body>
+</html>
