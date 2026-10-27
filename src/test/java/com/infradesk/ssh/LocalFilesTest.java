@@ -152,14 +152,32 @@ class LocalFilesTest {
     }
 
     @Test
-    void startsInDownloadsWhenItExistsAndInHomeOtherwise() throws Exception {
-        assertEquals(dir, LocalFiles.startFolder(dir), "no Downloads folder: stay in home");
+    void downloadsGoToTheDownloadsFolderWhenItExistsAndToHomeOtherwise() throws Exception {
+        assertEquals(dir, LocalFiles.downloadsFolder(dir), "no Downloads folder: use home");
 
         Files.writeString(dir.resolve("Downloads"), "a file, not a folder");
-        assertEquals(dir, LocalFiles.startFolder(dir), "a file named Downloads does not count");
+        assertEquals(dir, LocalFiles.downloadsFolder(dir), "a file named Downloads does not count");
         Files.delete(dir.resolve("Downloads"));
 
         Files.createDirectories(dir.resolve("Downloads"));
-        assertEquals(dir.resolve("Downloads"), LocalFiles.startFolder(dir));
+        assertEquals(dir.resolve("Downloads"), LocalFiles.downloadsFolder(dir));
+    }
+
+    @Test
+    void startsInHomeEvenWhenADownloadsFolderExists() throws Exception {
+        Files.createDirectories(dir.resolve("Downloads"));
+
+        LocalFiles files = LocalFiles.forHome(dir);
+
+        // macOS는 Downloads 같은 폴더를 앱에 따로 허용해야 열어 주므로, 시작은 홈이고 받는 곳만 Downloads다.
+        assertEquals(dir.toAbsolutePath().normalize().toString(), files.home());
+        assertEquals(dir.resolve("Downloads").toAbsolutePath().normalize().toString(), files.downloadFolder());
+    }
+
+    @Test
+    void aRestrictedRootSavesDownloadsInHome() throws Exception {
+        LocalFiles demo = new LocalFiles(dir, dir);
+
+        assertEquals(demo.home(), demo.downloadFolder());
     }
 }

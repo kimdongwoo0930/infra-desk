@@ -271,7 +271,7 @@ public final class FilesTab extends JPanel {
         localPane.setFooterNote(local.movesToTrash() ? "지우면 휴지통으로 가요" : "");
         remotePane.setFooterNote(service.settings(server.id()).map(s -> s.username() + " 권한으로 접속 중").orElse(""));
         localPane.attach(FilePane.local(local), local.home());
-        downloadDir = Path.of(local.home());
+        downloadDir = Path.of(local.downloadFolder());
 
         status.setText("SFTP 연결 중…");
         // 탐색 연결은 쓸 때 맺고, 한동안 안 쓰면 풀에 돌려주고, 끊어졌으면 다음에 쓸 때 다시 맺는다(탭이 오래 열려 있으므로).

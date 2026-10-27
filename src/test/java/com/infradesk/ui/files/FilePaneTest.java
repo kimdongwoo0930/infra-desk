@@ -75,4 +75,27 @@ class FilePaneTest {
         assertEquals(all, FilePane.visible(all, true), "켜 두면 전부 보인다");
         assertEquals(List.of(app), FilePane.visible(all, false));
     }
+
+    @Test
+    void onMacAnyPathOfThisComputerGetsThePermissionHint() {
+        assertNotNull(FilePane.hintFor("/", false, true));
+        assertNotNull(FilePane.hintFor("/Users/other", false, true), "다른 사용자의 홈 같은 곳도 막힌다");
+        assertNotNull(FilePane.hintFor("/Library/Application Support", false, true));
+    }
+
+    @Test
+    void outsideMacOnlyKnownProtectedFoldersGetAHintAndRemoteIsUnchanged() {
+        assertNull(FilePane.hintFor("/home/me/x", false, false), "Mac이 아니면 일반 경로에는 안내하지 않는다");
+        assertNull(FilePane.hintFor("/", true, true), "서버 쪽은 알려진 보호 폴더만(서버가 Mac일 때)");
+        assertNotNull(FilePane.hintFor("/Users/me/Desktop", true, true));
+    }
+
+    @Test
+    void theLocalHintPointsToTheSettingsButtonAndToTheLauncherDuringDevelopment() {
+        String hint = FilePane.hintFor("/", false, true);
+
+        assertTrue(hint.contains("권한 설정 열기"));
+        assertTrue(hint.contains("전체 디스크 접근"));
+        assertTrue(hint.contains("IntelliJ"), "개발 중에는 앱을 띄운 프로그램이 허용 대상이다");
+    }
 }

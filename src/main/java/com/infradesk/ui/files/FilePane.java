@@ -251,6 +251,8 @@ final class FilePane extends JPanel {
     private String startDir;
     /** 요약 줄 끝에 덧붙이는 안내(예: "지우면 휴지통으로 가요", "ubuntu 권한으로 접속 중"). */
     private String footerNote = "";
+    /** macOS가 폴더를 막았을 때만 요약 줄 옆에 나타나는 [권한 설정 열기]. */
+    private final JButton permissionButton = Buttons.secondary("권한 설정 열기", null);
     private Runnable onNewFolder = () -> { };
 
     private Source source;
@@ -390,6 +392,9 @@ final class FilePane extends JPanel {
                 BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.DIVIDER),
                 BorderFactory.createEmptyBorder(9, 16, 9, 16)));
         footer.add(info, BorderLayout.CENTER);
+        permissionButton.setVisible(false);
+        permissionButton.addActionListener(e -> openMacPrivacySettings());
+        footer.add(permissionButton, BorderLayout.EAST);
         JPanel bottom = new JPanel(new BorderLayout());
         bottom.setOpaque(false);
         bottom.add(selectionBar, BorderLayout.NORTH);
@@ -620,7 +625,7 @@ final class FilePane extends JPanel {
             try {
                 return s.list(directory);
             } catch (IOException e) {
-                String hint = isPermissionError(e) ? permissionHint(directory, remote) : null;
+                String hint = isPermissionError(e) ? hintFor(directory, remote, IS_MAC) : null;
                 if (hint == null) {
                     throw e;
                 }
@@ -658,6 +663,8 @@ final class FilePane extends JPanel {
             loading = false;
             onFailure.run();
             showInfo(friendly(err), true);
+            // macOS가 이 컴퓨터의 폴더를 막은 경우: 안내 옆에 설정 화면을 여는 버튼을 보여 준다.
+            permissionButton.setVisible(IS_MAC && source != null && !source.hasPermissions() && isPermissionError(err));
             updateButtons();
             runPendingReload();
         });
@@ -705,8 +712,35 @@ final class FilePane extends JPanel {
         return remote
                 ? "서버가 Mac이라면 SSH 접속에는 이 폴더를 읽을 권한이 기본으로 없어요. 서버의 시스템 설정 → 일반 → 공유 → "
                         + "원격 로그인(ⓘ)에서 전체 디스크 접근을 허용해 보세요."
-                : "macOS가 이 폴더를 앱에 열어주지 않았어요. 시스템 설정 → 개인정보 보호 및 보안 → 파일 및 폴더"
-                        + "(또는 전체 디스크 접근)에서 InfraDesk를 허용해 보세요.";
+                : LOCAL_MAC_HINT;
+    }
+
+    /** 이 컴퓨터(macOS)가 폴더를 앱에 열어 주지 않을 때의 안내. [권한 설정 열기] 버튼이 옆에 붙는다. */
+    private static final String LOCAL_MAC_HINT = "macOS가 이 폴더를 앱에 열어 주지 않았어요. [권한 설정 열기]를 눌러 "
+            + "개인정보 보호 및 보안 → 전체 디스크 접근(또는 파일 및 폴더)에서 이 앱을 허용해 보세요. 개발 중에 "
+            + "실행했다면 앱을 띄운 터미널이나 IntelliJ를 허용해야 해요.";
+
+    /**
+     * 권한 오류에 붙일 안내. 이 컴퓨터가 macOS면 어느 경로든 안내한다(보호되는 곳은 사용자 폴더 말고도 많다:
+     * 다른 사용자의 홈, {@code /Library}의 일부 등). 그 밖에는 {@link #permissionHint}처럼 알려진 보호 폴더만.
+     *
+     * @param mac 이 앱이 macOS에서 도는지
+     */
+    static String hintFor(String directory, boolean remote, boolean mac) {
+        return !remote && mac ? LOCAL_MAC_HINT : permissionHint(directory, remote);
+    }
+
+    static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("mac");
+
+    /** macOS의 "전체 디스크 접근" 설정 화면을 연다. 어느 앱을 허용해야 하는지는 거기서 사용자가 고른다. */
+    private static void openMacPrivacySettings() {
+        Thread.ofVirtual().start(() -> {
+            try {
+                new ProcessBuilder("open", "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles").start();
+            } catch (IOException ignored) {
+                // 설정 화면을 못 열어도 안내 문구에 경로가 적혀 있다.
+            }
+        });
     }
 
     /** 서버·파일 시스템이 주는 영어 오류를 알아보기 쉬운 한국어로 바꾼다. */
@@ -734,6 +768,7 @@ final class FilePane extends JPanel {
     }
 
     void showInfo(String message, boolean error) {
+        permissionButton.setVisible(false);
         String text = IpPrivacy.mask(message);
         info.setText(text);
         info.setToolTipText(text.length() > 40 ? text : null);
