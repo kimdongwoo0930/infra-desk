@@ -114,6 +114,8 @@ public final class UiSnapshot {
                 MainFrame frame = mainFrame[0];
                 write(frame, frame.getContentPane(), 1280, 800, "main.png");
                 write(frame, frame.getContentPane(), 1280, 1080, "main-full.png");
+                // 창이 좁으면 개요의 오른쪽 열이 왼쪽 아래로 내려가서 한 열로 쌓인다.
+                write(frame, frame.getContentPane(), 980, 1700, "main-narrow.png");
                 frame.getContentPane().setSize(1280, 800);
 
                 // 호버: 각 차트 위(왼쪽, 가운데, 오른쪽 끝)로 마우스를 옮기며 렌더링한다.

@@ -30,7 +30,7 @@
 ```
 
 - **사이드바 폭:** `MainFrame`이 사이드바와 본문을 가로 `JSplitPane`으로 나눈다. 손잡이를 끌어 폭을 바꾸고(최대 420), 200px 미만이면 이름만, 90px 미만으로 끌면 자동으로 닫힌다. 타이틀바의 버튼으로 접고 펼친다(펼치면 닫기 전 폭으로 돌아간다). 규칙은 `SidebarWidth`에 있다.
-- **터미널 탭:** 상세의 "SSH 열기" 버튼 → `MainFrame.openSsh()` → 그 서버의 터미널 탭을 열고 로그인 셸 세션을 선택하거나 만든다. 탭에는 **보고 있는 서버의 세션만** 보이고 다른 서버의 세션은 닫히지 않고 숨어 있다. 세션이 없으면 빈 화면과 [접속] 버튼이 나온다(탭을 열기만 해서는 접속하지 않는다). 마지막 세션을 닫아도 다른 화면으로 나가지 않는다. 실시간 모니터링은 터미널 탭을 보는 동안에도 멈추지 않는다.
+- **터미널 탭:** 터미널 탭이 비어 있을 때의 [접속] → `MainFrame.openSsh()` → 설정이 없으면 SSH 설정 창을 띄우고, 그 서버의 로그인 셸 세션을 선택하거나 만든다(서버 화면 머리에는 [SSH 열기] 버튼이 없다. 트레이 메뉴의 "SSH 열기"는 같은 일을 한다). 탭에는 **보고 있는 서버의 세션만** 보이고 다른 서버의 세션은 닫히지 않고 숨어 있다. 세션이 없으면 빈 화면과 [접속] 버튼이 나온다(탭을 열기만 해서는 접속하지 않는다). 마지막 세션을 닫아도 다른 화면으로 나가지 않는다. 실시간 모니터링은 터미널 탭을 보는 동안에도 멈추지 않는다.
 - 창을 닫으면 종료가 아니라 메뉴 막대(macOS)/알림 영역(Windows) 아이콘으로 숨는다(`TrayController`).
 
 ## `MainFrame`이 하는 일 (약 1,150줄, 가장 큰 클래스)
@@ -76,8 +76,8 @@ Async.run(
 | `TitleBar` | 앱 이름, 서버·계정 수, 마지막 새로고침, 사이드바 접기/펼치기 버튼 |
 | `Sidebar`, `ServerListItem` | 검색, 계정별 그룹, 서버 행. 폭이 200px보다 좁아지면 이름만 보이는 모드로 바뀐다(`SidebarWidth`가 폭에 따른 규칙을 정한다) |
 | `ServerScreen` | 서버를 골랐을 때의 화면 전체: 머리(`ServerHeader`) + 탭 줄(`TabBar`) + 스크롤되는 본문. `MainFrame`이 부르던 `ServerDetailPanel`의 메서드 이름을 그대로 머리와 본문에 나눠 넘긴다. 개요·모니터링·컨테이너·파일·터미널 탭이 동작하고 로그는 `ComingSoon`이다. 파일 탭은 스크롤 창에 넣지 않고 `FilesHost`가 서버별로 `FilesTab`을 들고 있다 |
-| `ServerHeader` | 즐겨찾기 별(준비 중), 서버 이름, 상태 배지, 계정·리전 한 줄, [SSH 열기] [재부팅] [정지/시작] [⋯(준비 중)], 시작/정지/재부팅 버튼의 상태별 활성화 규칙, 요청 결과 한 줄. IP 가림을 켜고 끌 때 부제의 IP도 같이 바뀐다 |
-| `ServerDetailPanel` | 개요 탭 본문: 4×2 정보 그리드, 메트릭 차트, 컨테이너 표 |
+| `ServerHeader` | 즐겨찾기 별(준비 중), 서버 이름, 상태 배지, 계정·리전 한 줄, [재부팅] [정지/시작] [⋯(준비 중)], 시작/정지/재부팅 버튼의 상태별 활성화 규칙, 요청 결과 한 줄. IP 가림을 켜고 끌 때 부제의 IP도 같이 바뀐다 |
+| `ServerDetailPanel` | 개요 탭 본문. 두 열(창이 좁으면 한 열로 쌓임, `TwoColumnLayout`): 왼쪽 **지금 상태 4칸**(`StatusSection`)과 **컨테이너 요약**(`ContainerSummaryCard`), 오른쪽 **확인 필요**(`AttentionCard`, 멈춘 컨테이너가 있을 때만), **정보**(공인 IP 가림·복사, 사설 IP, OS, 업타임, 열린 포트 칩, SSH 사용자, 생성일, [SSH 설정]), **저장된 명령어**(`SavedCommandsCard`, 누르면 터미널 탭에서 실행), **최근 활동**(`RecentActivityCard`, 준비 중). 서버에 따로 묻지 않고 다른 탭이 읽은 값을 받아 보여 준다 |
 | `AddAccountDialog`, `AddSshServerDialog` | 계정 추가, 연결 테스트 / 직접 연결 기기 추가 |
 | `SettingsDialog` | 설정 (디스코드 알림은 "준비 중") |
 | `TrayController`, `SwingTrayMenu` | 메뉴 막대(macOS)·알림 영역(Windows) 아이콘과 서버 상태 메뉴. macOS는 네이티브 AWT 메뉴, Windows는 `SwingTrayMenu`가 그림 |
@@ -154,14 +154,16 @@ Async.run(
                   → MetricsPanel.addLive (최근 5분) · 안내 문구에 남은 시간("8분 뒤 자동으로 꺼져요")
 최소화        → LiveController.pause (연결 닫음) → 다시 나타나면 resume (다시 연결, 10분이 새로 시작)
 켠 지 10분    → 자동 꺼짐
-서버 정보(HostFacts) → ServerScreen.setFacts → 개요의 정보 칸 + 모니터링 탭의 디스크 카드(같은 값)
+서버 정보(HostFacts) → ServerScreen.setFacts → 개요의 정보 카드·지금 상태의 디스크 칸 + 모니터링 탭의 디스크 카드(같은 값)
+모니터링 탭이 읽은 점 → MetricsObserver → 개요의 지금 상태(CPU·메모리·네트워크 최근 값과 최근 1시간 그래프)
+컨테이너 목록 → ServerScreen.setContainers → 컨테이너 탭 + 개요의 컨테이너 요약·확인 필요
 알림 설정     → MetricsPanel.setAlert → "알림 기준" 카드 + CPU 차트의 기준선(전체 스위치와 "CPU가 높을 때" 둘 다 켜져 있을 때만)
 ```
 
 ### SSH 터미널 열기
 
 ```
-[SSH 열기] → 설정 없음? → SshSettingsDialog (키 → 금고에 저장)
+[접속] → 설정 없음? → SshSettingsDialog (키 → 금고에 저장)
           → 터미널 탭을 열고(ServerScreen.showTerminalTab) → TerminalView 탭 추가 → Async: TerminalService.open(server)
              → MinaShellConnector: 연결 → 호스트 키 확인(known_hosts / HostKeyDialog)
                → 공개키 인증 → shell 채널(PTY xterm-256color)

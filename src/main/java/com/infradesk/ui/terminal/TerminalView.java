@@ -105,6 +105,11 @@ public class TerminalView extends JPanel {
         add(sidePanel, BorderLayout.EAST);
     }
 
+    /** 보고 있는 서버의 선택된 터미널에 명령어를 보낸다(엔터까지). 연결된 터미널이 없으면 false. */
+    public boolean send(String commandLine) {
+        return active != null && active.send(commandLine);
+    }
+
     /** 선택한 탭의 서버. 없으면 없음. */
     public java.util.Optional<Server> activeServer() {
         return active == null ? java.util.Optional.empty() : java.util.Optional.of(active.server());

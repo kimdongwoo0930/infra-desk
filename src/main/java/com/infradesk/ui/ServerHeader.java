@@ -23,11 +23,11 @@ import javax.swing.JPanel;
 
 /**
  * 서버 화면의 머리 (디자인 v2): 즐겨찾기 별, 서버 이름, 상태 배지, 계정·리전·shape 한 줄,
- * 그리고 오른쪽의 동작 버튼([SSH 열기] [재부팅] [정지/시작] [⋯]).
+ * 그리고 오른쪽의 동작 버튼([재부팅] [정지/시작] [⋯]). SSH 접속은 "터미널" 탭의 [접속]에서 한다.
  *
  * <p>예전에는 {@link ServerDetailPanel} 안에 있던 부분이다. 탭이 생기면서 머리는 탭을 바꿔도 그대로
  * 있어야 하고 본문만 바뀌어야 해서 따로 떼어 냈다. 버튼을 눌렀을 때 무엇을 할지는 이 클래스가 모른다 —
- * {@link #onSsh}, {@link #onAction}으로 받은 동작을 부를 뿐이고, 실제 일은 {@code MainFrame}이 한다.
+ * {@link #onAction}으로 받은 동작을 부를 뿐이고, 실제 일은 {@code MainFrame}이 한다.
  */
 public class ServerHeader extends JPanel {
 
@@ -41,14 +41,12 @@ public class ServerHeader extends JPanel {
     private final StatusBadge badge = new StatusBadge();
     private final JLabel subtitle = new JLabel();
     private final JLabel actionStatus = new JLabel(" ");
-    private final JButton sshButton = Buttons.primary("SSH 열기", "terminal");
     private final JButton rebootButton = Buttons.secondary("재부팅", "refresh");
     private final JButton stopButton = Buttons.danger("정지", "stop");
     private final JButton startButton = Buttons.secondary("시작", "play");
     private final JButton moreButton = moreButton();
 
     private Consumer<ServerAction> onAction = a -> { };
-    private Runnable onSsh = () -> { };
     private Server server;
     private boolean busy;
     /** 앱이 전원을 켜거나 끌 수 없는 직접 연결 기기는 false. */
@@ -88,7 +86,6 @@ public class ServerHeader extends JPanel {
         // 오른쪽: 동작 버튼. 정지와 시작은 서버 상태에 따라 하나만 보인다(updateButtons).
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
-        actions.add(sshButton);
         actions.add(rebootButton);
         actions.add(stopButton);
         actions.add(startButton);
@@ -97,7 +94,6 @@ public class ServerHeader extends JPanel {
         add(left, BorderLayout.CENTER);
         add(actions, BorderLayout.EAST);
 
-        sshButton.addActionListener(e -> onSsh.run());
         startButton.addActionListener(e -> onAction.accept(ServerAction.START));
         stopButton.addActionListener(e -> onAction.accept(ServerAction.STOP));
         rebootButton.addActionListener(e -> onAction.accept(ServerAction.REBOOT));
@@ -112,10 +108,6 @@ public class ServerHeader extends JPanel {
         b.setPreferredSize(new Dimension(MORE_SIZE, MORE_SIZE));
         b.getAccessibleContext().setAccessibleName("작업 더 보기");
         return ComingSoon.apply(b);
-    }
-
-    public void onSsh(Runnable listener) {
-        this.onSsh = listener;
     }
 
     public void onAction(Consumer<ServerAction> listener) {
@@ -147,8 +139,6 @@ public class ServerHeader extends JPanel {
         startButton.setEnabled(!busy && status.canStart());
         stopButton.setEnabled(!busy && status.canStop());
         rebootButton.setEnabled(!busy && status.canReboot());
-        sshButton.setEnabled(status == ServerStatus.RUNNING);
-        sshButton.setToolTipText(status == ServerStatus.RUNNING ? null : "서버가 실행 중일 때 연결할 수 있어요");
         String reason = busy ? "요청을 보내는 중이에요"
                 : status.isTransitional() ? status.label() + "이에요. 끝나면 다시 누를 수 있어요" : null;
         for (JButton b : new JButton[] {startButton, stopButton, rebootButton}) {

@@ -64,10 +64,9 @@ class ServerHeaderTest {
     }
 
     @Test
-    void 실행_중인_클라우드_서버는_SSH_재부팅_정지가_눌리고_시작은_숨는다() {
+    void 실행_중인_클라우드_서버는_재부팅_정지가_눌리고_시작은_숨는다() {
         ServerHeader h = header(CLOUD, ServerStatus.RUNNING);
 
-        assertTrue(button(h, "SSH 열기").isEnabled());
         assertTrue(button(h, "재부팅").isEnabled());
         assertTrue(button(h, "정지").isVisible());
         assertTrue(button(h, "정지").isEnabled());
@@ -75,13 +74,12 @@ class ServerHeaderTest {
     }
 
     @Test
-    void 정지된_서버는_시작이_보이고_정지는_숨고_SSH는_막힌다() {
+    void 정지된_서버는_시작이_보이고_정지는_숨는다() {
         ServerHeader h = header(CLOUD, ServerStatus.STOPPED);
 
         assertTrue(button(h, "시작").isVisible());
         assertTrue(button(h, "시작").isEnabled());
         assertFalse(button(h, "정지").isVisible());
-        assertFalse(button(h, "SSH 열기").isEnabled());
         // 재부팅은 실행 중일 때만 누를 수 있다.
         assertFalse(button(h, "재부팅").isEnabled());
     }
@@ -100,33 +98,28 @@ class ServerHeaderTest {
     }
 
     @Test
-    void 직접_연결_기기는_전원_버튼이_보이지_않고_SSH만_눌린다() {
+    void 직접_연결_기기는_전원_버튼이_보이지_않는다() {
         ServerHeader h = header(DIRECT, ServerStatus.RUNNING);
 
         assertFalse(button(h, "재부팅").isVisible());
         assertFalse(button(h, "정지").isVisible());
         assertFalse(button(h, "시작").isVisible());
-        assertTrue(button(h, "SSH 열기").isEnabled());
     }
 
     @Test
     void 버튼을_누르면_해당_동작을_알린다() {
         List<ServerAction> actions = new ArrayList<>();
-        List<String> ssh = new ArrayList<>();
 
         ServerHeader running = header(CLOUD, ServerStatus.RUNNING);
         running.onAction(actions::add);
-        running.onSsh(() -> ssh.add("ssh"));
         button(running, "정지").doClick();
         button(running, "재부팅").doClick();
-        button(running, "SSH 열기").doClick();
 
         ServerHeader stopped = header(CLOUD, ServerStatus.STOPPED);
         stopped.onAction(actions::add);
         button(stopped, "시작").doClick();
 
         assertEquals(List.of(ServerAction.STOP, ServerAction.REBOOT, ServerAction.START), actions);
-        assertEquals(List.of("ssh"), ssh);
     }
 
     @Test

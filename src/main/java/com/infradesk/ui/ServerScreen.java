@@ -20,7 +20,7 @@ import javax.swing.JScrollPane;
  * 서버를 골랐을 때 오른쪽에 나오는 화면 전체 (디자인 v2).
  *
  * <pre>
- *  ┌ ServerHeader ─ 이름 · 배지 · [SSH 열기] [재부팅] [정지] [⋯]
+ *  ┌ ServerHeader ─ 이름 · 배지 · [재부팅] [정지] [⋯]
  *  ├ TabBar ─────── 개요 / 모니터링 / 컨테이너 / 파일 / 터미널 / 로그
  *  └ 본문 ───────── 선택한 탭의 내용 (스크롤)
  * </pre>
@@ -50,6 +50,7 @@ public class ServerScreen extends JPanel {
     /** 터미널 탭 본문의 자리. 터미널은 서버를 가로질러 세션을 들고 있어서 {@code MainFrame}이 만들어 넣는다. */
     private final JPanel terminalHost = new JPanel(new BorderLayout());
     private TerminalView terminal;
+    private Runnable onOverviewShown = () -> { };
     /** 지금 화면에 보여 주는 서버. 서버가 바뀌었는지 알아서 이전 서버의 컨테이너 로그 칩을 비우는 데 쓴다. */
     private String shownServerId;
     private Server shownServer;
@@ -112,6 +113,9 @@ public class ServerScreen extends JPanel {
             if (TAB_FILES.equals(id) && shownServer != null) {
                 files.show(shownServer);   // 이 서버의 파일 탭을 처음 열 때만 연결한다
             }
+            if (TAB_OVERVIEW.equals(id)) {
+                onOverviewShown.run();
+            }
             if (TAB_TERMINAL.equals(id) && terminal != null) {
                 terminal.focusActive();   // 열려 있는 세션이 있으면 바로 입력할 수 있게
             }
@@ -129,10 +133,6 @@ public class ServerScreen extends JPanel {
     }
 
     // ── MainFrame이 부르는 메서드: 머리 ─────────────────────────
-
-    public void onSsh(Runnable listener) {
-        header.onSsh(listener);
-    }
 
     public void onAction(Consumer<ServerAction> listener) {
         header.onAction(listener);
@@ -173,7 +173,7 @@ public class ServerScreen extends JPanel {
         }
     }
 
-    /** 터미널 탭을 연다(예: [SSH 열기], 컨테이너의 셸 버튼). */
+    /** 터미널 탭을 연다(예: 컨테이너의 셸 버튼, 개요의 저장된 명령어). */
     public void showTerminalTab() {
         tabs.select(TAB_TERMINAL);
     }
@@ -218,7 +218,8 @@ public class ServerScreen extends JPanel {
      * 않는다(서버를 고를 때마다 불필요한 SSH 조회가 생기지 않게).
      */
     public void setContainers(java.util.List<com.infradesk.ssh.Container> list, java.time.Instant at) {
-        overview.containerSummary().setContainers(list, at);   // 개요의 컨테이너 요약도 같은 목록을 쓴다
+        overview.containerSummary().setContainers(list, at);   // 개요의 컨테이너 요약과 확인 필요도 같은 목록을 쓴다
+        overview.attention().setContainers(list);
         containersTab.logs().setContainers(list);
         tabs.setCount(TAB_CONTAINERS, list.size());
         containersTab.fitTable();
@@ -240,6 +241,39 @@ public class ServerScreen extends JPanel {
         containersTab.logs().setContainers(java.util.List.of());
         tabs.setCount(TAB_CONTAINERS, null);
         overview.containerSummary().showMessage(reason);
+        overview.attention().clear();
+    }
+
+    /** 개요의 "확인 필요" 카드(멈춘 컨테이너)의 [로그 보기]·[시작]에 할 일을 걸 곳. */
+    public com.infradesk.ui.overview.AttentionCard attention() {
+        return overview.attention();
+    }
+
+    // ── 개요 오른쪽 열 ──────────────────────────────────────────
+
+    /** 개요의 저장된 명령어 카드에 목록을 넣는다. */
+    public void setSavedCommands(java.util.List<com.infradesk.ssh.SavedCommand> commands) {
+        overview.savedCommands().setCommands(commands);
+    }
+
+    /** 개요의 저장된 명령어를 눌렀을 때(그 명령어 글자가 넘어온다). */
+    public void onRunSavedCommand(Consumer<String> listener) {
+        overview.savedCommands().onRun(listener);
+    }
+
+    /** 개요 정보 카드의 [SSH 설정]을 눌렀을 때. */
+    public void onSshSettings(Runnable listener) {
+        overview.onSshSettings(listener);
+    }
+
+    /** 개요 정보 카드의 SSH 줄(저장된 SSH 설정의 사용자 이름. 없으면 null). */
+    public void setSshUser(String user) {
+        overview.setSshUser(user);
+    }
+
+    /** 개요 탭이 열렸을 때(저장된 명령어를 터미널 탭에서 바꿨을 수 있어 다시 읽는 데 쓴다). */
+    public void onOverviewShown(Runnable listener) {
+        this.onOverviewShown = listener;
     }
 
     /** 개요의 컨테이너 요약: 행의 작업(로그·셸·재시작·시작)을 눌렀을 때 할 일을 걸 곳. */

@@ -228,7 +228,7 @@ public class MainFrame extends JFrame {
         EditMenu.install(this);
 
         terminalView.onCountChange(this::updateTerminalCounts);
-        // 터미널 탭이 비어 있을 때의 [접속]은 서버 화면 머리의 [SSH 열기]와 같다(설정 확인 후 접속).
+        // 터미널 탭이 비어 있을 때의 [접속]: SSH 설정이 없으면 설정 창을 먼저 띄우고, 접속해서 셸 세션을 연다.
         terminalView.onConnectRequest(this::openSsh);
         terminalView.setContainerSupport(() -> detail.logs().containers(),
                 (container, console) -> findServer(selectedServerId).ifPresent(s -> openContainerTerminal(s, container, console)));
@@ -238,11 +238,22 @@ public class MainFrame extends JFrame {
             editSshSettings(server);
             detail.files().retry();
         });
-        detail.onSsh(this::openSsh);
         detail.containers().onRefresh(() -> findServer(selectedServerId).ifPresent(s -> loadContainers(s, true)));
         detail.containers().onAction(this::containerAction);
         // 개요의 컨테이너 요약: 컨테이너 탭과 같은 처리(확인 창, 실행)를 쓴다.
         detail.containerSummary().onAction(this::containerAction);
+        // 개요의 "확인 필요"(멈춘 컨테이너): 로그를 보거나 시작한다. 컨테이너 탭과 같은 처리를 쓴다.
+        detail.attention().onLogs(c -> {
+            detail.showContainersTab();
+            showLogsOf(c);
+        });
+        detail.attention().onStart(c -> containerAction(c, com.infradesk.ssh.DockerCommands.Action.START));
+        detail.attention().onViewContainers(detail::showContainersTab);
+        // 개요 오른쪽 열: SSH 설정, 저장된 명령어(누르면 터미널 탭에서 실행).
+        detail.onSshSettings(() -> findServer(selectedServerId).ifPresent(this::editSshSettings));
+        detail.onRunSavedCommand(this::runSavedCommand);
+        detail.onOverviewShown(this::reloadSavedCommands);
+        reloadSavedCommands();
         detail.containerSummary().onShell(c -> findServer(selectedServerId).ifPresent(s -> openContainerTerminal(s, c, null)));
         detail.containerSummary().onLogs(c -> {
             detail.showContainersTab();
@@ -1029,6 +1040,7 @@ public class MainFrame extends JFrame {
             sshMetrics.reset(server.id());
             terminalView.reconnect(server.id());
             if (server.id().equals(selectedServerId)) {
+                detail.setSshUser(sshUserOf(server));   // 개요 정보 카드의 SSH 줄
                 loadFacts(server, true);
                 loadContainers(server, true);
             }
@@ -1235,6 +1247,28 @@ public class MainFrame extends JFrame {
         detail.showTerminalTab();
     }
 
+    /** 개요의 저장된 명령어 목록을 다시 읽는다(터미널 탭에서 추가·편집했을 수 있다). */
+    private void reloadSavedCommands() {
+        Async.run(terminalService::savedCommands, detail::setSavedCommands, err -> { });
+    }
+
+    /** 개요의 저장된 명령어를 눌렀다: 터미널 탭으로 가서 열린 세션에 보낸다. 세션이 없으면 접속을 안내한다(자동 접속은 하지 않는다). */
+    private void runSavedCommand(String command) {
+        findServer(selectedServerId).ifPresent(server -> {
+            detail.showTerminalTab();
+            if (!terminalView.send(command)) {
+                JOptionPane.showMessageDialog(this,
+                        "이 서버에 연결된 터미널이 없어요.\n터미널 탭의 [접속]으로 접속한 뒤 다시 눌러 주세요.",
+                        "저장된 명령어", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+    }
+
+    /** 저장된 SSH 설정의 사용자 이름. 설정이 없으면 null. */
+    private String sshUserOf(Server server) {
+        return terminalService.settings(server.id()).map(com.infradesk.ssh.SshSettings::username).orElse(null);
+    }
+
     /** 세션 수가 바뀌었다: 터미널 탭 이름 옆 개수(보고 있는 서버)와 상태 막대의 전체 개수를 갱신한다. */
     private void updateTerminalCounts() {
         if (selectedServerId != null) {
@@ -1366,6 +1400,7 @@ public class MainFrame extends JFrame {
         selectedServerId = server.id();
         sidebar.select(server.id());
         detail.show(server, account.get());
+        detail.setSshUser(sshUserOf(server));
         cards.show(content, DETAIL);
         if (switched) {
             live.stop();

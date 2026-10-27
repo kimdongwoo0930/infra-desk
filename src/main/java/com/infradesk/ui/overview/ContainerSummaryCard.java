@@ -167,7 +167,7 @@ public final class ContainerSummaryCard extends RoundedPanel {
     private final class Row extends JPanel {
 
         Row(Container c, boolean divider) {
-            super(new BorderLayout(14, 0));
+            super(new BorderLayout(12, 0));
             setOpaque(false);
             setBorder(BorderFactory.createCompoundBorder(
                     divider ? BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.DIVIDER) : BorderFactory.createEmptyBorder(1, 0, 0, 0),
@@ -194,10 +194,10 @@ public final class ContainerSummaryCard extends RoundedPanel {
             fill.fill = java.awt.GridBagConstraints.HORIZONTAL;
             nameBox.add(names, fill);
 
-            JLabel status = cell(statusText(c), 150, SwingConstants.LEFT);
+            JLabel status = cell(statusText(c), 112, SwingConstants.LEFT);
             status.setForeground(running ? Theme.TEXT_MUTED : Theme.WARNING);
-            JLabel cpu = cell(cpuText(c), 64, SwingConstants.RIGHT);
-            JLabel memory = cell(memoryText(c), 84, SwingConstants.RIGHT);
+            JLabel cpu = cell(cpuText(c), 56, SwingConstants.RIGHT);
+            JLabel memory = cell(memoryText(c), 72, SwingConstants.RIGHT);
             JPanel numbers = new JPanel();
             numbers.setOpaque(false);
             numbers.setLayout(new BoxLayout(numbers, BoxLayout.X_AXIS));
@@ -207,7 +207,7 @@ public final class ContainerSummaryCard extends RoundedPanel {
 
             JPanel actions = new JPanel(new java.awt.GridBagLayout());
             actions.setOpaque(false);
-            actions.setPreferredSize(new Dimension(124, ROW_HEIGHT));
+            actions.setPreferredSize(new Dimension(100, ROW_HEIGHT));
             JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
             buttons.setOpaque(false);
             if (running) {
@@ -221,7 +221,7 @@ public final class ContainerSummaryCard extends RoundedPanel {
             }
             actions.add(buttons);
 
-            JPanel center = new JPanel(new BorderLayout(14, 0));
+            JPanel center = new JPanel(new BorderLayout(10, 0));
             center.setOpaque(false);
             center.add(nameBox, BorderLayout.CENTER);
             center.add(numbers, BorderLayout.EAST);
