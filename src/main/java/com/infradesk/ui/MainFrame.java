@@ -68,7 +68,8 @@ public class MainFrame extends JFrame {
     private boolean settingsVisible;
     private static final String MAIN_SCREEN = "main";
     private static final String SETTINGS_SCREEN = "settings";
-    private int notifiedUpdateBuild = -1;
+    /** 이미 토스트로 알린 업데이트의 버전(같은 것을 반복해서 알리지 않는다). */
+    private String notifiedUpdate = "";
     private Timer updateTimer;
     private final TerminalView terminalView;
     private final boolean demoMode;
@@ -141,7 +142,7 @@ public class MainFrame extends JFrame {
         this(service, terminalService, alerts, null, demoMode);
     }
 
-    /** @param updates 베타 업데이트 확인. null이면 사용하지 않는다 */
+    /** @param updates 업데이트 확인. null이면 사용하지 않는다 */
     public MainFrame(InventoryService service, TerminalService terminalService,
                      com.infradesk.alert.AlertService alerts, com.infradesk.service.UpdateService updates, boolean demoMode) {
         super("InfraDesk");
@@ -599,7 +600,7 @@ public class MainFrame extends JFrame {
                 JOptionPane.showMessageDialog(this, Async.message(e), "업데이트 실패", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            LOG.info(() -> "Quitting to install build " + release.build());
+            LOG.info(() -> "Quitting to install " + release.version());
             quit();
         }).start();
     }
@@ -625,7 +626,7 @@ public class MainFrame extends JFrame {
         detail.metrics().setAlert(alerts.settings());
     }
 
-    /** 켜져 있으면 주기적인 베타 업데이트 확인을 시작한다(시작 15초 뒤, 그다음 6시간마다). */
+    /** 켜져 있으면 주기적인 업데이트 확인을 시작한다(시작 15초 뒤, 그다음 6시간마다). */
     public void startUpdateChecks() {
         if (updates == null || demoMode) {
             return;
@@ -644,18 +645,18 @@ public class MainFrame extends JFrame {
     private void checkForUpdate(boolean manual) {
         com.infradesk.app.BuildInfo current = com.infradesk.app.BuildInfo.current();
         Async.run(updates::latest, release -> {
-            boolean newer = current.isBeta() && release.build() > current.buildNumber();
-            LOG.info(() -> "Update check: latest beta build " + release.build() + ", running " + current.display());
+            boolean newer = current.isRelease() && com.infradesk.service.UpdateService.isNewer(release.version(), current.version());
+            LOG.info(() -> "Update check: latest " + release.version() + ", running " + current.display());
             tray.ifPresent(t -> t.setUpdate(newer ? release : null));
-            if (newer && notifiedUpdateBuild != release.build() && !manual) {
-                notifiedUpdateBuild = release.build();
+            if (newer && !release.version().equals(notifiedUpdate) && !manual) {
+                notifiedUpdate = release.version();
                 com.infradesk.ui.components.Toast.show(this, "업데이트", release.label() + " 버전이 나왔어요",
                         TRAY_NAME + " 아이콘 → 새 버전 설치, 또는 설정 → 업데이트·정보 → 업데이트 확인", Theme.ACCENT);
             }
             if (manual && settingsScreen != null) {
                 String message = newer ? release.label() + " 버전이 나왔어요."
-                        : current.isBeta() ? "최신 버전이에요 (" + current.version() + ")."
-                        : "개발 빌드라 비교하지 않아요. 최신 베타는 " + release.label() + "예요.";
+                        : current.isRelease() ? "최신 버전이에요 (" + current.version() + ")."
+                        : "개발 빌드라 비교하지 않아요. 최신 릴리스는 " + release.label() + "예요.";
                 settingsScreen.showUpdateResult(message, newer);
                 if (newer) {
                     offerUpdate(release);

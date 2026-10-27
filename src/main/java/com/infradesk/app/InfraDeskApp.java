@@ -84,7 +84,7 @@ public final class InfraDeskApp {
                 AlertService alerts = new AlertService(new JsonAlertSettingsStore(AppPaths.configDir()), secrets, null,
                         Clock.systemUTC());
                 UpdateService updates = new UpdateService(java.net.http.HttpClient.newHttpClient(),
-                        UpdateService.BETA_RELEASE_API, UpdateService.assetForCurrentOs(),
+                        UpdateService.RELEASE_API, UpdateService.assetForCurrentOs(),
                         AppPaths.configDir().resolve("app-settings.json"));
                 frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, updates, false);
                 com.infradesk.service.UpdateInstaller.forRunningApp(AppPaths.cacheDir().resolve("update"),

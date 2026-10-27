@@ -9,14 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BuildInfoTest {
 
     @Test
-    void betaAndDevDisplay() {
-        BuildInfo beta = new BuildInfo("1.0.0", "12", "f4102ce");
-        assertTrue(beta.isBeta());
-        assertEquals(12, beta.buildNumber());
-        assertEquals("1.0.0 Beta (빌드 12 · f4102ce)", beta.display());
+    void releaseAndDevDisplay() {
+        BuildInfo release = new BuildInfo("1.0.0", "12", "f4102ce");
+        assertTrue(release.isRelease());
+        assertEquals(12, release.buildNumber());
+        assertEquals("1.0.0 (빌드 12 · f4102ce)", release.display(), "정식 릴리스에는 Beta가 붙지 않는다");
 
         BuildInfo dev = new BuildInfo("1.0.0", "dev", "f4102ce");
-        assertFalse(dev.isBeta());
+        assertFalse(dev.isRelease());
         assertEquals("1.0.0 개발 빌드 (f4102ce)", dev.display());
     }
 

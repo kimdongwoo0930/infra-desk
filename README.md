@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kimdongwoo0930/infra-desk/releases/tag/beta"><b>⬇ 베타 다운로드</b></a> ·
+  <a href="https://github.com/kimdongwoo0930/infra-desk/releases/latest"><b>⬇ 다운로드</b></a> ·
   <a href="#처음-설정">처음 설정</a> ·
   <a href="#데모-모드">데모 모드</a> ·
   <a href="docs/ARCHITECTURE.md">구조</a>
@@ -76,14 +76,14 @@
 | Windows 10/11 | ✅ 실행 · 계정 추가 · 앱 안 업데이트 확인 |
 | Linux | 소스에서 `./gradlew run` (설치 파일 없음) |
 
-## 다운로드 (베타)
+## 다운로드
 
-`main`에 변경이 올라올 때마다 자동으로 빌드되어 [Beta 릴리스](https://github.com/kimdongwoo0930/infra-desk/releases/tag/beta)에 올라가요. 앱이 새 빌드를 알아서 확인하고 메뉴 막대에 알려줘요. 지난 빌드는 빌드마다 `beta-<번호>` 릴리스로 [모두 남아 있어서](https://github.com/kimdongwoo0930/infra-desk/releases) 이전 버전으로 돌아갈 수 있어요.
+`main`에 변경이 올라올 때마다 자동으로 빌드되어 새 [릴리스](https://github.com/kimdongwoo0930/infra-desk/releases/latest)(`v1.0.0`, `v1.0.1`, …)로 올라가요. 앱이 새 버전을 알아서 확인하고 메뉴 막대에 알려줘요. 지난 버전은 [릴리스 목록](https://github.com/kimdongwoo0930/infra-desk/releases)에 모두 남아 있어서 이전 버전으로 돌아갈 수 있어요. 아래 다운로드 주소는 버전이 바뀌어도 그대로예요.
 
 | OS | 파일 |
 |---|---|
-| macOS (Apple Silicon) | [InfraDesk-beta-macOS.dmg](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-macOS.dmg) |
-| Windows | [InfraDesk-beta-windows.zip](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-windows.zip) |
+| macOS (Apple Silicon) | [InfraDesk-macOS.dmg](https://github.com/kimdongwoo0930/infra-desk/releases/latest/download/InfraDesk-macOS.dmg) |
+| Windows | [InfraDesk-windows.zip](https://github.com/kimdongwoo0930/infra-desk/releases/latest/download/InfraDesk-windows.zip) |
 
 
 **macOS** — 서명·공증되지 않은 앱이라 처음 한 번 아래 명령이 필요해요.
@@ -94,7 +94,7 @@ xattr -dr com.apple.quarantine /Applications/InfraDesk.app
 
 **Windows** — 압축을 풀고 `InfraDesk.exe` 실행. SmartScreen 경고가 뜨면 *추가 정보 → 실행*.
 
-**업데이트** — 설치한 뒤에는 앱 안에서 업데이트해요. *메뉴 막대(트레이) 아이콘 → 새 베타 빌드 설치*를 누르면 앱이 새 빌드를 직접 받습니다. 받은 파일을 릴리스의 `SHA256SUMS.txt`와 대조하고, 새 버전의 자가 점검(`--self-test`)을 통과하면 앱을 교체해서 다시 열어요. 앱이 직접 받은 파일에는 macOS 격리 표시가 붙지 않아서 `xattr` 명령이 다시 필요 없어요. 실패하면 지금 버전이 그대로 남습니다.
+**업데이트** — 설치한 뒤에는 앱 안에서 업데이트해요. *메뉴 막대(트레이) 아이콘 → 새 버전 설치*(또는 설정 → 업데이트·정보 → 업데이트 확인)를 누르면 앱이 새 버전을 직접 받습니다. 받은 파일을 릴리스의 `SHA256SUMS.txt`와 대조하고, 새 버전의 자가 점검(`--self-test`)을 통과하면 앱을 교체해서 다시 열어요. 앱이 직접 받은 파일에는 macOS 격리 표시가 붙지 않아서 `xattr` 명령이 다시 필요 없어요. 실패하면 지금 버전이 그대로 남습니다.
 
 ## 처음 설정
 
