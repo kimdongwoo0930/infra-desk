@@ -382,6 +382,29 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
+        // 터미널 탭은 보고 있는 서버의 세션만 보여 준다: 세션이 없는 서버로 가면 빈 화면과 [접속]이 나오고,
+        // 세션이 있는 서버로 돌아오면 보던 세션이 그대로 다시 보인다(다른 서버의 세션은 닫히지 않는다).
+        com.infradesk.core.Server withSessions = inventory.get(1).servers().getFirst();
+        com.infradesk.core.Server withoutSessions = inventory.getFirst().servers().getFirst();
+        SwingUtilities.invokeAndWait(() -> terminalFrame[0].showServer(withoutSessions));
+        Thread.sleep(400);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(terminalFrame[0], terminalFrame[0].getContentPane(), 1280, 800, "terminal-empty.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        int[] counts = new int[2];
+        SwingUtilities.invokeAndWait(() -> {
+            counts[0] = terminalFrame[0].terminalSessions(withoutSessions.id());
+            counts[1] = terminalFrame[0].terminalSessions(withSessions.id());
+            terminalFrame[0].showServer(withSessions);
+        });
+        Thread.sleep(300);
+        System.out.println(counts[0] == 0 && counts[1] == 2
+                ? "TERMINAL-PER-SERVER: OK (다른 서버의 세션 2개는 살아 있고, 이 서버는 세션이 없다)"
+                : "TERMINAL-PER-SERVER: FAILED (세션이 없어야 할 서버 " + counts[0] + ", 있어야 할 서버 " + counts[1] + ")");
         // 데모 파일 트리의 SFTP 브라우저.
         // 파일 탭은 서버 화면 안의 패널이다. 시나리오를 창 하나에서 돌릴 수 있게 테스트용 창에 담는다.
         JDialog[] sftp = new JDialog[1];

@@ -7,6 +7,7 @@ import com.infradesk.ui.components.TabBar;
 import com.infradesk.ui.containers.ContainersTab;
 import com.infradesk.ui.files.FilesHost;
 import com.infradesk.ui.metrics.MetricsPanel;
+import com.infradesk.ui.terminal.TerminalView;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -46,6 +47,9 @@ public class ServerScreen extends JPanel {
     private final ContainersTab containersTab = new ContainersTab();
     private final MetricsPanel metrics = new MetricsPanel();
     private final FilesHost files = new FilesHost();
+    /** 터미널 탭 본문의 자리. 터미널은 서버를 가로질러 세션을 들고 있어서 {@code MainFrame}이 만들어 넣는다. */
+    private final JPanel terminalHost = new JPanel(new BorderLayout());
+    private TerminalView terminal;
     /** 지금 화면에 보여 주는 서버. 서버가 바뀌었는지 알아서 이전 서버의 컨테이너 로그 칩을 비우는 데 쓴다. */
     private String shownServerId;
     private Server shownServer;
@@ -62,9 +66,7 @@ public class ServerScreen extends JPanel {
         tabs.addTab(TAB_FILES, "파일");
         tabs.addTab(TAB_TERMINAL, "터미널");
         tabs.addTab(TAB_LOGS, "로그");
-        // 개요, 모니터링, 컨테이너, 파일이 지금 동작한다. 나머지 탭은 화면을 하나씩 만들 때(디자인 v2 6~7단계) 아래 줄을 지워 연다.
-        // 준비 중(v2): 터미널 탭 — 해당 화면이 만들어지면 setComingSoon을 지운다
-        tabs.setComingSoon(TAB_TERMINAL);
+        // 개요, 모니터링, 컨테이너, 파일, 터미널이 지금 동작한다. 로그 탭은 아래 줄에서 준비 중으로 둔다.
         // 준비 중(v2): 로그 탭 — 시안에서도 준비 중이다. 로그를 볼 기능이 생기면 연다
         tabs.setComingSoon(TAB_LOGS);
         // 탭 줄 왼쪽 끝을 머리의 글자와 맞춘다: 화면 여백(28) - 탭 안쪽 여백(12) = 16.
@@ -90,6 +92,9 @@ public class ServerScreen extends JPanel {
         body.add(containersTab, TAB_CONTAINERS);
         // 파일 탭도 스크롤 창에 넣지 않는다: 두 파일 표와 전송 목록이 각자 스크롤한다. 서버마다 따로 유지된다(FilesHost).
         body.add(files, TAB_FILES);
+        // 터미널 탭도 스크롤 창에 넣지 않는다: 터미널과 오른쪽 패널이 각자 크기를 채운다.
+        terminalHost.setOpaque(false);
+        body.add(terminalHost, TAB_TERMINAL);
         add(body, BorderLayout.CENTER);
 
         tabs.onSelect(id -> {
@@ -101,6 +106,10 @@ public class ServerScreen extends JPanel {
             }
             if (TAB_FILES.equals(id) && shownServer != null) {
                 files.show(shownServer);   // 이 서버의 파일 탭을 처음 열 때만 연결한다
+            }
+            if (TAB_TERMINAL.equals(id) && terminal != null) {
+                terminal.refreshServers();   // 일괄 실행의 서버 칩을 최신 목록에 맞춘다
+                terminal.focusActive();      // 열려 있는 세션이 있으면 바로 입력할 수 있게
             }
         });
     }
@@ -147,6 +156,27 @@ public class ServerScreen extends JPanel {
 
     public com.infradesk.ui.containers.ContainerLogView logs() {
         return containersTab.logs();
+    }
+
+    // ── 터미널 탭 ───────────────────────────────────────────────
+
+    /** 터미널 탭 본문을 넣는다. 한 번만 부른다. */
+    public void setTerminal(TerminalView view) {
+        this.terminal = view;
+        terminalHost.add(view, BorderLayout.CENTER);
+        if (shownServer != null) {
+            view.showServer(shownServer);
+        }
+    }
+
+    /** 터미널 탭을 연다(예: [SSH 열기], 컨테이너의 셸 버튼). */
+    public void showTerminalTab() {
+        tabs.select(TAB_TERMINAL);
+    }
+
+    /** 탭 이름 옆에 이 서버의 터미널 세션 수를 보여 준다. 0이면 숫자를 감춘다. */
+    public void setTerminalCount(int count) {
+        tabs.setCount(TAB_TERMINAL, count > 0 ? count : null);
     }
 
     // ── 파일 탭 ─────────────────────────────────────────────────
@@ -226,6 +256,10 @@ public class ServerScreen extends JPanel {
             clearContainers();
         }
         shownServer = server;
+        if (terminal != null) {
+            terminal.showServer(server);   // 터미널 탭은 이 서버의 세션만 보여 준다
+            setTerminalCount(terminal.sessionCount(server.id()));
+        }
         header.show(server, account);
         overview.show(server, account);
         if (TAB_FILES.equals(tabs.selectedId())) {

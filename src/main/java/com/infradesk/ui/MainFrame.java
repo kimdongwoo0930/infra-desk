@@ -41,8 +41,6 @@ public class MainFrame extends JFrame {
 
     private static final String EMPTY = "empty";
     private static final String DETAIL = "detail";
-    private static final String DASHBOARD = "dashboard";
-    private static final String TERMINAL = "terminal";
 
     private final InventoryService service;
     private final TerminalService terminalService;
@@ -57,8 +55,6 @@ public class MainFrame extends JFrame {
     private SettingsDialog settingsDialog;
     private int notifiedUpdateBuild = -1;
     private Timer updateTimer;
-    private final CardLayout screens = new CardLayout();
-    private final JPanel screenPanel = new JPanel(screens);
     private final TerminalView terminalView;
     private final boolean demoMode;
     private final TitleBar titleBar;
@@ -77,6 +73,7 @@ public class MainFrame extends JFrame {
     /** 상태 막대의 "실시간 켜짐/꺼짐" 항목. 실시간이 켜지거나 꺼질 때 글자를 바꾼다. */
     private JLabel liveStatus;
     private JLabel transferStatus;
+    private JLabel terminalStatus;
     /** 메트릭(차트)을 새로 읽는 주기. 타이머와 상태 막대 문구가 같은 값을 쓴다. */
     private static final java.time.Duration METRICS_INTERVAL = java.time.Duration.ofMinutes(1);
     private final CardLayout cards = new CardLayout();
@@ -108,7 +105,6 @@ public class MainFrame extends JFrame {
             new java.util.HashMap<>();
     private static final java.time.Duration FACTS_TTL = java.time.Duration.ofMinutes(5);
     private final com.infradesk.ui.metrics.LiveController live;
-    private boolean dashboardVisible = true;
     private String metricsServerId;
     private com.infradesk.core.ServerStatus metricsServerStatus;
     private boolean cpuLoadedOnce;
@@ -186,9 +182,7 @@ public class MainFrame extends JFrame {
                 iconified = false;
                 updateConnectionMode();
                 refreshOnReturn();
-                if (dashboardVisible) {
-                    live.resume();
-                }
+                live.resume();
             }
         });
         setMinimumSize(new Dimension(960, 600));
@@ -221,24 +215,21 @@ public class MainFrame extends JFrame {
         titleBar.sidebarButton().addActionListener(e -> toggleSidebar());
         titleBar.setSidebarCollapsed(false);
 
-        JPanel dashboard = new JPanel(new BorderLayout());
-        dashboard.setBackground(Theme.APP_BG);
-        dashboard.add(sidebarSplit, BorderLayout.CENTER);
-        screenPanel.add(dashboard, DASHBOARD);
-        screenPanel.add(terminalView, TERMINAL);
+        // 터미널은 더 이상 따로 있는 화면이 아니라 서버 화면의 "터미널" 탭이다.
+        detail.setTerminal(terminalView);
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Theme.APP_BG);
         root.add(titleBar, BorderLayout.NORTH);
-        root.add(screenPanel, BorderLayout.CENTER);
+        root.add(sidebarSplit, BorderLayout.CENTER);
         buildStatusBar();
         root.add(statusBar, BorderLayout.SOUTH);
         setContentPane(root);
         EditMenu.install(this);
 
-        titleBar.backButton().addActionListener(e -> showDashboard());
-        terminalView.onCountChange(titleBar::setSessionCount);
-        terminalView.onEmpty(this::showDashboard);
+        terminalView.onCountChange(this::updateTerminalCounts);
+        // 터미널 탭이 비어 있을 때의 [접속]은 서버 화면 머리의 [SSH 열기]와 같다(설정 확인 후 접속).
+        terminalView.onConnectRequest(this::openSsh);
         terminalView.onOpenFiles(this::openFilesOf);
         // 파일 탭: 서버마다 연결을 유지한다. SSH 설정이 없으면 탭이 안내하고, 설정을 마치면 다시 시도한다.
         detail.files().onTransfersChanged(this::updateTransferStatus);
@@ -311,6 +302,9 @@ public class MainFrame extends JFrame {
         // 파일 탭의 전송이 있을 때만 보인다(서버를 바꿔도 이어지는 전송을 어디서든 알 수 있게).
         transferStatus = statusBar.addLeft(" ");
         transferStatus.setVisible(false);
+        // 열린 터미널 세션이 있을 때만 보인다(모든 서버의 세션 합계).
+        terminalStatus = statusBar.addLeft(" ");
+        terminalStatus.setVisible(false);
         // 조회 주기는 상수에서 만든다. 주기를 바꾸면 이 문구도 따라 바뀐다.
         statusBar.addRight("상태 " + RefreshPolicy.NORMAL_INTERVAL.toSeconds() + "초 · 메트릭 "
                 + METRICS_INTERVAL.toMinutes() + "분마다");
@@ -416,7 +410,6 @@ public class MainFrame extends JFrame {
             @Override
             public void showServer(String serverId) {
                 bringToFront();
-                showDashboard();
                 findServer(serverId).ifPresent(MainFrame.this::showServer);
             }
 
@@ -591,9 +584,7 @@ public class MainFrame extends JFrame {
         setExtendedState(getExtendedState() & ~ICONIFIED);
         toFront();
         requestFocus();
-        if (dashboardVisible) {
-            live.resume();
-        }
+        live.resume();
     }
 
     /** 세션을 닫고 종료한다. 트레이 메뉴, ⌘Q, 또는 트레이가 없을 때 창을 닫으면 호출된다. */
@@ -1014,7 +1005,7 @@ public class MainFrame extends JFrame {
                 loadFacts(server, true);
                 loadContainers(server, true);
             }
-            showTerminal();
+            detail.showTerminalTab();
             terminalView.openOrSelect(server);
         });
     }
@@ -1222,29 +1213,33 @@ public class MainFrame extends JFrame {
         return inventory.stream().flatMap(i -> i.servers().stream()).toList();
     }
 
-    /** 스냅샷 도구가 터미널 화면을 그릴 수 있도록 public. */
-    public void showTerminal() {
-        dashboardVisible = false;
-        live.pause();
-        terminalView.refreshServers();
-        screens.show(screenPanel, TERMINAL);
-        titleBar.setTerminalMode(true);
-        titleBar.setSessionCount(terminalView.sessionCount());
-        terminalView.focusActive();
+    /**
+     * 서버 화면의 터미널 탭을 연다. 열려는 서버가 지금 보는 서버가 아니면 먼저 그 서버를 보여 준다(터미널 탭은 보고
+     * 있는 서버의 세션만 보여 주기 때문이다).
+     */
+    private void showTerminalOf(Server server) {
+        if (!server.id().equals(selectedServerId)) {
+            showServer(server);
+        }
+        detail.showTerminalTab();
     }
 
-    /** 터미널 화면의 [SFTP 파일]: 그 서버의 서버 화면으로 돌아가 파일 탭을 연다. */
+    /** 터미널 탭의 [SFTP 파일]: 그 서버의 파일 탭을 연다. */
     private void openFilesOf(Server server) {
-        showDashboard();
-        showServer(server);
+        if (!server.id().equals(selectedServerId)) {
+            showServer(server);
+        }
         detail.showFilesTab();
     }
 
-    private void showDashboard() {
-        dashboardVisible = true;
-        screens.show(screenPanel, DASHBOARD);
-        titleBar.setTerminalMode(false);
-        live.resume();
+    /** 세션 수가 바뀌었다: 터미널 탭 이름 옆 개수(보고 있는 서버)와 상태 막대의 전체 개수를 갱신한다. */
+    private void updateTerminalCounts() {
+        if (selectedServerId != null) {
+            detail.setTerminalCount(terminalView.sessionCount(selectedServerId));
+        }
+        int total = terminalView.sessionCount();
+        terminalStatus.setVisible(total > 0);
+        terminalStatus.setText("터미널 탭 " + total);
     }
 
     /** 컨테이너 안의 터미널 탭: 그 컨테이너의 셸, 또는 이미지에 맞는 데이터베이스 콘솔. */
@@ -1255,13 +1250,18 @@ public class MainFrame extends JFrame {
                 : com.infradesk.ssh.DockerCommands.console(container.id(), console);
         LOG.info(() -> "Opening " + (console == null ? "shell" : console.label + " console") + " in container "
                 + container.name() + " on " + server.name());
-        showTerminal();
+        showTerminalOf(server);
         terminalView.open(server, new com.infradesk.ui.terminal.TerminalPanel.Exec(title, command));
+    }
+
+    /** 이 서버에 열려 있는 터미널 세션 수. 스냅샷 도구가 서버별 세션 분리를 확인하는 데 쓴다. */
+    int terminalSessions(String serverId) {
+        return terminalView.sessionCount(serverId);
     }
 
     /** 설정 확인 없이 서버의 터미널 탭을 연다. 스냅샷 도구용. */
     public void openTerminalFor(Server server) {
-        showTerminal();
+        showTerminalOf(server);
         terminalView.openOrSelect(server);
     }
 

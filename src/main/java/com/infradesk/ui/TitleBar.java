@@ -27,10 +27,6 @@ public class TitleBar extends JPanel {
     private final JButton refreshButton = Buttons.icon("refresh", "새로고침", 28);
     /** 사이드바를 접고 펴는 버튼. 사이드바가 닫혀도 보여야 해서 사이드바 안이 아니라 타이틀바에 둔다. */
     private final JButton sidebarButton = Buttons.icon("sidebar", "사이드바 접기", 28);
-    private final JButton backButton = new JButton("대시보드", Icons.get("arrow-left", 15));
-    private final JLabel sessions = new JLabel();
-    private final JPanel dashboardLeft;
-    private final JPanel terminalLeft;
 
     public TitleBar(boolean demoMode) {
         super(new BorderLayout());
@@ -38,8 +34,6 @@ public class TitleBar extends JPanel {
         setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.DIVIDER));
 
         JPanel left = row(10);
-        dashboardLeft = left;
-        // 터미널 화면에서는 이 묶음 전체가 숨겨지므로 토글 버튼도 함께 사라진다(터미널에는 사이드바가 없다).
         left.add(sidebarButton);
         left.add(new JLabel(Icons.get("app", 18, Theme.ACCENT)));
         JLabel name = new JLabel("InfraDesk");
@@ -56,34 +50,14 @@ public class TitleBar extends JPanel {
             left.add(demo);
         }
 
-        terminalLeft = row(10);
-        backButton.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
-        backButton.setForeground(Theme.TEXT_SECONDARY);
-        backButton.setIconTextGap(6);
-        backButton.setFocusable(false);
-        terminalLeft.add(backButton);
-        JLabel slash = new JLabel("/");
-        slash.setForeground(Theme.DASHED_BORDER);
-        terminalLeft.add(slash);
-        JLabel terminalTitle = new JLabel("SSH 터미널");
-        terminalTitle.setFont(terminalTitle.getFont().deriveFont(Font.BOLD));
-        terminalLeft.add(terminalTitle);
-        terminalLeft.setVisible(false);
-
         JPanel leftWrap = row(0);
         leftWrap.add(placeholder("mac zeroInFullScreen"));
         leftWrap.add(Box.createHorizontalStrut(6));
-        leftWrap.add(dashboardLeft);
-        leftWrap.add(terminalLeft);
+        leftWrap.add(left);
 
         JPanel right = row(12);
         lastRefresh.setForeground(Theme.TEXT_MUTED);
         lastRefresh.putClientProperty(FlatClientProperties.STYLE, "font: -1");
-        sessions.setForeground(Theme.TEXT_MUTED);
-        sessions.putClientProperty(FlatClientProperties.STYLE, "font: -1");
-        sessions.setVisible(false);
-        sessions.setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
-        right.add(sessions);
         right.add(lastRefresh);
         right.add(refreshButton);
         right.add(placeholder("win"));
@@ -91,10 +65,6 @@ public class TitleBar extends JPanel {
         add(leftWrap, BorderLayout.WEST);
         add(right, BorderLayout.EAST);
         setCounts(0, 0);
-    }
-
-    public JButton backButton() {
-        return backButton;
     }
 
     /** 사이드바 접기/펼치기 버튼. */
@@ -107,21 +77,6 @@ public class TitleBar extends JPanel {
         String label = collapsed ? "사이드바 펼치기" : "사이드바 접기";
         sidebarButton.setToolTipText(label);
         sidebarButton.getAccessibleContext().setAccessibleName(label);
-    }
-
-    /** 대시보드 헤더와 "← 대시보드 / SSH 터미널" 이동 경로 표시를 전환한다. */
-    public void setTerminalMode(boolean terminal) {
-        dashboardLeft.setVisible(!terminal);
-        terminalLeft.setVisible(terminal);
-        sessions.setVisible(terminal);
-        lastRefresh.setVisible(!terminal);
-        refreshButton.setVisible(!terminal);
-        revalidate();
-        repaint();
-    }
-
-    public void setSessionCount(int count) {
-        sessions.setText("열린 세션 " + count + "개");
     }
 
     public JButton refreshButton() {

@@ -19,18 +19,23 @@ import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
-import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
-import javax.swing.JMenuItem;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
 
-/** 터미널 화면: 세션마다 탭 하나와 활성 터미널. */
+/**
+ * 서버 화면의 "터미널" 탭 본문 (디자인 v2): 세션마다 탭 하나와 활성 터미널, 오른쪽에 저장된 명령어 패널.
+ *
+ * <p>세션은 모든 서버의 것이 하나의 목록에 있지만, 탭 줄에는 지금 보고 있는 서버({@link #showServer})의 세션만
+ * 나온다. 다른 서버로 가도 그 서버의 세션은 닫히지 않고 숨어 있다가, 그 서버 화면으로 돌아오면 보던 탭 그대로
+ * 다시 보인다. 보고 있는 서버에 세션이 없으면 빈 화면에 [접속] 버튼이 나온다(탭을 열기만 해서는 접속하지 않는다).
+ */
 public class TerminalView extends JPanel {
 
     private final TerminalService service;
@@ -40,11 +45,20 @@ public class TerminalView extends JPanel {
     private final CardLayout cards = new CardLayout();
     private final JPanel terminals = new JPanel(cards);
     private final List<TerminalPanel> sessions = new ArrayList<>();
+    private static final String EMPTY = "\0empty";
+
     private final JButton newSession = Buttons.icon("plus", "새 세션", 38);
     private final TerminalSidePanel sidePanel;
+    /** 보고 있는 서버의 선택된 세션. 그 서버에 세션이 없으면 null. */
     private TerminalPanel active;
-    private IntConsumer onCountChange = n -> { };
-    private Runnable onEmpty = () -> { };
+    /** 보고 있는 서버. 탭 줄에 어느 서버의 세션을 보여 줄지, 빈 화면의 [접속]이 누구에게 접속할지 정한다. */
+    private Server shownServer;
+    /** 서버마다 마지막으로 보던 세션. 다른 서버를 보고 돌아오면 이 탭이 다시 선택된다. */
+    private final Map<String, TerminalPanel> lastActive = new HashMap<>();
+    private final JLabel emptyHint = new JLabel(" ");
+    private final JButton connectButton = Buttons.primary("접속", "terminal");
+    private Runnable onCountChange = () -> { };
+    private Runnable onConnectRequest = () -> { };
     private Consumer<Server> onOpenFiles = server -> { };
 
     public TerminalView(TerminalService service, Consumer<Server> openSettings, Supplier<List<Server>> connectableServers) {
@@ -60,11 +74,13 @@ public class TerminalView extends JPanel {
         strip.setPreferredSize(new Dimension(0, 38));
         tabStrip.setOpaque(false);
         newSession.setPreferredSize(new Dimension(38, 37));
-        newSession.addActionListener(e -> showNewSessionMenu());
+        newSession.addActionListener(e -> openForShownServer());
         tabStrip.add(newSession);
         strip.add(tabStrip, BorderLayout.CENTER);
 
         terminals.setBackground(Theme.TERMINAL_BG);
+        terminals.add(emptyState(), EMPTY);
+        cards.show(terminals, EMPTY);
         JPanel main = new JPanel(new BorderLayout());
         main.add(strip, BorderLayout.NORTH);
         main.add(terminals, BorderLayout.CENTER);
@@ -88,25 +104,11 @@ public class TerminalView extends JPanel {
         return active == null ? java.util.Optional.empty() : java.util.Optional.of(active.server());
     }
 
-    /** 활성 탭 서버의 SFTP. 열린 탭이 없으면 실행 중인 서버 메뉴. */
+    /** 보고 있는 서버의 파일은 서버 화면의 "파일" 탭에서 본다. SSH 설정이 없으면 그 탭이 안내한다. */
     private void openSftp() {
-        if (active != null) {
-            openSftp(active.server());
-            return;
+        if (shownServer != null) {
+            onOpenFiles.accept(shownServer);
         }
-        JPopupMenu menu = new JPopupMenu();
-        for (Server s : connectableServers.get()) {
-            JMenuItem item = new JMenuItem(s.name(), new com.infradesk.ui.components.StatusDot(s.status()));
-            item.setEnabled(s.status() == ServerStatus.RUNNING);
-            item.addActionListener(e -> openSftp(s));
-            menu.add(item);
-        }
-        menu.show(sidePanel.sftpButton(), 0, -menu.getPreferredSize().height);
-    }
-
-    /** 파일은 서버 화면의 "파일" 탭에서 본다. SSH 설정이 없으면 그 탭이 안내한다. */
-    private void openSftp(Server server) {
-        onOpenFiles.accept(server);
     }
 
     /** [SFTP 파일]을 눌렀다: 그 서버의 파일 탭을 열어 달라고 알린다. */
@@ -122,17 +124,57 @@ public class TerminalView extends JPanel {
         }
     }
 
-    public void onCountChange(IntConsumer listener) {
+    /** 세션을 열거나 닫아서 수가 바뀌었을 때. 서버 화면의 탭 이름 옆 개수와 상태 막대가 이걸로 갱신한다. */
+    public void onCountChange(Runnable listener) {
         this.onCountChange = listener;
     }
 
-    /** 마지막 탭이 닫히면 호출된다. */
-    public void onEmpty(Runnable listener) {
-        this.onEmpty = listener;
+    /** 빈 화면의 [접속]을 눌렀다. 설정 확인 같은 접속 전 일은 부르는 쪽이 한다. */
+    public void onConnectRequest(Runnable listener) {
+        this.onConnectRequest = listener;
     }
 
+    /** 열려 있는 세션 전체(모든 서버). */
     public int sessionCount() {
         return sessions.size();
+    }
+
+    /** 이 서버의 세션 수. */
+    public int sessionCount(String serverId) {
+        return sessionsOf(serverId).size();
+    }
+
+    private List<TerminalPanel> sessionsOf(String serverId) {
+        List<TerminalPanel> mine = new ArrayList<>();
+        for (TerminalPanel p : sessions) {
+            if (p.server().id().equals(serverId)) {
+                mine.add(p);
+            }
+        }
+        return mine;
+    }
+
+    /**
+     * 보여 줄 서버를 정한다. 탭 줄에는 이 서버의 세션만 나오고 다른 서버의 세션은 닫지 않고 숨겨 둔다. 서버 목록을
+     * 새로 읽을 때마다 불리므로, 같은 서버면 고른 탭을 바꾸지 않는다(서버 상태만 새로 반영한다).
+     */
+    public void showServer(Server server) {
+        boolean changed = shownServer == null || !shownServer.id().equals(server.id());
+        shownServer = server;
+        if (changed) {
+            active = remembered(server.id());
+        }
+        refreshView();
+    }
+
+    /** 이 서버에서 마지막으로 보던 세션. 없거나 닫혔으면 첫 세션, 세션이 없으면 null. */
+    private TerminalPanel remembered(String serverId) {
+        TerminalPanel last = lastActive.get(serverId);
+        if (last != null && sessions.contains(last)) {
+            return last;
+        }
+        List<TerminalPanel> mine = sessionsOf(serverId);
+        return mine.isEmpty() ? null : mine.getFirst();
     }
 
     /** 서버의 기존 세션을 선택하거나, 없으면 새로 연다. */
@@ -159,13 +201,23 @@ public class TerminalView extends JPanel {
         add(new TerminalPanel(server, exec, service, openSettings));
     }
 
+    /** 탭 줄의 [+]: 보고 있는 서버에 새 셸 세션을 연다. */
+    private void openForShownServer() {
+        if (shownServer != null && shownServer.status() == ServerStatus.RUNNING) {
+            open(shownServer);
+        }
+    }
+
     private void add(TerminalPanel panel) {
         panel.onStateChange(this::rebuildTabs);
         sessions.add(panel);
-        terminals.add(panel, Integer.toHexString(System.identityHashCode(panel)));
+        terminals.add(panel, cardName(panel));
+        if (shownServer == null || !shownServer.id().equals(panel.server().id())) {
+            shownServer = panel.server();   // 다른 서버에 연 세션이면 그 서버를 보여 준다
+        }
         select(panel);
         panel.connect();
-        onCountChange.accept(sessions.size());
+        onCountChange.run();
     }
 
     /** 서버의 모든 탭을 다시 연결한다(예: SSH 설정이 바뀐 뒤). */
@@ -189,57 +241,95 @@ public class TerminalView extends JPanel {
         }
     }
 
+    private static String cardName(TerminalPanel panel) {
+        return Integer.toHexString(System.identityHashCode(panel));
+    }
+
     private void select(TerminalPanel panel) {
         active = panel;
-        cards.show(terminals, Integer.toHexString(System.identityHashCode(panel)));
-        rebuildTabs();
+        lastActive.put(panel.server().id(), panel);
+        refreshView();
         panel.focusTerminal();
     }
 
     private void close(TerminalPanel panel) {
-        int index = sessions.indexOf(panel);
+        String serverId = panel.server().id();
+        int index = sessionsOf(serverId).indexOf(panel);
         panel.close();
         sessions.remove(panel);
         terminals.remove(panel);
-        onCountChange.accept(sessions.size());
-        if (sessions.isEmpty()) {
-            active = null;
+        lastActive.remove(serverId, panel);
+        onCountChange.run();
+        if (panel != active) {
             rebuildTabs();
-            onEmpty.run();
             return;
         }
-        if (panel == active) {
-            select(sessions.get(Math.max(0, index - 1)));
+        List<TerminalPanel> rest = sessionsOf(serverId);
+        if (rest.isEmpty()) {
+            active = null;
+            refreshView();   // 마지막 탭을 닫으면 빈 화면(대시보드로 나가지 않는다)
         } else {
-            rebuildTabs();
+            select(rest.get(Math.max(0, index - 1)));
         }
+    }
+
+    /** 선택된 세션을 보여 주고(없으면 빈 화면), 탭 줄을 다시 만든다. */
+    private void refreshView() {
+        if (active == null) {
+            cards.show(terminals, EMPTY);
+            updateEmptyState();
+        } else {
+            cards.show(terminals, cardName(active));
+        }
+        rebuildTabs();
     }
 
     private void rebuildTabs() {
         tabStrip.removeAll();
-        for (TerminalPanel p : sessions) {
-            tabStrip.add(new Tab(p, p == active));
+        if (shownServer != null) {
+            for (TerminalPanel p : sessionsOf(shownServer.id())) {
+                tabStrip.add(new Tab(p, p == active));
+            }
         }
+        newSession.setEnabled(shownServer != null && shownServer.status() == ServerStatus.RUNNING);
         tabStrip.add(newSession);
         tabStrip.revalidate();
         tabStrip.repaint();
     }
 
-    private void showNewSessionMenu() {
-        JPopupMenu menu = new JPopupMenu();
-        List<Server> servers = connectableServers.get();
-        if (servers.isEmpty()) {
-            JMenuItem none = new JMenuItem("실행 중인 서버가 없어요");
-            none.setEnabled(false);
-            menu.add(none);
-        }
-        for (Server s : servers) {
-            JMenuItem item = new JMenuItem(s.name(), new com.infradesk.ui.components.StatusDot(s.status()));
-            item.setEnabled(s.status() == ServerStatus.RUNNING);
-            item.addActionListener(e -> open(s));
-            menu.add(item);
-        }
-        menu.show(newSession, 0, newSession.getHeight());
+    // ── 빈 화면 ─────────────────────────────────────────────────
+
+    /** 보고 있는 서버에 세션이 없을 때: 안내와 [접속]. */
+    private JPanel emptyState() {
+        JLabel title = new JLabel("열린 터미널이 없어요");
+        title.setFont(title.getFont().deriveFont(java.awt.Font.BOLD, 16f));
+        title.setAlignmentX(CENTER_ALIGNMENT);
+        emptyHint.setForeground(Theme.TEXT_MUTED);
+        emptyHint.setAlignmentX(CENTER_ALIGNMENT);
+        connectButton.setAlignmentX(CENTER_ALIGNMENT);
+        connectButton.addActionListener(e -> onConnectRequest.run());
+
+        JPanel box = new JPanel();
+        box.setOpaque(false);
+        box.setLayout(new javax.swing.BoxLayout(box, javax.swing.BoxLayout.Y_AXIS));
+        box.add(title);
+        box.add(javax.swing.Box.createVerticalStrut(8));
+        box.add(emptyHint);
+        box.add(javax.swing.Box.createVerticalStrut(18));
+        box.add(connectButton);
+
+        JPanel center = new JPanel(new java.awt.GridBagLayout());
+        center.setBackground(Theme.TERMINAL_BG);
+        center.add(box);
+        return center;
+    }
+
+    private void updateEmptyState() {
+        boolean running = shownServer != null && shownServer.status() == ServerStatus.RUNNING;
+        connectButton.setEnabled(running);
+        emptyHint.setText(shownServer == null ? " "
+                : running ? shownServer.name() + "에 SSH로 접속해서 셸을 열어요."
+                        : "서버가 켜져 있을 때 접속할 수 있어요.");
     }
 
     /** 탭 하나: 상태 점, 서버 이름, 닫기 버튼. 선택한 탭은 위쪽에 2px 강조색 테두리가 있다. */
