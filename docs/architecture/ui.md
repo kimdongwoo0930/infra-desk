@@ -10,12 +10,11 @@
 
 ## 화면의 큰 구조
 
-창 하나(`MainFrame`)가 두 "화면"을 번갈아 보여 준다(`CardLayout`).
+창 하나(`MainFrame`)에 사이드바와 서버 화면이 있다. 터미널도 별도 화면이 아니라 서버 화면의 "터미널" 탭이다.
 
 ```
-┌─ TitleBar ──────────────────────────────────────────────────┐  앱 이름, 서버·계정 수, 마지막 새로고침, (터미널일 때) 뒤로가기
+┌─ TitleBar ──────────────────────────────────────────────────┐  앱 이름, 서버·계정 수, 마지막 새로고침
 ├─────────────────────────────────────────────────────────────┤
-│  [대시보드 화면]                                              │
 │  ┌ Sidebar ─┐ ┌ 서버 화면 (ServerScreen) ────────────────┐   │
 │  │ 검색      │ │ ServerHeader  이름 · 배지 · 버튼         │   │
 │  │ 계정별    │ │ TabBar        개요 / 모니터링 / …        │   │
@@ -23,17 +22,15 @@
 │  │ (CPU%)    │ │ 탭 본문: 개요(ServerDetailPanel)        │   │
 │  │           │ │   · 모니터링(MetricsPanel)              │   │
 │  └──────────┘ │   · 컨테이너(ContainersTab)              │   │
+│               │   · 파일(FilesHost) · 터미널(TerminalView)│   │
 │               └─────────────────────────────────────────┘   │
-│                         ── 또는 ──                           │
-│  [터미널 화면]  TerminalView: 서버·컨테이너별 SSH 탭들         │
 ├─────────────────────────────────────────────────────────────┤
-│ StatusBar  SSH 연결 · 실시간 상태 ·········· 조회 주기 · 버전 │  (두 화면 모두에 보인다)
+│ StatusBar  SSH 연결 · 실시간 상태 ·········· 조회 주기 · 버전 │  (항상 보인다)
 └─────────────────────────────────────────────────────────────┘
 ```
 
 - **사이드바 폭:** `MainFrame`이 사이드바와 본문을 가로 `JSplitPane`으로 나눈다. 손잡이를 끌어 폭을 바꾸고(최대 420), 200px 미만이면 이름만, 90px 미만으로 끌면 자동으로 닫힌다. 타이틀바의 버튼으로 접고 펼친다(펼치면 닫기 전 폭으로 돌아간다). 규칙은 `SidebarWidth`에 있다.
-- **대시보드 → 터미널:** 상세의 "SSH" 버튼 → `MainFrame.openSsh()` → `showTerminal()`.
-- **터미널 → 대시보드:** 타이틀바 뒤로가기, 또는 탭이 모두 닫히면.
+- **터미널 탭:** 상세의 "SSH 열기" 버튼 → `MainFrame.openSsh()` → 그 서버의 터미널 탭을 열고 로그인 셸 세션을 선택하거나 만든다. 탭에는 **보고 있는 서버의 세션만** 보이고 다른 서버의 세션은 닫히지 않고 숨어 있다. 세션이 없으면 빈 화면과 [접속] 버튼이 나온다(탭을 열기만 해서는 접속하지 않는다). 마지막 세션을 닫아도 다른 화면으로 나가지 않는다. 실시간 모니터링은 터미널 탭을 보는 동안에도 멈추지 않는다.
 - 창을 닫으면 종료가 아니라 메뉴 막대(macOS)/알림 영역(Windows) 아이콘으로 숨는다(`TrayController`).
 
 ## `MainFrame`이 하는 일 (약 1,150줄, 가장 큰 클래스)
@@ -78,7 +75,7 @@ Async.run(
 | `Theme`, `Icons` | DESIGN-v2.md 색상 토큰(색마다 이름을 붙여 화면은 이름만 씀), FlatLaf 설치, SVG 아이콘 |
 | `TitleBar` | 앱 이름, 서버·계정 수, 마지막 새로고침, 사이드바 접기/펼치기 버튼 |
 | `Sidebar`, `ServerListItem` | 검색, 계정별 그룹, 서버 행. 폭이 200px보다 좁아지면 이름만 보이는 모드로 바뀐다(`SidebarWidth`가 폭에 따른 규칙을 정한다) |
-| `ServerScreen` | 서버를 골랐을 때의 화면 전체: 머리(`ServerHeader`) + 탭 줄(`TabBar`) + 스크롤되는 본문. `MainFrame`이 부르던 `ServerDetailPanel`의 메서드 이름을 그대로 머리와 본문에 나눠 넘긴다. 개요·모니터링·컨테이너·파일 탭이 동작하고 터미널·로그는 `ComingSoon`(디자인 v2 6~7단계에서 하나씩 연다). 파일 탭은 스크롤 창에 넣지 않고 `FilesHost`가 서버별로 `FilesTab`을 들고 있다 |
+| `ServerScreen` | 서버를 골랐을 때의 화면 전체: 머리(`ServerHeader`) + 탭 줄(`TabBar`) + 스크롤되는 본문. `MainFrame`이 부르던 `ServerDetailPanel`의 메서드 이름을 그대로 머리와 본문에 나눠 넘긴다. 개요·모니터링·컨테이너·파일·터미널 탭이 동작하고 로그는 `ComingSoon`이다. 파일 탭은 스크롤 창에 넣지 않고 `FilesHost`가 서버별로 `FilesTab`을 들고 있다 |
 | `ServerHeader` | 즐겨찾기 별(준비 중), 서버 이름, 상태 배지, 계정·리전 한 줄, [SSH 열기] [재부팅] [정지/시작] [⋯(준비 중)], 시작/정지/재부팅 버튼의 상태별 활성화 규칙, 요청 결과 한 줄. IP 가림을 켜고 끌 때 부제의 IP도 같이 바뀐다 |
 | `ServerDetailPanel` | 개요 탭 본문: 4×2 정보 그리드, 메트릭 차트, 컨테이너 표 |
 | `AddAccountDialog`, `AddSshServerDialog` | 계정 추가, 연결 테스트 / 직접 연결 기기 추가 |
@@ -103,11 +100,12 @@ Async.run(
 
 | 클래스 | 역할 |
 |---|---|
-| `TerminalView` | 세션 탭 모음, 새 세션 메뉴 |
+| `TerminalView` | 터미널 탭 본문. 세션은 모든 서버의 것을 들고 있지만 탭 줄에는 보고 있는 서버(`showServer`)의 세션만 보인다. 서버마다 마지막으로 보던 세션을 기억하고, 세션이 없으면 빈 화면과 [접속]을 보여 준다. 탭 줄의 `＋ 새 세션 ▾`는 이 서버의 새 셸과 실행 중인 컨테이너의 셸·DB 콘솔을 고르는 메뉴, 오른쪽 끝의 분할 보기 아이콘은 준비 중 |
 | `TerminalPanel` | 탭 하나: 연결, JediTerm 위젯, 상태바, 실패 안내와 "다시 연결" |
 | `ShellTtyConnector` | `ssh.ShellSession`을 JediTerm이 쓰는 형태로 이어 주는 어댑터 |
-| `TerminalSidePanel` | 오른쪽 패널: 저장된 명령어, 일괄 실행, SFTP 버튼(그 서버의 파일 탭을 연다) |
-| `BatchResultDialog`, `CommandEditDialog` | 일괄 실행 결과 / 명령어 편집 |
+| `TerminalSidePanel` | 오른쪽 330px 패널. **저장된 명령어**(찾기, `SavedCommandCard` 카드와 ▶, 우클릭 편집·삭제)와 **여러 서버에서 실행**(`ServerChip` 서버 칩, 명령 입력, `N대에 실행`, 결과 카드). 파일은 파일 탭에서 다루므로 [SFTP 파일] 버튼은 없다 |
+| `BatchResultView` | 일괄 실행 결과 카드(예전 별도 결과 창을 대신한다): 서버별 성공·실패와 걸린 시간, 출력 첫 줄, 실패한 서버의 [다시]. 행을 누르면 전체 출력이 펼쳐진다. 가장 최근 한 번의 결과만 보여 준다 |
+| `CommandEditDialog` | 저장된 명령어 추가·편집 |
 | `SshSettingsDialog` | 서버별 사용자 이름·포트·SSH 키 등록 |
 | `HostKeyDialog` | 처음 보는 호스트 키 확인. `ssh.HostKeyPrompt`를 구현하며 어느 스레드에서든 호출 가능 |
 
@@ -155,7 +153,7 @@ Async.run(
 [● 실시간]    → MetricsPanel.onLiveToggle(true) → MainFrame.toggleLive → LiveController → TerminalService.openStats
                   (exec: ProcStats.COMMAND, 최대 310회) → LiveStats: '---' 블록마다 파싱 → 이전 스냅샷과 차이
                   → MetricsPanel.addLive (최근 5분) · 안내 문구에 남은 시간("8분 뒤 자동으로 꺼져요")
-터미널 화면 / 최소화 → LiveController.pause (연결 닫음) → 대시보드 복귀 → resume (다시 연결, 10분이 새로 시작)
+최소화        → LiveController.pause (연결 닫음) → 다시 나타나면 resume (다시 연결, 10분이 새로 시작)
 켠 지 10분    → 자동 꺼짐
 서버 정보(HostFacts) → ServerScreen.setFacts → 개요의 정보 칸 + 모니터링 탭의 디스크 카드(같은 값)
 알림 설정     → MetricsPanel.setAlert → "알림 기준" 카드 + CPU 차트의 기준선(전체 스위치와 "CPU가 높을 때" 둘 다 켜져 있을 때만)
@@ -165,7 +163,7 @@ Async.run(
 
 ```
 [SSH 열기] → 설정 없음? → SshSettingsDialog (키 → 금고에 저장)
-          → TerminalView 탭 추가 → Async: TerminalService.open(server)
+          → 터미널 탭을 열고(ServerScreen.showTerminalTab) → TerminalView 탭 추가 → Async: TerminalService.open(server)
              → MinaShellConnector: 연결 → 호스트 키 확인(known_hosts / HostKeyDialog)
                → 공개키 인증 → shell 채널(PTY xterm-256color)
           → ShellTtyConnector로 JediTerm에 연결 → 창 크기 변경 시 window-change

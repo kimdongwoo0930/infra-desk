@@ -3,6 +3,8 @@ package com.infradesk.ui.terminal;
 import com.infradesk.core.Server;
 import com.infradesk.core.ServerStatus;
 import com.infradesk.service.TerminalService;
+import com.infradesk.ssh.Container;
+import com.infradesk.ssh.DockerCommands;
 import com.infradesk.ui.Icons;
 import com.infradesk.ui.Theme;
 import com.infradesk.ui.components.Buttons;
@@ -22,12 +24,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 
 /**
  * 서버 화면의 "터미널" 탭 본문 (디자인 v2): 세션마다 탭 하나와 활성 터미널, 오른쪽에 저장된 명령어 패널.
@@ -47,7 +52,8 @@ public class TerminalView extends JPanel {
     private final List<TerminalPanel> sessions = new ArrayList<>();
     private static final String EMPTY = "\0empty";
 
-    private final JButton newSession = Buttons.icon("plus", "새 세션", 38);
+    /** 탭 줄의 [＋ 새 세션 ▾]: 누르면 이 서버의 새 셸과 컨테이너 셸·콘솔을 고르는 메뉴가 나온다. */
+    private final JButton newSession = Buttons.ghost("새 세션 ▾");
     private final TerminalSidePanel sidePanel;
     /** 보고 있는 서버의 선택된 세션. 그 서버에 세션이 없으면 null. */
     private TerminalPanel active;
@@ -59,7 +65,9 @@ public class TerminalView extends JPanel {
     private final JButton connectButton = Buttons.primary("접속", "terminal");
     private Runnable onCountChange = () -> { };
     private Runnable onConnectRequest = () -> { };
-    private Consumer<Server> onOpenFiles = server -> { };
+    /** 새 세션 메뉴에 보여 줄 보고 있는 서버의 컨테이너 목록과, 컨테이너 셸·콘솔을 여는 방법. */
+    private Supplier<List<Container>> containerSource = List::of;
+    private BiConsumer<Container, DockerCommands.Console> containerOpener = (container, console) -> { };
 
     public TerminalView(TerminalService service, Consumer<Server> openSettings, Supplier<List<Server>> connectableServers) {
         super(new BorderLayout());
@@ -73,10 +81,20 @@ public class TerminalView extends JPanel {
         strip.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.DIVIDER));
         strip.setPreferredSize(new Dimension(0, 38));
         tabStrip.setOpaque(false);
-        newSession.setPreferredSize(new Dimension(38, 37));
-        newSession.addActionListener(e -> openForShownServer());
+        newSession.setIcon(Icons.get("plus", 14, Theme.TEXT_MUTED));
+        newSession.setIconTextGap(6);
+        newSession.setForeground(Theme.TEXT_MUTED);
+        newSession.setPreferredSize(new Dimension(112, 37));
+        newSession.addActionListener(e -> showNewSessionMenu());
         tabStrip.add(newSession);
         strip.add(tabStrip, BorderLayout.CENTER);
+        // 준비 중(v2): 터미널을 둘로 나눠 보는 분할 보기. 만들어지면 ComingSoon을 지우고 동작을 붙인다.
+        JButton split = com.infradesk.ui.components.ComingSoon.apply(Buttons.icon("columns", "분할 보기", 32));
+        JPanel splitWrap = new JPanel(new java.awt.GridBagLayout());
+        splitWrap.setOpaque(false);
+        splitWrap.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 8));
+        splitWrap.add(split);
+        strip.add(splitWrap, BorderLayout.EAST);
 
         terminals.setBackground(Theme.TERMINAL_BG);
         terminals.add(emptyState(), EMPTY);
@@ -85,7 +103,6 @@ public class TerminalView extends JPanel {
         main.add(strip, BorderLayout.NORTH);
         main.add(terminals, BorderLayout.CENTER);
         sidePanel = new TerminalSidePanel(service, connectableServers, this::sendToActive);
-        sidePanel.sftpButton().addActionListener(e -> openSftp());
         add(main, BorderLayout.CENTER);
         add(sidePanel, BorderLayout.EAST);
     }
@@ -95,25 +112,9 @@ public class TerminalView extends JPanel {
         sidePanel.refreshServers();
     }
 
-    public JButton sftpButton() {
-        return sidePanel.sftpButton();
-    }
-
     /** 선택한 탭의 서버. 없으면 없음. */
     public java.util.Optional<Server> activeServer() {
         return active == null ? java.util.Optional.empty() : java.util.Optional.of(active.server());
-    }
-
-    /** 보고 있는 서버의 파일은 서버 화면의 "파일" 탭에서 본다. SSH 설정이 없으면 그 탭이 안내한다. */
-    private void openSftp() {
-        if (shownServer != null) {
-            onOpenFiles.accept(shownServer);
-        }
-    }
-
-    /** [SFTP 파일]을 눌렀다: 그 서버의 파일 탭을 열어 달라고 알린다. */
-    public void onOpenFiles(Consumer<Server> listener) {
-        this.onOpenFiles = listener;
     }
 
     private void sendToActive(String commandLine) {
@@ -201,11 +202,44 @@ public class TerminalView extends JPanel {
         add(new TerminalPanel(server, exec, service, openSettings));
     }
 
-    /** 탭 줄의 [+]: 보고 있는 서버에 새 셸 세션을 연다. */
-    private void openForShownServer() {
-        if (shownServer != null && shownServer.status() == ServerStatus.RUNNING) {
-            open(shownServer);
+    /** 컨테이너 셸·콘솔을 새 세션 메뉴에 넣기 위한 연결. 컨테이너는 서버 화면이 읽어 둔 목록을 쓴다. */
+    public void setContainerSupport(Supplier<List<Container>> source, BiConsumer<Container, DockerCommands.Console> opener) {
+        this.containerSource = source;
+        this.containerOpener = opener;
+    }
+
+    /**
+     * [＋ 새 세션 ▾]: 이 서버의 새 셸, 그리고 실행 중인 컨테이너의 셸과 데이터베이스 콘솔(이미지에 맞는 것만).
+     * 서버가 꺼져 있으면 모두 비활성이다.
+     */
+    private void showNewSessionMenu() {
+        if (shownServer == null) {
+            return;
         }
+        boolean running = shownServer.status() == ServerStatus.RUNNING;
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem shell = new JMenuItem(shownServer.name() + " 셸");
+        shell.setEnabled(running);
+        shell.addActionListener(e -> open(shownServer));
+        menu.add(shell);
+        List<Container> containers = containerSource.get().stream().filter(Container::isRunning).toList();
+        if (running && !containers.isEmpty()) {
+            menu.addSeparator();
+            JMenuItem header = new JMenuItem("컨테이너");
+            header.setEnabled(false);
+            menu.add(header);
+            for (Container c : containers) {
+                JMenuItem item = new JMenuItem(c.name() + " 셸");
+                item.addActionListener(e -> containerOpener.accept(c, null));
+                menu.add(item);
+                DockerCommands.Console.forImage(c.image()).ifPresent(console -> {
+                    JMenuItem db = new JMenuItem(c.name() + " " + console.label + " 콘솔");
+                    db.addActionListener(e -> containerOpener.accept(c, console));
+                    menu.add(db);
+                });
+            }
+        }
+        menu.show(newSession, 0, newSession.getHeight());
     }
 
     private void add(TerminalPanel panel) {

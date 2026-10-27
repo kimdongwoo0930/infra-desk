@@ -405,6 +405,46 @@ public final class UiSnapshot {
         System.out.println(counts[0] == 0 && counts[1] == 2
                 ? "TERMINAL-PER-SERVER: OK (다른 서버의 세션 2개는 살아 있고, 이 서버는 세션이 없다)"
                 : "TERMINAL-PER-SERVER: FAILED (세션이 없어야 할 서버 " + counts[0] + ", 있어야 할 서버 " + counts[1] + ")");
+        // 여러 서버에서 실행: 고른 서버 전부에 실행하면 오른쪽 패널의 결과 카드에 서버별 결과가 도착한다.
+        // 실행 전 확인 창은 모달이라 다른 스레드에서 "N대에 실행"을 눌러 준다.
+        SwingUtilities.invokeLater(() -> {
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(terminalFrame[0].getContentPane(), "JButton", buttons);
+            buttons.stream().map(b -> (javax.swing.AbstractButton) b)
+                    .filter(b -> b.getText() != null && b.getText().endsWith("대에 실행") && b.isEnabled())
+                    .findFirst().orElseThrow().doClick();
+        });
+        boolean batchAnswered = false;
+        for (int i = 0; i < 40 && !batchAnswered; i++) {
+            Thread.sleep(100);
+            boolean[] clicked = {false};
+            SwingUtilities.invokeAndWait(() -> {
+                for (java.awt.Window w : java.awt.Window.getWindows()) {
+                    if (w.isShowing() && w instanceof JDialog d && d.isModal()) {
+                        List<java.awt.Component> found = new java.util.ArrayList<>();
+                        collect(d.getContentPane(), "JButton", found);
+                        for (java.awt.Component c : found) {
+                            String text = ((javax.swing.AbstractButton) c).getText();
+                            if (text != null && text.endsWith("대에 실행")) {
+                                ((javax.swing.AbstractButton) c).doClick();
+                                clicked[0] = true;
+                            }
+                        }
+                    }
+                }
+            });
+            batchAnswered = clicked[0];
+        }
+        Thread.sleep(2500);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(terminalFrame[0], terminalFrame[0].getContentPane(), 1280, 1100, "terminal-batch.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            terminalFrame[0].getContentPane().setSize(1280, 800);
+        });
+        System.out.println(batchAnswered ? "BATCH-RUN: 확인 창에 응답했다" : "BATCH-RUN: FAILED (확인 창을 찾지 못함)");
         // 데모 파일 트리의 SFTP 브라우저.
         // 파일 탭은 서버 화면 안의 패널이다. 시나리오를 창 하나에서 돌릴 수 있게 테스트용 창에 담는다.
         JDialog[] sftp = new JDialog[1];

@@ -230,7 +230,8 @@ public class MainFrame extends JFrame {
         terminalView.onCountChange(this::updateTerminalCounts);
         // 터미널 탭이 비어 있을 때의 [접속]은 서버 화면 머리의 [SSH 열기]와 같다(설정 확인 후 접속).
         terminalView.onConnectRequest(this::openSsh);
-        terminalView.onOpenFiles(this::openFilesOf);
+        terminalView.setContainerSupport(() -> detail.logs().containers(),
+                (container, console) -> findServer(selectedServerId).ifPresent(s -> openContainerTerminal(s, container, console)));
         // 파일 탭: 서버마다 연결을 유지한다. SSH 설정이 없으면 탭이 안내하고, 설정을 마치면 다시 시도한다.
         detail.files().onTransfersChanged(this::updateTransferStatus);
         detail.files().init(terminalService, server -> {
@@ -1222,14 +1223,6 @@ public class MainFrame extends JFrame {
             showServer(server);
         }
         detail.showTerminalTab();
-    }
-
-    /** 터미널 탭의 [SFTP 파일]: 그 서버의 파일 탭을 연다. */
-    private void openFilesOf(Server server) {
-        if (!server.id().equals(selectedServerId)) {
-            showServer(server);
-        }
-        detail.showFilesTab();
     }
 
     /** 세션 수가 바뀌었다: 터미널 탭 이름 옆 개수(보고 있는 서버)와 상태 막대의 전체 개수를 갱신한다. */
