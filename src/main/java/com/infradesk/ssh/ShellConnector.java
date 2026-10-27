@@ -41,6 +41,19 @@ public interface ShellConnector {
         return java.util.List.of();
     }
 
+    /**
+     * 사용자가 풀의 연결 하나를 끊는다. 놀고 있는 연결은 바로 끊고, 쓰는 중인 연결은 {@code force}일 때만 끊는다
+     * (아니면 그대로 두고 false). 풀을 쓰지 않는 구현은 끊을 것이 없다.
+     */
+    default boolean disconnect(String serverId, Purpose purpose, boolean force) {
+        return false;
+    }
+
+    /** 풀 연결을 모두 끊는다. {@code force}가 아니면 쓰는 중인 연결은 둔다. @return 끊은 연결 수 */
+    default int disconnectAll(boolean force) {
+        return 0;
+    }
+
     /** 이 서버의 설정이 바뀌었거나 서버가 지워졌다. 이 서버의 풀 연결을 모두 끊는다. */
     default void invalidate(String serverId) {
     }

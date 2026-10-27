@@ -173,7 +173,7 @@ public final class UiSnapshot {
                                 new com.infradesk.ssh.OpenConnection("c", com.infradesk.ssh.Purpose.QUERY,
                                         java.time.Instant.now().minus(java.time.Duration.ofMinutes(64)), java.time.Instant.now(), 0)),
                                 () -> java.util.Map.of("a", "discord-bot", "b", "api-gateway", "c", "mac-mini", "d", "web-server"),
-                                () -> 2));
+                                () -> 2, com.infradesk.ui.settings.ConnectionPage.Disconnector.NONE));
                 for (String page : new String[] {"general", "alerts", "security", "connection", "about"}) {
                     settingsScreen.show(page);
                     write(frame, settingsScreen, 1280, 800, "settings-" + page + ".png");

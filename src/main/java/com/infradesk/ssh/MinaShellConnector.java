@@ -223,6 +223,16 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
     }
 
     @Override
+    public boolean disconnect(String serverId, Purpose purpose, boolean force) {
+        return pool.disconnect(serverId, purpose, force);
+    }
+
+    @Override
+    public int disconnectAll(boolean force) {
+        return pool.disconnectAll(force);
+    }
+
+    @Override
     public void invalidate(String serverId) {
         pool.invalidate(serverId);
     }

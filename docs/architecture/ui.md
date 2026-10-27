@@ -75,7 +75,7 @@ Async.run(
 | `Theme`, `Icons` | DESIGN-v2.md 색상 토큰(색마다 이름을 붙여 화면은 이름만 씀), FlatLaf 설치, SVG 아이콘 |
 | `TitleBar` | 앱 이름, 서버·계정 수, 마지막 새로고침, 사이드바 접기/펼치기 버튼 |
 | `Sidebar`, `ServerListItem`, `SidebarNavItem` | 맨 위 [개요] [활동 기록(준비 중)], 검색, 계정별 그룹, 서버 행. 개요를 보는 동안은 [개요]가 강조되고 서버 행의 선택은 풀린다. 폭이 200px보다 좁아지면 이름만(항목은 아이콘만) 보이는 모드로 바뀐다(`SidebarWidth`가 폭에 따른 규칙을 정한다) |
-| `ConnectionSummary` | 열린 SSH 연결 목록(`OpenConnection`)을 상태 막대 글자("SSH 연결 3 · 조회 2 · 파일 1")와 설정 표의 행으로 바꾸는 순수 함수 |
+| `ConnectionSummary` | 열린 SSH 연결 목록(`OpenConnection`)을 상태 막대 글자("SSH 연결 3 · 조회 2 · 파일 1")와 설정 표의 행으로 바꾸는 순수 함수. 설정 "연결·조회" 표(`ConnectionPage`)는 연결마다 [×], 아래 [모든 연결 끊기]를 가진다(쓰는 중인 연결은 확인 창 뒤에 강제로, 규칙은 ssh.md "사용자가 연결을 끊기") |
 | `ServerScreen` | 서버를 골랐을 때의 화면 전체: 머리(`ServerHeader`) + 탭 줄(`TabBar`) + 스크롤되는 본문. `MainFrame`이 부르던 `ServerDetailPanel`의 메서드 이름을 그대로 머리와 본문에 나눠 넘긴다. 개요·모니터링·컨테이너·파일·터미널 탭이 동작하고 로그는 `ComingSoon`이다. 파일 탭은 스크롤 창에 넣지 않고 `FilesHost`가 서버별로 `FilesTab`을 들고 있다 |
 | `ServerHeader` | 즐겨찾기 별(준비 중), 서버 이름, 상태 배지, 계정·리전 한 줄, [재부팅] [정지/시작] [⋯(준비 중)], 시작/정지/재부팅 버튼의 상태별 활성화 규칙, 요청 결과 한 줄. IP 가림을 켜고 끌 때 부제의 IP도 같이 바뀐다 |
 | `ServerDetailPanel` | 개요 탭 본문. 두 열(창이 좁으면 한 열로 쌓임, `TwoColumnLayout`): 왼쪽 **지금 상태 4칸**(`StatusSection`)과 **컨테이너 요약**(`ContainerSummaryCard`), 오른쪽 **확인 필요**(`AttentionCard`, 멈춘 컨테이너가 있을 때만), **정보**(공인 IP 가림·복사, 사설 IP, OS, 업타임, 열린 포트 칩, SSH 사용자, 생성일, [SSH 설정]), **저장된 명령어**(`SavedCommandsCard`, 누르면 터미널 탭에서 실행), **최근 활동**(`RecentActivityCard`, 준비 중). 서버에 따로 묻지 않고 다른 탭이 읽은 값을 받아 보여 준다 |

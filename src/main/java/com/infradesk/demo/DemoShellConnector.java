@@ -127,6 +127,18 @@ public class DemoShellConnector implements ShellConnector {
     }
 
     @Override
+    public boolean disconnect(String serverId, Purpose purpose, boolean force) {
+        return opened.remove(serverId + "|" + purpose) != null;
+    }
+
+    @Override
+    public int disconnectAll(boolean force) {
+        int n = opened.size();
+        opened.clear();
+        return n;
+    }
+
+    @Override
     public RemoteFiles sftp(SshTarget target, HostKeyPrompt prompt) {
         try {
             Thread.sleep(latency);

@@ -89,8 +89,8 @@ public class MainFrame extends JFrame {
     private JLabel liveStatus;
     private JLabel transferStatus;
     private JLabel sshStatus;
-    /** 접속 풀이 열어 둔 연결을 3초마다 읽어 상태 막대와 설정의 연결 표를 갱신한다(메모리만 읽고 접속하지 않는다). */
-    private final Timer connectionTimer = new Timer(3000, e -> updateConnectionStatus());
+    /** 접속 풀이 열어 둔 연결을 1초마다 읽어 상태 막대와 설정의 연결 표를 갱신한다(메모리만 읽고 접속하지 않는다). */
+    private final Timer connectionTimer = new Timer(1000, e -> updateConnectionStatus());
     private JLabel terminalStatus;
     /** 메트릭(차트)을 새로 읽는 주기. 타이머와 상태 막대 문구가 같은 값을 쓴다. */
     private static final java.time.Duration METRICS_INTERVAL = java.time.Duration.ofMinutes(1);
@@ -246,7 +246,17 @@ public class MainFrame extends JFrame {
                 updates == null ? null : () -> checkForUpdate(true),
                 () -> detail.metrics().setAlert(alerts.settings()),   // 알림 기준이 바뀌면 모니터링 탭의 기준선도 바뀐다
                 new com.infradesk.ui.settings.ConnectionPage.Source(terminalService::openConnections, this::serverNames,
-                        terminalView::sessionCount));
+                        terminalView::sessionCount, new com.infradesk.ui.settings.ConnectionPage.Disconnector() {
+                            @Override
+                            public boolean disconnect(String serverId, com.infradesk.ssh.Purpose purpose, boolean force) {
+                                return terminalService.disconnect(serverId, purpose, force);
+                            }
+
+                            @Override
+                            public int disconnectAll(boolean force) {
+                                return terminalService.disconnectAll(force);
+                            }
+                        }));
         settingsScreen.onBack(this::closeSettings);
         screenSwitch.add(sidebarSplit, MAIN_SCREEN);
         screenSwitch.add(settingsScreen, SETTINGS_SCREEN);
@@ -605,6 +615,7 @@ public class MainFrame extends JFrame {
         }
         screens.show(screenSwitch, SETTINGS_SCREEN);
         settingsVisible = true;
+        settingsScreen.refreshConnections();   // 타이머를 기다리지 않고 열자마자 지금 상태를 보여 준다
     }
 
     /** "← 개요로 돌아가기": 메인 화면으로. 알림 기준은 설정 화면이 바로 반영하지만 한 번 더 맞춘다. */

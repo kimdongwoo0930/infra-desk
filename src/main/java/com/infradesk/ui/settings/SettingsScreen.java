@@ -9,7 +9,6 @@ import com.infradesk.ui.components.Buttons;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
-import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
@@ -206,7 +205,7 @@ public final class SettingsScreen extends JPanel {
                 g2.setColor(Theme.SELECTION_BG);
                 g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 14, 14));
             } else if (getModel().isRollover()) {
-                g2.setColor(new Color(0xFFFFFF10, true));
+                g2.setColor(Theme.HOVER_BG);   // 사이드바 행과 같은 옅은 회색(ARGB 순서에 주의: 0xFFFFFF10은 불투명한 노란색이다)
                 g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 14, 14));
             }
             g2.dispose();
