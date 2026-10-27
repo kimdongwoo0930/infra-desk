@@ -38,8 +38,7 @@
 
 | 위치 | 내용 |
 |---|---|
-| `provider/demo/` | `DemoProvider`: 가짜 클라우드. 네트워크 지연과 상태 전이(시작 → 시작 중 → 실행 중)를 흉내 낸다. `DemoData`는 가짜 계정·서버·저장된 명령어, `DemoMetrics`는 가짜 그래프 데이터, `DemoProviderFactory`는 팩토리 |
-| `ssh/Demo*` | `DemoShellConnector`(미리 준비한 출력으로 답하는 가짜 셸), `DemoContainerShell`(`docker exec -it` 응답), `DemoDocker`(가짜 컨테이너. 시작/정지/재시작에 따라 상태가 바뀜), `DemoRemoteFiles`(메모리 파일 트리), `DemoLocalFiles`(SFTP 창 왼쪽의 "내 컴퓨터". 실제 홈 폴더 대신 가짜 파일이 든 임시 폴더만 보이고 그 밖으로는 못 나감) |
+| `demo/` | 데모용 가짜 부품을 한 패키지에 모았다. 이 폴더만 보면 가짜 부품이 전부 보인다. 클라우드 쪽은 `DemoProvider`(가짜 클라우드. 네트워크 지연과 상태 전이(시작 → 시작 중 → 실행 중)를 흉내 낸다), `DemoData`(가짜 계정·서버·저장된 명령어), `DemoMetrics`(가짜 그래프 데이터), `DemoRegions`, `DemoProviderFactory`(팩토리)다. SSH 쪽은 `DemoShellConnector`(미리 준비한 출력으로 답하는 가짜 셸), `DemoContainerShell`(`docker exec -it` 응답), `DemoDocker`(가짜 컨테이너. 시작/정지/재시작에 따라 상태가 바뀜), `DemoRemoteFiles`(메모리 파일 트리), `DemoLocalFiles`(SFTP 창 왼쪽의 "내 컴퓨터". 실제 홈 폴더 대신 가짜 파일이 든 임시 폴더만 보이고 그 밖으로는 못 나감)다. `core`와 `ssh`의 인터페이스를 구현할 뿐이라 `demo`를 지워도 실제 모드 코드는 `TerminalService`가 `DemoLocalFiles`를 고르는 한 줄을 빼고는 영향받지 않는다 |
 | `storage/InMemory*` | 비영속 저장소. 데모와 테스트에서 쓴다 |
 | `app/InfraDeskApp` | `demoService()`, `demoTerminalService()`, `demoAlertService()`가 가짜 부품으로 조립한다. 데모의 알림은 기기 밖으로 나가지 않고 "디스코드 알림 미리보기 (데모 · 전송 안 함)" 토스트로만 보인다 |
 | `ui/TitleBar` | 데모일 때 "데모" 배지를 보여 준다 |

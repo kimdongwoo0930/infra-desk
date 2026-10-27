@@ -25,7 +25,8 @@ ui/               화면 (Swing). service, core 타입만 사용한다
 service/          화면이 쓰는 기능: 조회, 제어, 터미널, 컨테이너, 업데이트
 core/             공통 모델과 인터페이스: Server, ServerStatus, Metrics, Account, CloudProvider
 provider/oracle/  OracleProvider (OCI SDK 사용은 이 패키지 안에서만)
-provider/ssh/     SSH 직접 연결 provider / provider/demo/ 데모용 가짜 provider
+provider/ssh/     SSH 직접 연결 provider
+demo/             데모 모드용 가짜 부품 전부 (가짜 provider, 가짜 셸·파일·Docker)
 ssh/              SSH 연결, 세션 관리, 명령 실행, SFTP
 storage/          계정·서버 설정 저장, 암호화
 alert/            디스코드 알림
@@ -83,7 +84,7 @@ PRD에 "계획"으로만 적힌 기능은 사용자가 요청할 때만 구현�
 
 ### 데모 모드 (가짜 데이터)
 - 사용자에게 보여주거나 화면을 확인할 때는 실제 키 없이 **데모 모드**로 실행한다: `./gradlew runDemo`
-- 데모 모드는 가짜 `CloudProvider` 구현(`provider/demo`)을 쓴다. 새 기능을 만들면 데모 모드에서도 동작하도록 가짜 데이터를 같이 만든다.
+- 데모 모드는 가짜 `CloudProvider` 구현(`demo/`)을 쓴다. 새 기능을 만들면 데모 모드에서도 동작하도록 가짜 데이터를 같이 만든다.
 - 데모 모드는 실제 설정 파일과 키체인을 읽거나 쓰지 않는다.
 - 화면 확인은 `./gradlew snapshot`(데모 데이터로 오프스크린 렌더링 → `build/snapshots/*.png`)으로 한다.
 

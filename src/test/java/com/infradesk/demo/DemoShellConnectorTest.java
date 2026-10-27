@@ -1,5 +1,7 @@
-package com.infradesk.ssh;
+package com.infradesk.demo;
 
+import com.infradesk.ssh.ShellSession;
+import com.infradesk.ssh.SshTarget;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

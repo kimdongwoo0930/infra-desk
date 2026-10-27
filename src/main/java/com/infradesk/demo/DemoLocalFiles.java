@@ -1,5 +1,6 @@
-package com.infradesk.ssh;
+package com.infradesk.demo;
 
+import com.infradesk.ssh.LocalFiles;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;

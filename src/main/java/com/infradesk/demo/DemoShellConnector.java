@@ -1,5 +1,13 @@
-package com.infradesk.ssh;
+package com.infradesk.demo;
 
+import com.infradesk.ssh.DockerCommands;
+import com.infradesk.ssh.HostFacts;
+import com.infradesk.ssh.HostKeyPrompt;
+import com.infradesk.ssh.ProcStats;
+import com.infradesk.ssh.RemoteFiles;
+import com.infradesk.ssh.ShellConnector;
+import com.infradesk.ssh.ShellSession;
+import com.infradesk.ssh.SshTarget;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

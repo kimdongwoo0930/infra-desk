@@ -1,4 +1,4 @@
-package com.infradesk.provider.demo;
+package com.infradesk.demo;
 
 import com.infradesk.core.Metrics;
 

@@ -1,6 +1,6 @@
 package com.infradesk.service;
 
-import com.infradesk.ssh.DemoShellConnector;
+import com.infradesk.demo.DemoShellConnector;
 import com.infradesk.ssh.ProcStats;
 import com.infradesk.ssh.SshTarget;
 import org.junit.jupiter.api.Test;
