@@ -270,8 +270,13 @@ public class MainFrame extends JFrame {
         pollTimer.setRepeats(false);
         metricsTimer = new Timer((int) METRICS_INTERVAL.toMillis(), e -> metricsTick());
         metricsTimer.start();
+        // "알림 기준" 카드: 지금 알림 설정을 보여 주고, [설정에서 바꾸기]로 설정 창을 연다(닫은 뒤 다시 읽는다).
+        detail.metrics().setAlert(alerts.settings());
+        detail.metrics().onOpenAlertSettings(this::openSettings);
+        detail.metrics().setLiveRemaining(() -> live.remaining());
         detail.metrics().onLiveToggle(this::toggleLive);
-        detail.metrics().onExpand(this::openMetricChart);
+        // 구간 선택에서 다른 기록 기간(6시간, 24시간, 7일 …)을 골랐다: 그 기간을 읽는다.
+        detail.metrics().onRangeChanged(() -> findServer(selectedServerId).ifPresent(s -> loadMetrics(s, true)));
     }
 
     /**
@@ -501,6 +506,7 @@ public class MainFrame extends JFrame {
                 updates == null ? null : () -> checkForUpdate(true));
         settingsDialog.setVisible(true);
         settingsDialog = null;
+        detail.metrics().setAlert(alerts.settings());   // 설정 창에서 알림 기준을 바꿨을 수 있다
     }
 
     /** 켜져 있으면 주기적인 베타 업데이트 확인을 시작한다(시작 15초 뒤, 그다음 6시간마다). */
@@ -690,26 +696,7 @@ public class MainFrame extends JFrame {
         }, err -> sampling.remove(server.id()));
     }
 
-    /** 메트릭 카드를 클릭했다: 선택한 서버의 큰 확대 가능 차트를 연다. */
-    private void openMetricChart(com.infradesk.ui.metrics.MetricKind kind) {
-        findServer(selectedServerId).ifPresent(server -> {
-            String id = server.id();
-            java.util.function.Function<java.time.Duration, com.infradesk.core.Metrics> loader;
-            boolean ranges = !isDirect(server);
-            if (ranges) {
-                Optional<Account> account = accountOf(server);
-                if (account.isEmpty()) {
-                    return;
-                }
-                Account a = account.get();
-                loader = range -> service.metrics(a, id, range);
-            } else {
-                loader = range -> sshMetrics.metrics(id);
-            }
-            new com.infradesk.ui.metrics.MetricChartDialog(this, server.name(), kind, ranges, loader).open();
-        });
-    }
-
+    /** 클라우드 메트릭이 없는 직접 연결 서버인지. */
     private boolean isDirect(Server server) {
         return accountOf(server).map(a -> !a.provider().hasCloudMetrics()).orElse(false);
     }
@@ -740,9 +727,7 @@ public class MainFrame extends JFrame {
         metricsServerId = server.id();
         metricsServerStatus = server.status();
         boolean running = server.status() == com.infradesk.core.ServerStatus.RUNNING;
-        metrics().setLiveEnabled(running, running
-                ? "서버 상세를 보는 동안 SSH로 /proc을 2초마다 읽어요"
-                : "서버가 실행 중일 때 쓸 수 있어요");
+        metrics().setLiveEnabled(running, running ? null : "서버가 실행 중일 때 쓸 수 있어요");
         if (!running) {
             live.stop();
             metrics().showMessage("서버가 실행 중일 때 표시돼요");
@@ -753,6 +738,8 @@ public class MainFrame extends JFrame {
         if (account.isEmpty()) {
             return;
         }
+        // 직접 연결 서버는 앱이 켜져 있는 동안 모은 기록뿐이라 1시간 외의 기간은 고를 수 없다.
+        metrics().setHistoryRangesAvailable(account.get().provider().hasCloudMetrics());
         if (!account.get().provider().hasCloudMetrics()) {
             if (liveActive()) {
                 return;
@@ -774,8 +761,10 @@ public class MainFrame extends JFrame {
             metrics().setStatus("불러오는 중…", false);
         }
         String id = server.id();
-        Async.run(() -> service.metrics(account.get(), id), m -> {
-            if (id.equals(metricsServerId) && !liveActive()) {
+        // 고른 기간을 읽는다. 읽는 사이에 기간을 또 바꿨으면 늦게 도착한 이전 기간의 결과는 버린다.
+        java.time.Duration range = metrics().selectedRange();
+        Async.run(() -> service.metrics(account.get(), id, range), m -> {
+            if (id.equals(metricsServerId) && !liveActive() && range.equals(metrics().selectedRange())) {
                 metrics().showHistory(m);
             }
         }, err -> {
@@ -1172,7 +1161,7 @@ public class MainFrame extends JFrame {
         }
         var cached = factsCache.get(server.id());
         if (!force && cached != null && cached.getKey().plus(FACTS_TTL).isAfter(java.time.Instant.now())) {
-            detail.setFacts(cached.getValue());
+            detail.setFacts(cached.getValue(), cached.getKey());   // 저장된 값은 읽었던 시각과 함께
             return;
         }
         detail.setFactsMessage("불러오는 중…");
@@ -1180,9 +1169,10 @@ public class MainFrame extends JFrame {
         Async.run(() -> terminalService.facts(server, new HostKeyDialog(this)), facts -> {
             // 사용자가 연 화면에서 SSH 접속이 됐다. 자동 측정이 멈춰 있었다면 다시 시도한다.
             sshMetrics.reset(id);
-            factsCache.put(id, java.util.Map.entry(java.time.Instant.now(), facts));
+            java.time.Instant readAt = java.time.Instant.now();
+            factsCache.put(id, java.util.Map.entry(readAt, facts));
             if (id.equals(selectedServerId)) {
-                detail.setFacts(facts);
+                detail.setFacts(facts, readAt);
             }
             // 상세 정보를 읽는 과정에서 호스트 키를 방금 신뢰했을 수 있다. 백그라운드 샘플링은 절대 묻지 않는다.
             if (isDirect(server) && sshMetrics.metrics(id).cpuPercent().isEmpty()) {

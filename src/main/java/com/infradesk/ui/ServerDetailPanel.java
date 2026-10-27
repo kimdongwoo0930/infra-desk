@@ -19,10 +19,11 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /**
- * 서버 화면의 "개요" 탭 본문: 4×2 정보 그리드, 메트릭 차트.
+ * 서버 화면의 "개요" 탭 본문: 4×2 정보 그리드.
  *
  * <p>머리(이름, 배지, 동작 버튼)는 탭을 바꿔도 그대로 있어야 해서 {@link ServerHeader}로 떼어 냈다.
- * 컨테이너 표도 "컨테이너" 탭({@code ContainersTab})으로 옮겼다. 개요 탭에는 7단계에서 컨테이너 요약이 들어온다.
+ * 컨테이너 표는 "컨테이너" 탭, 차트는 "모니터링" 탭({@code MetricsPanel})으로 옮겼다. 개요 탭에는 7단계에서
+ * "지금 상태"와 컨테이너 요약이 들어온다.
  * 이 패널은 탭 아래의 스크롤되는 영역에 들어간다({@link ServerScreen}).
  */
 public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable {
@@ -30,7 +31,6 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault());
     private static final String NONE = "—";
 
-    private final com.infradesk.ui.metrics.MetricsPanel metrics = new com.infradesk.ui.metrics.MetricsPanel();
     private Server server;
 
     private final JLabel cpuMem = value(false);
@@ -51,15 +51,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         setBorder(BorderFactory.createEmptyBorder(20, 28, 24, 28));
 
         add(infoGrid());
-        add(Box.createVerticalStrut(20));
-        metrics.setAlignmentX(Component.LEFT_ALIGNMENT);
-        metrics.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, metrics.getPreferredSize().height));
-        add(metrics);
         add(Box.createVerticalGlue());
-    }
-
-    public com.infradesk.ui.metrics.MetricsPanel metrics() {
-        return metrics;
     }
 
     // 스크롤 가능: 뷰포트 너비를 채우고, 컨테이너 표가 길면 세로로 스크롤한다.

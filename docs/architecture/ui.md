@@ -20,9 +20,9 @@
 │  │ 검색      │ │ ServerHeader  이름 · 배지 · 버튼         │   │
 │  │ 계정별    │ │ TabBar        개요 / 모니터링 / …        │   │
 │  │ 서버 목록 │ │ ───────────── (여기부터 스크롤) ──────── │   │
-│  │ (CPU%)    │ │ ServerDetailPanel = 개요 탭 본문         │   │
-│  │           │ │   정보 그리드 · MetricsPanel ·          │   │
-│  └──────────┘ │   ContainersPanel                        │   │
+│  │ (CPU%)    │ │ 탭 본문: 개요(ServerDetailPanel)        │   │
+│  │           │ │   · 모니터링(MetricsPanel)              │   │
+│  └──────────┘ │   · 컨테이너(ContainersTab)              │   │
 │               └─────────────────────────────────────────┘   │
 │                         ── 또는 ──                           │
 │  [터미널 화면]  TerminalView: 서버·컨테이너별 SSH 탭들         │
@@ -90,13 +90,14 @@ Async.run(
 
 | 클래스 | 역할 |
 |---|---|
-| `MetricsPanel` | 모니터링 섹션: 카드 3개, 상태 문구, 실시간 토글 |
-| `MetricCard` | 스탯 타일: 현재값 + XChart 스파크라인 + 범례/설명 |
-| `MetricKind` | CPU/메모리/네트워크 정의(제목, 시리즈 색, 포맷, y 최댓값, `Metrics`에서 꺼내는 법). 카드와 확대 창이 같이 씀 |
-| `MetricChartDialog` | 카드를 클릭하면 열리는 확대 차트. 기간 버튼(1시간/6시간/24시간/7일), 1분마다 재조회 |
-| `ZoomChartPanel`, `ZoomWindow` | 휠 확대·축소, 드래그 이동. `ZoomWindow`는 UI 없는 순수 계산이라 단위 테스트가 있다 |
-| `ChartTooltip`, `HoverChartPanel` | 마우스를 올렸을 때 세로선과 값 툴팁 |
-| `LiveController` | 실시간 모드 상태(OFF/CONNECTING/RUNNING/PAUSED), 일시정지·재개, 10분 뒤 자동 꺼짐 |
+| `MetricsPanel` | "모니터링" 탭 본문: 구간 선택(실시간·1시간·6시간·24시간·7일), 안내 문구, 큰 차트 카드 3개, 오른쪽 열. "실시간"은 구간 선택의 첫 칸이다(고르면 `onLiveToggle(true)`, 다른 기간으로 가면 `onLiveToggle(false)`, 기록 기간끼리 바꾸면 `onRangeChanged`). 직접 연결 서버는 1시간 외의 기간 칸이 비활성이다 |
+| `MetricChartCard` | 큰 차트 카드: 제목, 지금 값(선이 둘이면 합), 범례, `ZoomChartPanel` |
+| `MetricsSidePanel` | 오른쪽 열 카드 셋: 이 기간 요약, 디스크(/), 알림 기준(+ [설정에서 바꾸기]). 서버에 묻지 않고 받은 값만 보여 준다 |
+| `MetricSummary` | "이 기간 요약" 계산(평균, 최대와 그 시각, 수신+송신 합). UI 없는 순수 계산이라 단위 테스트가 있다 |
+| `MetricKind` | CPU/메모리/네트워크 정의(제목, 시리즈 색, 포맷, y 최댓값, `Metrics`에서 꺼내는 법) |
+| `ZoomChartPanel`, `ZoomWindow` | 큰 차트: 휠 확대·축소, 드래그 이동, 두 번 눌러 초기화, 선 아래 채움, CPU 알림 기준선. `ZoomWindow`는 UI 없는 순수 계산 |
+| `HoverSync`, `ChartTooltip` | 세 차트가 마우스가 가리키는 시각을 함께 쓰는 공유 상태와, 세로선·값 상자 그리기 |
+| `LiveController` | 실시간 모드 상태(OFF/CONNECTING/RUNNING/PAUSED), 일시정지·재개, 10분 뒤 자동 꺼짐, 남은 시간(`remaining()`) |
 
 ### `ui.terminal` — SSH 터미널
 
@@ -134,15 +135,19 @@ Async.run(
 ### 모니터링
 
 ```
-서버 선택     → Async: service.metrics(account, id)          → MetricsPanel.showHistory (1시간, 1분 점)
-카드 클릭     → MetricChartDialog → Async: service.metrics(account, id, range) → ZoomChartPanel
+서버 선택     → Async: service.metrics(account, id, 고른 기간)   → MetricsPanel.showHistory (기본 1시간, 1분 점)
+기간 선택     → MetricsPanel.onRangeChanged → MainFrame.loadMetrics → 같은 흐름으로 그 기간을 읽는다
                   OCI 간격: 6시간 이하 1분, 24시간 이하 5분, 그 이상 15분
-                  직접 연결 서버는 기간 선택 없이 수집분만
-1분 타이머    → 선택 서버 메트릭 + service.currentCpu(inventory) → 사이드바 CPU%
-[실시간 (SSH)] → LiveController → TerminalService.openStats (exec: ProcStats.COMMAND, 최대 310회)
-                  → LiveStats: '---' 블록마다 파싱 → 이전 스냅샷과 차이 → MetricsPanel.addLive (최근 5분)
-터미널 화면 / 최소화 → LiveController.pause (연결 닫음) → 대시보드 복귀 → resume (다시 연결)
+                  직접 연결 서버는 1시간 외 기간 칸이 비활성(앱이 켜져 있는 동안 모은 수집분만)
+                  차트를 전체보다 더 축소하면 다음으로 긴 기간으로 넘어간다(`ZoomChartPanel.onZoomOutFull`)
+1분 타이머    → 선택 서버의 고른 기간 + service.currentCpu(inventory) → 사이드바 CPU%
+[● 실시간]    → MetricsPanel.onLiveToggle(true) → MainFrame.toggleLive → LiveController → TerminalService.openStats
+                  (exec: ProcStats.COMMAND, 최대 310회) → LiveStats: '---' 블록마다 파싱 → 이전 스냅샷과 차이
+                  → MetricsPanel.addLive (최근 5분) · 안내 문구에 남은 시간("8분 뒤 자동으로 꺼져요")
+터미널 화면 / 최소화 → LiveController.pause (연결 닫음) → 대시보드 복귀 → resume (다시 연결, 10분이 새로 시작)
 켠 지 10분    → 자동 꺼짐
+서버 정보(HostFacts) → ServerScreen.setFacts → 개요의 정보 칸 + 모니터링 탭의 디스크 카드(같은 값)
+알림 설정     → MetricsPanel.setAlert → "알림 기준" 카드 + CPU 차트의 기준선(전체 스위치와 "CPU가 높을 때" 둘 다 켜져 있을 때만)
 ```
 
 ### SSH 터미널 열기

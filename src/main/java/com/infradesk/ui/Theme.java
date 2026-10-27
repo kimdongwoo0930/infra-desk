@@ -76,6 +76,15 @@ public final class Theme {
     /** v2 새 값: 채움 위험 버튼(예: 영구 삭제). 글자는 흰색. */
     public static final Color DANGER_FILL = new Color(0xA8423C);
 
+    // ── 차트 ────────────────────────────────────────────────────
+    // 격자는 DIVIDER, 알림 기준 점선은 WARNING_BAR(#E5A84B)를 그대로 쓴다.
+    public static final Color CHART_CPU = new Color(0x5B8DEF);
+    public static final Color CHART_MEMORY = new Color(0x4FB6A8);
+    public static final Color CHART_RX = new Color(0x5B8DEF);
+    public static final Color CHART_TX = new Color(0xE8925A);
+    /** 활동 표시선(점선). 활동 기록이 생기면 쓴다. */
+    public static final Color ACTIVITY_LINE = new Color(0x6E7178);
+
     // 중립(정지 등)은 새 상수를 만들지 않고 기존 값을 그대로 쓴다:
     // 점 TEXT_MUTED(테두리만 있는 점), 배지 배경 DIVIDER, 배지 글자 TEXT.
 

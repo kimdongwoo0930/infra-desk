@@ -64,6 +64,41 @@ class SegmentedControlTest {
     }
 
     @Test
+    void 칸_앞에_점을_붙이면_그_칸이_넓어지고_점_색이_그려진다() {
+        SegmentedControl c = control();
+        int before = c.getComponent(0).getPreferredSize().width;
+
+        c.setDot(0, Theme.RUNNING_DOT);
+
+        assertEquals(before + 6 + 6, c.getComponent(0).getPreferredSize().width);
+        // 첫 칸은 선택 상태라 파란 배경 위에 초록 점이 그려진다: 점은 칸 가운데 덩어리의 왼쪽에 있다.
+        BufferedImage img = Pixels.paint(c);
+        java.awt.Rectangle first = c.getComponent(0).getBounds();
+        int contentWidth = c.getComponent(0).getPreferredSize().width - 24;   // 좌우 여백 12씩
+        int dotX = first.x + (first.width - contentWidth) / 2 + 3;            // 점의 가운데
+        assertEquals(Theme.RUNNING_DOT.getRGB(), img.getRGB(dotX, first.y + first.height / 2));
+    }
+
+    @Test
+    void 칸을_비활성으로_하면_눌러도_선택되지_않고_안내가_붙는다() {
+        SegmentedControl c = control();
+        List<Integer> heard = new ArrayList<>();
+        c.addSelectionListener(heard::add);
+
+        c.setSegmentEnabled(2, false, "이 기간은 없어요");
+        segment(c, 2).doClick();
+
+        assertEquals(0, c.getSelectedIndex());
+        assertEquals(List.of(), heard);
+        assertEquals(false, segment(c, 2).isEnabled());
+        assertEquals("이 기간은 없어요", ((javax.swing.JComponent) c.getComponent(2)).getToolTipText());
+
+        c.setSegmentEnabled(2, true, null);
+        segment(c, 2).doClick();
+        assertEquals(2, c.getSelectedIndex());
+    }
+
+    @Test
     void 코드로_선택을_바꿀_수_있다() {
         SegmentedControl c = control();
         c.setSelectedIndex(3);

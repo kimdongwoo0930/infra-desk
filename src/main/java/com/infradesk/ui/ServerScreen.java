@@ -5,6 +5,7 @@ import com.infradesk.core.Server;
 import com.infradesk.service.ServerAction;
 import com.infradesk.ui.components.TabBar;
 import com.infradesk.ui.containers.ContainersTab;
+import com.infradesk.ui.metrics.MetricsPanel;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -42,6 +43,7 @@ public class ServerScreen extends JPanel {
     private final TabBar tabs = new TabBar();
     private final ServerDetailPanel overview = new ServerDetailPanel();
     private final ContainersTab containersTab = new ContainersTab();
+    private final MetricsPanel metrics = new MetricsPanel();
     /** 지금 화면에 보여 주는 서버. 서버가 바뀌었는지 알아서 이전 서버의 컨테이너 로그 칩을 비우는 데 쓴다. */
     private String shownServerId;
     private final CardLayout cards = new CardLayout();
@@ -57,9 +59,8 @@ public class ServerScreen extends JPanel {
         tabs.addTab(TAB_FILES, "파일");
         tabs.addTab(TAB_TERMINAL, "터미널");
         tabs.addTab(TAB_LOGS, "로그");
-        // 개요와 컨테이너가 지금 동작한다. 나머지 탭은 화면을 하나씩 만들 때(디자인 v2 4~7단계) 아래 줄을 지워 연다.
-        // 준비 중(v2): 모니터링, 파일, 터미널 탭 — 해당 화면이 만들어지면 setComingSoon을 지운다
-        tabs.setComingSoon(TAB_MONITORING);
+        // 개요, 모니터링, 컨테이너가 지금 동작한다. 나머지 탭은 화면을 하나씩 만들 때(디자인 v2 5~7단계) 아래 줄을 지워 연다.
+        // 준비 중(v2): 파일, 터미널 탭 — 해당 화면이 만들어지면 setComingSoon을 지운다
         tabs.setComingSoon(TAB_FILES);
         tabs.setComingSoon(TAB_TERMINAL);
         // 준비 중(v2): 로그 탭 — 시안에서도 준비 중이다. 로그를 볼 기능이 생기면 연다
@@ -76,12 +77,13 @@ public class ServerScreen extends JPanel {
 
         // 본문: 탭 id를 이름으로 하는 카드. 지금은 개요 하나뿐이다.
         body.setOpaque(false);
-        JScrollPane overviewScroll = new JScrollPane(overview);
-        overviewScroll.setBorder(null);
-        // 뷰포트는 투명으로 두지 않고 배경색으로 칠한다: 투명하면 스크롤할 때 잔상이 남을 수 있다.
-        overviewScroll.getViewport().setBackground(Theme.APP_BG);
-        overviewScroll.getVerticalScrollBar().setUnitIncrement(24);
-        body.add(overviewScroll, TAB_OVERVIEW);
+        body.add(scrolling(overview), TAB_OVERVIEW);
+        // 모니터링 탭: 큰 차트가 세로로 쌓여서 창보다 길어지면 스크롤한다. 안쪽 여백은 개요 탭과 같다(좌우 28).
+        JPanel monitoring = new JPanel(new BorderLayout());
+        monitoring.setOpaque(false);
+        monitoring.setBorder(BorderFactory.createEmptyBorder(20, 28, 24, 28));
+        monitoring.add(metrics, BorderLayout.NORTH);
+        body.add(scrolling(monitoring), TAB_MONITORING);
         // 컨테이너 탭은 스크롤 창에 넣지 않는다: 안의 표와 로그가 각자 스크롤하고 위아래 나눔을 가진다.
         body.add(containersTab, TAB_CONTAINERS);
         add(body, BorderLayout.CENTER);
@@ -94,6 +96,16 @@ public class ServerScreen extends JPanel {
                 containersTab.fitTable();
             }
         });
+    }
+
+    /** 본문을 세로 스크롤 창에 담는다. */
+    private static JScrollPane scrolling(JPanel content) {
+        JScrollPane scroll = new JScrollPane(content);
+        scroll.setBorder(null);
+        // 뷰포트는 투명으로 두지 않고 배경색으로 칠한다: 투명하면 스크롤할 때 잔상이 남을 수 있다.
+        scroll.getViewport().setBackground(Theme.APP_BG);
+        scroll.getVerticalScrollBar().setUnitIncrement(24);
+        return scroll;
     }
 
     // ── MainFrame이 부르는 메서드: 머리 ─────────────────────────
@@ -116,8 +128,8 @@ public class ServerScreen extends JPanel {
 
     // ── 개요 본문 ───────────────────────────────────────────────
 
-    public com.infradesk.ui.metrics.MetricsPanel metrics() {
-        return overview.metrics();
+    public MetricsPanel metrics() {
+        return metrics;
     }
 
     // ── 컨테이너 탭 ─────────────────────────────────────────────
@@ -133,6 +145,11 @@ public class ServerScreen extends JPanel {
     /** 컨테이너 탭을 연다(예: 표의 [로그] 버튼을 눌렀을 때). */
     public void showContainersTab() {
         tabs.select(TAB_CONTAINERS);
+    }
+
+    /** 모니터링 탭을 연다. */
+    public void showMonitoringTab() {
+        tabs.select(TAB_MONITORING);
     }
 
     /** 개요 탭을 연다. */
@@ -160,12 +177,19 @@ public class ServerScreen extends JPanel {
         tabs.setCount(TAB_CONTAINERS, null);
     }
 
-    public void setFacts(com.infradesk.ssh.HostFacts facts) {
+    /**
+     * 서버 정보를 보여 준다. 개요의 정보 칸과, 모니터링 탭의 디스크 카드가 같은 값을 쓴다.
+     *
+     * @param readAt 이 값을 서버에서 읽은 시각(저장된 값을 다시 보여 줄 때는 읽었던 시각)
+     */
+    public void setFacts(com.infradesk.ssh.HostFacts facts, java.time.Instant readAt) {
         overview.setFacts(facts);
+        metrics.setDisk(facts.diskUsed(), facts.diskTotal(), readAt);
     }
 
     public void setFactsMessage(String message) {
         overview.setFactsMessage(message);
+        metrics.setDiskMessage(message);
     }
 
     // ── 둘 다 ───────────────────────────────────────────────────

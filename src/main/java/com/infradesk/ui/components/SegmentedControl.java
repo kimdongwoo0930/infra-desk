@@ -91,6 +91,25 @@ public class SegmentedControl extends JPanel {
         repaint();
     }
 
+    /**
+     * 칸 글자 앞에 작은 점을 붙인다(예: "● 실시간"의 초록 점). null이면 없앤다.
+     */
+    public void setDot(int index, java.awt.Color color) {
+        segments.get(index).dot = color;
+        segments.get(index).revalidate();
+        segments.get(index).repaint();
+    }
+
+    /**
+     * 칸 하나를 누를 수 없게 하거나 되살린다. 비활성인 칸은 흐리게 보이고 {@code tooltip}으로 이유를 알려 준다
+     * (예: 직접 연결 서버는 1시간 외의 기간이 없다). 선택된 칸을 비활성으로 만들면 선택은 그대로 남는다.
+     */
+    public void setSegmentEnabled(int index, boolean enabled, String tooltip) {
+        Segment s = segments.get(index);
+        s.setEnabled(enabled);
+        s.setToolTipText(enabled ? null : tooltip);
+    }
+
     /** 선택이 바뀌면 새 번호와 함께 불린다. */
     public void addSelectionListener(IntConsumer listener) {
         listeners.add(listener);
@@ -119,6 +138,11 @@ public class SegmentedControl extends JPanel {
     /** 상자 안의 버튼 하나. */
     private static final class Segment extends JToggleButton {
 
+        /** 글자 앞의 점 색. null이면 점이 없다. */
+        java.awt.Color dot;
+        private static final int DOT = 6;
+        private static final int DOT_GAP = 6;
+
         Segment(String label) {
             super(label);
             setContentAreaFilled(false);
@@ -137,7 +161,7 @@ public class SegmentedControl extends JPanel {
         @Override
         public Dimension getPreferredSize() {
             // 선택되면 글자가 굵어지는데, 굵은 글자 기준으로 너비를 정해서 선택이 바뀌어도 버튼 폭이 흔들리지 않게 한다.
-            int textWidth = getFontMetrics(boldFont()).stringWidth(getText());
+            int textWidth = getFontMetrics(boldFont()).stringWidth(getText()) + (dot == null ? 0 : DOT + DOT_GAP);
             return new Dimension(textWidth + SEGMENT_PAD_X * 2, SEGMENT_HEIGHT);
         }
 
@@ -163,9 +187,17 @@ public class SegmentedControl extends JPanel {
                 g2.setFont(selected ? boldFont() : getFont());
                 FontMetrics fm = g2.getFontMetrics();
                 g2.setColor(selected ? java.awt.Color.WHITE : Theme.TEXT_SECONDARY);
-                // 가운데 정렬: 가로는 (폭 - 글자 폭) / 2, 세로는 기준선 = 위 여백 + 올림.
-                g2.drawString(getText(), (w - fm.stringWidth(getText())) / 2,
-                        (h - fm.getHeight()) / 2 + fm.getAscent());
+                // 점이 있으면 점과 글자를 한 덩어리로 보고 그 덩어리를 가운데에 놓는다.
+                int contentWidth = fm.stringWidth(getText()) + (dot == null ? 0 : DOT + DOT_GAP);
+                int x = (w - contentWidth) / 2;
+                if (dot != null) {
+                    g2.setColor(dot);
+                    g2.fillOval(x, (h - DOT) / 2, DOT, DOT);
+                    g2.setColor(selected ? java.awt.Color.WHITE : Theme.TEXT_SECONDARY);
+                    x += DOT + DOT_GAP;
+                }
+                // 세로는 기준선 = 위 여백 + 올림.
+                g2.drawString(getText(), x, (h - fm.getHeight()) / 2 + fm.getAscent());
             } finally {
                 g2.dispose();
             }

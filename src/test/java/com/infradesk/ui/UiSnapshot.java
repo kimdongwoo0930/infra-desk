@@ -236,20 +236,45 @@ public final class UiSnapshot {
             }
             sshFrame[0].dispose();
         });
-        // 실시간 모드: 메인 프레임의 토글을 켜고 데모 /proc 스트림이 샘플을 만들게 한다.
+        // 모니터링 탭 (디자인 v2 4단계): 기본 1시간, 24시간, 실시간 순서로 찍는다. 기간 칸을 누르면 그 기간을 비동기로
+        // 읽어 오므로 잠깐 기다린다. 실시간은 데모 /proc 스트림이 샘플을 쌓을 시간을 준다. 마지막에 1시간으로 돌려
+        // 실시간을 끄고 개요 탭으로 돌아가서 아래 스냅샷에 영향이 없게 한다.
         SwingUtilities.invokeAndWait(() -> {
             MainFrame live = mainFrame[0];
             live.addNotify();
-            find(live.getContentPane(), javax.swing.JToggleButton.class).doClick();
+            live.serverScreen().showMonitoringTab();
         });
-        Thread.sleep(9000);
+        Thread.sleep(1200);
+        snapshotMonitoring("monitoring.png", mainFrame[0]);
+        // 첫 번째(CPU) 차트 위에 마우스를 올린다: 세 차트가 같은 시점에 선과 값 상자를 그려야 한다.
         SwingUtilities.invokeAndWait(() -> {
-            try {
-                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "main-live.png");
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            var chart = find(mainFrame[0].getContentPane(), "ZoomChartPanel");
+            var move = new java.awt.event.MouseEvent(chart, java.awt.event.MouseEvent.MOUSE_MOVED,
+                    System.currentTimeMillis(), 0, chart.getWidth() * 3 / 5, 80, 0, false);
+            for (var l : chart.getMouseMotionListeners()) {
+                l.mouseMoved(move);
             }
         });
+        snapshotMonitoring("monitoring-hover.png", mainFrame[0]);
+        SwingUtilities.invokeAndWait(() -> {
+            var chart = find(mainFrame[0].getContentPane(), "ZoomChartPanel");
+            var exit = new java.awt.event.MouseEvent(chart, java.awt.event.MouseEvent.MOUSE_EXITED,
+                    System.currentTimeMillis(), 0, -1, -1, 0, false);
+            for (var l : chart.getMouseListeners()) {
+                l.mouseExited(exit);
+            }
+        });
+        SwingUtilities.invokeAndWait(() -> ((javax.swing.AbstractButton) findText(mainFrame[0].getContentPane(), "24시간")).doClick());
+        Thread.sleep(1200);
+        snapshotMonitoring("monitoring-24h.png", mainFrame[0]);
+        SwingUtilities.invokeAndWait(() -> ((javax.swing.AbstractButton) findText(mainFrame[0].getContentPane(), "실시간")).doClick());
+        Thread.sleep(9000);
+        snapshotMonitoring("monitoring-live.png", mainFrame[0]);
+        SwingUtilities.invokeAndWait(() -> {
+            ((javax.swing.AbstractButton) findText(mainFrame[0].getContentPane(), "1시간")).doClick();   // 실시간을 끈다
+            mainFrame[0].serverScreen().showOverviewTab();
+        });
+        Thread.sleep(600);
 
         // 터미널: 데모 세션을 열고, 가짜 셸이 배너를 출력할 시간을 준 뒤 렌더링한다.
         MainFrame[] terminalFrame = new MainFrame[1];
@@ -535,55 +560,20 @@ public final class UiSnapshot {
                 }
             });
         }
-        // 확대 가능한 메트릭 차트: 24시간 네트워크를 그린 뒤, 확대해서 호버 툴팁과 함께 렌더링한다.
-        var chartServer = inventory.getFirst().servers().getFirst();
-        var chartAccount = inventory.getFirst().account();
-        var chartDialog = new com.infradesk.ui.metrics.MetricChartDialog(terminalFrame[0], chartServer.name(),
-                com.infradesk.ui.metrics.MetricKind.NETWORK, true, range -> service.metrics(chartAccount, chartServer.id(), range));
-        SwingUtilities.invokeAndWait(chartDialog::startLoading);
-        Thread.sleep(1500);
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart.png");
-                var panel = find(chartDialog.getContentPane(), "ZoomChartPanel");
-                for (int i = 0; i < 3; i++) {
-                    var e = new java.awt.event.MouseWheelEvent(panel, java.awt.event.MouseEvent.MOUSE_WHEEL,
-                            System.currentTimeMillis(), 0, 600, 200, 600, 200, 0, false,
-                            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL, 1, -3, -3.0);
-                    for (var l : panel.getMouseWheelListeners()) {
-                        l.mouseWheelMoved(e);
-                    }
-                }
-                var move = new java.awt.event.MouseEvent(panel, java.awt.event.MouseEvent.MOUSE_MOVED,
-                        System.currentTimeMillis(), 0, 500, 200, 0, false);
-                for (var l : panel.getMouseMotionListeners()) {
-                    l.mouseMoved(move);
-                }
-                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart-zoomed.png");
-                ((javax.swing.AbstractButton) findText(chartDialog.getContentPane(), "24시간")).doClick();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        Thread.sleep(1500);
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart-24h.png");
-                ((javax.swing.AbstractButton) findText(chartDialog.getContentPane(), "7일")).doClick();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        Thread.sleep(1500);
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart-7d.png");
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
         System.out.println("Snapshots written to " + DIR.getAbsolutePath());
         System.exit(0);
+    }
+
+    /** 모니터링 탭을 찍는다. 차트 3개가 세로로 쌓여 길어서 높이를 1100으로 키운다. */
+    private static void snapshotMonitoring(String name, MainFrame frame) throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(frame, frame.getContentPane(), 1280, 1100, name);
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            frame.getContentPane().setSize(1280, 800);
+        });
     }
 
     private static java.awt.Component findText(Container root, String text) {
