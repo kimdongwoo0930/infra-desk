@@ -343,6 +343,11 @@ public class ContainersPanel extends JPanel {
         setBusy(false, statusText);
     }
 
+    /** 컨테이너 작업을 서버에 보내고 기다리는 중인지. */
+    public boolean isBusy() {
+        return busy;
+    }
+
     public void setBusy(boolean busy, String statusText) {
         this.busy = busy;
         status.setText(statusText == null ? " " : statusText);

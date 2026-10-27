@@ -100,6 +100,7 @@ public class ServerScreen extends JPanel {
         // 개요의 "지금 상태"는 모니터링 탭이 읽은 값을 그대로 받아 보여 준다(서버에 따로 묻지 않는다).
         metrics.setObserver(overview.statusSection());
         overview.statusSection().onOpenMonitoring(this::showMonitoringTab);
+        overview.containerSummary().onViewAll(this::showContainersTab);
 
         tabs.onSelect(id -> {
             cards.show(body, id);
@@ -216,7 +217,8 @@ public class ServerScreen extends JPanel {
      * 아직 고른 컨테이너가 없으면 첫 컨테이너의 로그를 바로 보여 준다. 탭이 닫혀 있을 때는 로그를 읽지
      * 않는다(서버를 고를 때마다 불필요한 SSH 조회가 생기지 않게).
      */
-    public void setContainers(java.util.List<com.infradesk.ssh.Container> list) {
+    public void setContainers(java.util.List<com.infradesk.ssh.Container> list, java.time.Instant at) {
+        overview.containerSummary().setContainers(list, at);   // 개요의 컨테이너 요약도 같은 목록을 쓴다
         containersTab.logs().setContainers(list);
         tabs.setCount(TAB_CONTAINERS, list.size());
         containersTab.fitTable();
@@ -225,10 +227,24 @@ public class ServerScreen extends JPanel {
         }
     }
 
-    /** 컨테이너를 보여 줄 수 없다(서버 꺼짐, SSH 미설정, 읽기 실패): 로그 패널의 칩과 탭 개수를 비운다. */
+    /** 서버가 바뀌어 새 목록을 기다린다: 이전 서버의 컨테이너를 지우고 "불러오는 중…"을 보여 준다. */
     public void clearContainers() {
+        clearContainers("불러오는 중…");
+    }
+
+    /**
+     * 컨테이너를 보여 줄 수 없다(서버 꺼짐, SSH 미설정, 읽기 실패): 로그 패널의 칩과 탭 개수를 비우고, 개요의
+     * 컨테이너 요약에 이유를 적는다.
+     */
+    public void clearContainers(String reason) {
         containersTab.logs().setContainers(java.util.List.of());
         tabs.setCount(TAB_CONTAINERS, null);
+        overview.containerSummary().showMessage(reason);
+    }
+
+    /** 개요의 컨테이너 요약: 행의 작업(로그·셸·재시작·시작)을 눌렀을 때 할 일을 걸 곳. */
+    public com.infradesk.ui.overview.ContainerSummaryCard containerSummary() {
+        return overview.containerSummary();
     }
 
     /**

@@ -34,6 +34,8 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private Server server;
     /** 맨 위 "지금 상태" 네 칸. 값은 모니터링 탭과 서버 정보에서 받아 온다. */
     private final com.infradesk.ui.overview.StatusSection status = new com.infradesk.ui.overview.StatusSection();
+    /** "지금 상태" 아래의 컨테이너 요약. 목록은 컨테이너 탭이 읽은 것을 받는다. */
+    private final com.infradesk.ui.overview.ContainerSummaryCard containerSummary = new com.infradesk.ui.overview.ContainerSummaryCard();
 
     private final JLabel cpuMem = value(false);
     private final JLabel publicIp = value(true);
@@ -47,6 +49,11 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private final JLabel ports = value(false);
     private final JLabel created = value(false);
 
+    /** 컨테이너 요약: 목록을 넣고, 행의 작업을 눌렀을 때 할 일을 걸 곳. */
+    public com.infradesk.ui.overview.ContainerSummaryCard containerSummary() {
+        return containerSummary;
+    }
+
     /** "지금 상태"의 값을 받는 쪽과, 칸을 눌렀을 때 할 일을 걸 곳. */
     public com.infradesk.ui.overview.StatusSection statusSection() {
         return status;
@@ -58,6 +65,8 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         setBorder(BorderFactory.createEmptyBorder(20, 28, 24, 28));
 
         add(status);
+        add(Box.createVerticalStrut(16));
+        add(containerSummary);
         add(Box.createVerticalStrut(16));
         add(infoGrid());
         add(Box.createVerticalGlue());

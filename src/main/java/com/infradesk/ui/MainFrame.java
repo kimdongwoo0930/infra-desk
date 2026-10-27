@@ -241,6 +241,13 @@ public class MainFrame extends JFrame {
         detail.onSsh(this::openSsh);
         detail.containers().onRefresh(() -> findServer(selectedServerId).ifPresent(s -> loadContainers(s, true)));
         detail.containers().onAction(this::containerAction);
+        // 개요의 컨테이너 요약: 컨테이너 탭과 같은 처리(확인 창, 실행)를 쓴다.
+        detail.containerSummary().onAction(this::containerAction);
+        detail.containerSummary().onShell(c -> findServer(selectedServerId).ifPresent(s -> openContainerTerminal(s, c, null)));
+        detail.containerSummary().onLogs(c -> {
+            detail.showContainersTab();
+            showLogsOf(c);
+        });
         detail.containers().onShell((c, console) -> findServer(selectedServerId).ifPresent(s -> openContainerTerminal(s, c, console)));
         // 표에서 행을 클릭하면 아래 로그가 그 컨테이너로 바뀐다(로그 아이콘은 없다). 반대로 로그의 칩을 고르면
         // 표의 행이 따라서 강조된다.
@@ -1073,7 +1080,7 @@ public class MainFrame extends JFrame {
         panel.showContainers(listing.containers(), "docker ps · "
                 + java.time.LocalTime.ofInstant(at, java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")) + " 기준");
         // 같은 목록으로 로그 패널의 컨테이너 칩과 탭 이름 옆 개수도 갱신한다.
-        detail.setContainers(listing.containers());
+        detail.setContainers(listing.containers(), at);
     }
 
     /**
@@ -1082,7 +1089,7 @@ public class MainFrame extends JFrame {
      */
     private void containersUnavailable(String reason) {
         detail.containers().showMessage(reason, null);
-        detail.clearContainers();
+        detail.clearContainers(reason);
     }
 
     /**
@@ -1163,6 +1170,9 @@ public class MainFrame extends JFrame {
             }
         }
         var panel = detail.containers();
+        if (panel.isBusy()) {
+            return;   // 앞의 요청이 끝나기 전에 개요와 컨테이너 탭에서 또 누른 경우
+        }
         panel.setBusy(true, c.name() + " " + label + " 중…");
         Server s = server.get();
         Async.run(() -> {

@@ -45,7 +45,7 @@ class ServerScreenTest {
     void 컨테이너_탭이_닫혀_있으면_목록이_와도_로그를_읽지_않는다() {
         Fixture f = new Fixture();
 
-        f.screen.setContainers(List.of(container("web", true), container("db", true)));
+        f.screen.setContainers(List.of(container("web", true), container("db", true)), java.time.Instant.EPOCH);
 
         assertEquals(List.of(), f.requests, "서버를 고를 때마다 SSH 로그 조회가 생기면 안 된다");
         assertNull(f.screen.logs().selected());
@@ -54,7 +54,7 @@ class ServerScreenTest {
     @Test
     void 컨테이너_탭을_열면_첫_컨테이너의_로그를_바로_읽는다() {
         Fixture f = new Fixture();
-        f.screen.setContainers(List.of(container("web", true), container("db", true)));
+        f.screen.setContainers(List.of(container("web", true), container("db", true)), java.time.Instant.EPOCH);
 
         f.screen.showContainersTab();
 
@@ -67,7 +67,7 @@ class ServerScreenTest {
         f.screen.showContainersTab();                 // 목록이 아직 없을 때 탭을 연다
         assertEquals(List.of(), f.requests);
 
-        f.screen.setContainers(List.of(container("web", true)));
+        f.screen.setContainers(List.of(container("web", true)), java.time.Instant.EPOCH);
 
         assertEquals(List.of("web"), f.requests);
     }
@@ -75,7 +75,7 @@ class ServerScreenTest {
     @Test
     void 개요_탭으로_돌아갔다_다시_열어도_이미_고른_컨테이너는_다시_읽지_않는다() {
         Fixture f = new Fixture();
-        f.screen.setContainers(List.of(container("web", true)));
+        f.screen.setContainers(List.of(container("web", true)), java.time.Instant.EPOCH);
         f.screen.showContainersTab();
         f.screen.showOverviewTab();
 
@@ -87,7 +87,7 @@ class ServerScreenTest {
     @Test
     void 서버가_바뀌면_이전_서버의_컨테이너_선택이_비워진다() {
         Fixture f = new Fixture();
-        f.screen.setContainers(List.of(container("web", true)));
+        f.screen.setContainers(List.of(container("web", true)), java.time.Instant.EPOCH);
         f.screen.showContainersTab();
 
         f.screen.show(server("two"), ACCOUNT);
@@ -98,7 +98,7 @@ class ServerScreenTest {
     @Test
     void 컨테이너를_읽지_못하면_선택과_개수가_비워진다() {
         Fixture f = new Fixture();
-        f.screen.setContainers(List.of(container("web", true)));
+        f.screen.setContainers(List.of(container("web", true)), java.time.Instant.EPOCH);
         f.screen.showContainersTab();
 
         f.screen.clearContainers();

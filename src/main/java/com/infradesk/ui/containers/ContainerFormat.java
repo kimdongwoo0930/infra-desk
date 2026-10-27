@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
  * 컨테이너 표에 보일 글자를 만든다. Docker가 주는 영어 문구를 시안(디자인 v2)의 한국어 표기로 바꾼다.
  * 해석하지 못하는 문구는 Docker가 준 그대로 돌려준다(틀리게 바꾸는 것보다 영어 그대로가 낫다).
  */
-final class ContainerFormat {
+public final class ContainerFormat {
 
     private ContainerFormat() {
     }
@@ -24,7 +24,7 @@ final class ContainerFormat {
      * 컨테이너의 상태 글자. 멈춘 컨테이너만 바꾼다: {@code Exited (0) 3 days ago} → {@code 멈춤 (0) · 3일 전}.
      * 실행 중({@code Up 14 days})과 그 밖의 문구는 그대로 둔다(시안도 그대로다).
      */
-    static String status(String dockerStatus) {
+    public static String status(String dockerStatus) {
         Matcher m = EXITED.matcher(dockerStatus.strip());
         if (!m.matches()) {
             return dockerStatus;
