@@ -47,10 +47,18 @@ public final class UiSnapshot {
             mainFrame[0] = new MainFrame(service, fastLiveTerminalService(), InfraDeskApp.demoAlertService(), true);
             mainFrame[0].setInventory(inventory);
         });
+        // 디자인 v2 공통 부품 모음 (v2-components.png)
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                ComponentGallery.render(DIR);
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        });
         Thread.sleep(800);
         SwingUtilities.invokeAndWait(() -> {
             try {
-                MainFrame empty = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
+                MainFrame empty =new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
                 empty.setInventory(List.of());
                 write(empty, empty.getContentPane(), 1280, 800, "main-empty.png");
 
