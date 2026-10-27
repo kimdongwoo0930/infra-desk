@@ -328,9 +328,17 @@ public final class UiSnapshot {
             }
         });
         // 데모 파일 트리의 SFTP 브라우저.
+        // 파일 탭은 서버 화면 안의 패널이다. 시나리오를 창 하나에서 돌릴 수 있게 테스트용 창에 담는다.
         JDialog[] sftp = new JDialog[1];
-        SwingUtilities.invokeAndWait(() -> sftp[0] = new com.infradesk.ui.terminal.SftpDialog(terminalFrame[0],
-                InfraDeskApp.demoTerminalService(), inventory.getFirst().servers().getFirst()));
+        com.infradesk.ui.files.FilesTab[] filesTab = new com.infradesk.ui.files.FilesTab[1];
+        SwingUtilities.invokeAndWait(() -> {
+            filesTab[0] = new com.infradesk.ui.files.FilesTab(InfraDeskApp.demoTerminalService(),
+                    inventory.getFirst().servers().getFirst());
+            sftp[0] = new JDialog(terminalFrame[0], "files", false);
+            sftp[0].setContentPane(filesTab[0]);
+            sftp[0].setSize(1180, 700);
+            sftp[0].setLocationRelativeTo(terminalFrame[0]);
+        });
         Thread.sleep(1500);
         SwingUtilities.invokeAndWait(() -> {
             try {
@@ -377,7 +385,7 @@ public final class UiSnapshot {
         // 서버에 다시 올라갔는지 확인한다.
         java.util.concurrent.atomic.AtomicReference<java.nio.file.Path> edited = new java.util.concurrent.atomic.AtomicReference<>();
         try {
-            Class<?> editor = Class.forName("com.infradesk.ui.terminal.ExternalEditor");
+            Class<?> editor = Class.forName("com.infradesk.ui.files.ExternalEditor");
             java.lang.reflect.Field hook = editor.getDeclaredField("launcherOverride");
             hook.setAccessible(true);
             hook.set(null, (java.util.function.Consumer<java.nio.file.Path>) edited::set);
@@ -406,9 +414,9 @@ public final class UiSnapshot {
         edited.set(null);
         // 다운로드 버튼(더블클릭과 같은 동작)은 왼쪽 패널이 어느 폴더에 있든 다운로드 폴더(데모는 시작 폴더)로 받는다.
         try {
-            java.lang.reflect.Field paneField = sftp[0].getClass().getDeclaredField("localPane");
+            java.lang.reflect.Field paneField = filesTab[0].getClass().getDeclaredField("localPane");
             paneField.setAccessible(true);
-            Object leftPane = paneField.get(sftp[0]);
+            Object leftPane = paneField.get(filesTab[0]);
             java.lang.reflect.Method open = leftPane.getClass().getDeclaredMethod("open", String.class);
             open.setAccessible(true);
             SwingUtilities.invokeAndWait(() -> {

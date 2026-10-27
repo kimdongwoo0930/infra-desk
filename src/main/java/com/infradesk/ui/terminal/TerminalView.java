@@ -45,6 +45,7 @@ public class TerminalView extends JPanel {
     private TerminalPanel active;
     private IntConsumer onCountChange = n -> { };
     private Runnable onEmpty = () -> { };
+    private Consumer<Server> onOpenFiles = server -> { };
 
     public TerminalView(TerminalService service, Consumer<Server> openSettings, Supplier<List<Server>> connectableServers) {
         super(new BorderLayout());
@@ -103,14 +104,14 @@ public class TerminalView extends JPanel {
         menu.show(sidePanel.sftpButton(), 0, -menu.getPreferredSize().height);
     }
 
+    /** 파일은 서버 화면의 "파일" 탭에서 본다. SSH 설정이 없으면 그 탭이 안내한다. */
     private void openSftp(Server server) {
-        if (!service.isConfigured(server.id())) {
-            openSettings.accept(server);
-            if (!service.isConfigured(server.id())) {
-                return;
-            }
-        }
-        new SftpDialog(javax.swing.SwingUtilities.getWindowAncestor(this), service, server).setVisible(true);
+        onOpenFiles.accept(server);
+    }
+
+    /** [SFTP 파일]을 눌렀다: 그 서버의 파일 탭을 열어 달라고 알린다. */
+    public void onOpenFiles(Consumer<Server> listener) {
+        this.onOpenFiles = listener;
     }
 
     private void sendToActive(String commandLine) {

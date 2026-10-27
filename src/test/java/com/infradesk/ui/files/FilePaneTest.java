@@ -1,4 +1,4 @@
-package com.infradesk.ui.terminal;
+package com.infradesk.ui.files;
 
 import org.junit.jupiter.api.Test;
 

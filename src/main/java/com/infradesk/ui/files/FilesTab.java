@@ -1,4 +1,4 @@
-package com.infradesk.ui.terminal;
+package com.infradesk.ui.files;
 
 import com.formdev.flatlaf.FlatClientProperties;
 import com.infradesk.core.Server;
@@ -11,10 +11,10 @@ import com.infradesk.ui.Async;
 import com.infradesk.ui.IpPrivacy;
 import com.infradesk.ui.Theme;
 import com.infradesk.ui.components.Buttons;
+import com.infradesk.ui.terminal.HostKeyDialog;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.Window;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
@@ -28,7 +28,6 @@ import java.util.Locale;
 import java.util.Set;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
@@ -41,9 +40,13 @@ import javax.swing.SwingUtilities;
  * 서버 하나의 SFTP 파일 관리. 왼쪽이 이 컴퓨터, 오른쪽이 서버다. 한쪽에서 파일이나 폴더를 여러 개
  * 골라 버튼(또는 더블클릭)으로 반대쪽의 현재 폴더로 보낸다. 전송은 아래 대기열에서 차례로 실행되고
  * 취소하거나 이어받을 수 있다. 새 폴더, 이름 바꾸기, 삭제, 권한 변경은 우클릭 메뉴와 단축키(F2,
- * Delete)로도 쓴다. 모달이 아니다.
+ * Delete)로도 쓴다.
+ *
+ * <p>서버 화면의 "파일" 탭 본문이다(디자인 v2). 서버마다 하나씩 만들어 {@link FilesHost}가 들고 있다:
+ * 탭을 옮기거나 다른 서버를 보고 돌아와도 목록, 전송, 편집 상태가 그대로 남고, 연결은 {@link #close()}를
+ * 부를 때(앱을 끌 때, 서버를 지울 때)만 닫는다. 그래서 전송이 끝나기 전에 연결이 끊기는 일이 없다.
  */
-public final class SftpDialog extends JDialog {
+public final class FilesTab extends JPanel {
 
     /** 이보다 큰 파일을 편집하려 하면 한 번 확인한다. */
     private static final long EDIT_WARN_BYTES = 10L * 1024 * 1024;
@@ -86,8 +89,8 @@ public final class SftpDialog extends JDialog {
     /** 탐색·파일 작업용 연결. 전송은 {@link #queue}가 따로 연결을 맺는다. */
     private RemoteFiles files;
 
-    public SftpDialog(Window owner, TerminalService service, Server server) {
-        super(owner, "SFTP · " + server.name(), ModalityType.MODELESS);
+    public FilesTab(TerminalService service, Server server) {
+        super(new BorderLayout());
         this.service = service;
         this.server = server;
         this.remotePane = new FilePane("서버 · " + server.name(), "원격 경로");
@@ -153,47 +156,40 @@ public final class SftpDialog extends JDialog {
         });
         south.add(statusRow, BorderLayout.SOUTH);
 
-        JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(Theme.PANEL_BG);
-        root.add(split, BorderLayout.CENTER);
-        root.add(south, BorderLayout.SOUTH);
-        setContentPane(root);
-        setSize(1180, 680);
+        setBackground(Theme.PANEL_BG);
+        add(split, BorderLayout.CENTER);
+        add(south, BorderLayout.SOUTH);
         setMinimumSize(new Dimension(860, 480));
-        setLocationRelativeTo(owner);
-        addWindowListener(new java.awt.event.WindowAdapter() {
-            @Override
-            public void windowClosing(java.awt.event.WindowEvent e) {
-                int active = transfers.activeCount();
-                long unsaved = edits.stream().filter(s -> s.busy || s.watch.dirty()).count();
-                if ((active > 0 || unsaved > 0) && JOptionPane.showConfirmDialog(SftpDialog.this,
-                        (active > 0 ? "진행 중인 전송이 " + active + "개 있어요. 창을 닫으면 중단돼요.\n" : "")
-                                + (unsaved > 0 ? "아직 서버에 올리지 못한 편집 내용이 " + unsaved + "개 있어요.\n" : "")
-                                + "닫을까요?", "SFTP",
-                        JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
-                    return;
-                }
-                dispose();
-            }
-
-            @Override
-            public void windowClosed(java.awt.event.WindowEvent e) {
-                RemoteFiles f = files;
-                files = null;
-                editTimer.stop();
-                Path tempEdits = editRoot;
-                Thread.ofVirtual().start(() -> {
-                    queue.close();
-                    if (f != null) {
-                        f.close();
-                    }
-                    deleteTree(tempEdits);
-                });
-            }
-        });
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         updateButtons();
         connect();
+    }
+
+    /** 지금 진행 중이거나 기다리는 전송 수. */
+    public int activeTransfers() {
+        return transfers.activeCount();
+    }
+
+    /** 아직 서버에 올리지 못한 편집 내용이 있는 파일 수. */
+    public int unsavedEdits() {
+        return (int) edits.stream().filter(s -> s.busy || s.watch.dirty()).count();
+    }
+
+    /**
+     * 연결과 전송 대기열을 닫고 편집용 임시 폴더를 지운다. 진행 중인 전송은 중단된다. 닫기 전에 사용자에게
+     * 확인받는 일은 부르는 쪽(앱 종료, 서버 삭제)이 {@link #activeTransfers()}와 {@link #unsavedEdits()}로 한다.
+     */
+    public void close() {
+        RemoteFiles f = files;
+        files = null;
+        editTimer.stop();
+        Path tempEdits = editRoot;
+        Thread.ofVirtual().start(() -> {
+            queue.close();
+            if (f != null) {
+                f.close();
+            }
+            deleteTree(tempEdits);
+        });
     }
 
     private void connect() {

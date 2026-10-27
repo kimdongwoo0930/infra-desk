@@ -5,6 +5,7 @@ import com.infradesk.core.Server;
 import com.infradesk.service.ServerAction;
 import com.infradesk.ui.components.TabBar;
 import com.infradesk.ui.containers.ContainersTab;
+import com.infradesk.ui.files.FilesHost;
 import com.infradesk.ui.metrics.MetricsPanel;
 
 import java.awt.BorderLayout;
@@ -44,8 +45,10 @@ public class ServerScreen extends JPanel {
     private final ServerDetailPanel overview = new ServerDetailPanel();
     private final ContainersTab containersTab = new ContainersTab();
     private final MetricsPanel metrics = new MetricsPanel();
+    private final FilesHost files = new FilesHost();
     /** 지금 화면에 보여 주는 서버. 서버가 바뀌었는지 알아서 이전 서버의 컨테이너 로그 칩을 비우는 데 쓴다. */
     private String shownServerId;
+    private Server shownServer;
     private final CardLayout cards = new CardLayout();
     private final JPanel body = new JPanel(cards);
 
@@ -59,9 +62,8 @@ public class ServerScreen extends JPanel {
         tabs.addTab(TAB_FILES, "파일");
         tabs.addTab(TAB_TERMINAL, "터미널");
         tabs.addTab(TAB_LOGS, "로그");
-        // 개요, 모니터링, 컨테이너가 지금 동작한다. 나머지 탭은 화면을 하나씩 만들 때(디자인 v2 5~7단계) 아래 줄을 지워 연다.
-        // 준비 중(v2): 파일, 터미널 탭 — 해당 화면이 만들어지면 setComingSoon을 지운다
-        tabs.setComingSoon(TAB_FILES);
+        // 개요, 모니터링, 컨테이너, 파일이 지금 동작한다. 나머지 탭은 화면을 하나씩 만들 때(디자인 v2 6~7단계) 아래 줄을 지워 연다.
+        // 준비 중(v2): 터미널 탭 — 해당 화면이 만들어지면 setComingSoon을 지운다
         tabs.setComingSoon(TAB_TERMINAL);
         // 준비 중(v2): 로그 탭 — 시안에서도 준비 중이다. 로그를 볼 기능이 생기면 연다
         tabs.setComingSoon(TAB_LOGS);
@@ -86,6 +88,8 @@ public class ServerScreen extends JPanel {
         body.add(scrolling(monitoring), TAB_MONITORING);
         // 컨테이너 탭은 스크롤 창에 넣지 않는다: 안의 표와 로그가 각자 스크롤하고 위아래 나눔을 가진다.
         body.add(containersTab, TAB_CONTAINERS);
+        // 파일 탭도 스크롤 창에 넣지 않는다: 두 파일 표와 전송 목록이 각자 스크롤한다. 서버마다 따로 유지된다(FilesHost).
+        body.add(files, TAB_FILES);
         add(body, BorderLayout.CENTER);
 
         tabs.onSelect(id -> {
@@ -94,6 +98,9 @@ public class ServerScreen extends JPanel {
                 // 컨테이너 탭을 열면 빈 화면 대신 로그가 바로 보이게 한다(이미 고른 것이 있으면 그대로).
                 containersTab.logs().ensureSelection();
                 containersTab.fitTable();
+            }
+            if (TAB_FILES.equals(id) && shownServer != null) {
+                files.show(shownServer);   // 이 서버의 파일 탭을 처음 열 때만 연결한다
             }
         });
     }
@@ -140,6 +147,20 @@ public class ServerScreen extends JPanel {
 
     public com.infradesk.ui.containers.ContainerLogView logs() {
         return containersTab.logs();
+    }
+
+    // ── 파일 탭 ─────────────────────────────────────────────────
+
+    public FilesHost files() {
+        return files;
+    }
+
+    /** 파일 탭을 연다(예: 터미널 화면의 [SFTP 파일] 버튼). */
+    public void showFilesTab() {
+        tabs.select(TAB_FILES);
+        if (shownServer != null) {
+            files.show(shownServer);
+        }
     }
 
     /** 컨테이너 탭을 연다(예: 표의 [로그] 버튼을 눌렀을 때). */
@@ -204,7 +225,11 @@ public class ServerScreen extends JPanel {
             shownServerId = server.id();
             clearContainers();
         }
+        shownServer = server;
         header.show(server, account);
         overview.show(server, account);
+        if (TAB_FILES.equals(tabs.selectedId())) {
+            files.show(server);   // 파일 탭을 보는 중에 서버를 바꾸거나 상태가 바뀌었다
+        }
     }
 }

@@ -238,6 +238,12 @@ public class MainFrame extends JFrame {
         titleBar.backButton().addActionListener(e -> showDashboard());
         terminalView.onCountChange(titleBar::setSessionCount);
         terminalView.onEmpty(this::showDashboard);
+        terminalView.onOpenFiles(this::openFilesOf);
+        // 파일 탭: 서버마다 연결을 유지한다. SSH 설정이 없으면 탭이 안내하고, 설정을 마치면 다시 시도한다.
+        detail.files().init(terminalService, server -> {
+            editSshSettings(server);
+            detail.files().retry();
+        });
         detail.onSsh(this::openSsh);
         detail.containers().onRefresh(() -> findServer(selectedServerId).ifPresent(s -> loadContainers(s, true)));
         detail.containers().onAction(this::containerAction);
@@ -575,9 +581,19 @@ public class MainFrame extends JFrame {
 
     /** 세션을 닫고 종료한다. 트레이 메뉴, ⌘Q, 또는 트레이가 없을 때 창을 닫으면 호출된다. */
     private void quit() {
+        int transfers = detail.files().activeTransfers();
+        int unsaved = detail.files().unsavedEdits();
+        if ((transfers > 0 || unsaved > 0) && JOptionPane.showConfirmDialog(this,
+                (transfers > 0 ? "진행 중인 파일 전송이 " + transfers + "개 있어요. 끄면 중단돼요.\n" : "")
+                        + (unsaved > 0 ? "아직 서버에 올리지 못한 편집 내용이 " + unsaved + "개 있어요.\n" : "")
+                        + "정말 끌까요?", "InfraDesk 종료",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
+            return;
+        }
         LOG.info("Quitting");
         live.stop();
         terminalView.closeAll();
+        detail.files().closeAll();
         tray.ifPresent(TrayController::remove);
         dispose();
         System.exit(0);
@@ -1200,6 +1216,13 @@ public class MainFrame extends JFrame {
         terminalView.focusActive();
     }
 
+    /** 터미널 화면의 [SFTP 파일]: 그 서버의 서버 화면으로 돌아가 파일 탭을 연다. */
+    private void openFilesOf(Server server) {
+        showDashboard();
+        showServer(server);
+        detail.showFilesTab();
+    }
+
     private void showDashboard() {
         dashboardVisible = true;
         screens.show(screenPanel, DASHBOARD);
@@ -1294,6 +1317,8 @@ public class MainFrame extends JFrame {
             }
         }
         sidebar.setInventory(inventory);
+        // 목록에서 사라진 서버(삭제한 계정)의 파일 탭은 연결과 함께 닫는다.
+        detail.files().retainOnly(allServers().stream().map(Server::id).collect(java.util.stream.Collectors.toSet()));
         sampleDirectServers(true);
 
         Optional<Server> selected = findServer(selectedServerId);

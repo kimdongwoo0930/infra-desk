@@ -1,4 +1,4 @@
-package com.infradesk.ui.terminal;
+package com.infradesk.ui.files;
 
 import java.awt.Desktop;
 import java.io.IOException;
