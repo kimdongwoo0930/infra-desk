@@ -232,7 +232,7 @@ public final class UiSnapshot {
         // 데모 컨테이너 안의 MySQL 콘솔. 컨테이너 패널의 "MySQL 콘솔" 버튼을 누른 것처럼 연다.
         SwingUtilities.invokeAndWait(() -> terminalFrame[0].openContainerTerminal(inventory.get(1).servers().getFirst(),
                 new com.infradesk.ssh.Container("c".repeat(64), "mysql", "mysql:8.4", "running", "Up 14 days",
-                        "3306/tcp", 0.4, "412MiB / 23.4GiB", 1.7),
+                        "3306/tcp", 0.4, "412MiB / 23.4GiB", 1.7, ""),
                 com.infradesk.ssh.DockerCommands.Console.MYSQL));
         Thread.sleep(1500);
         SwingUtilities.invokeAndWait(() -> {

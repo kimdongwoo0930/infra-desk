@@ -180,7 +180,8 @@ public final class DockerCommands {
                     n.path("Status").asText(""), n.path("Ports").asText(""),
                     running && st != null ? percent(st.path("CPUPerc").asText("")) : -1,
                     running && st != null ? st.path("MemUsage").asText("") : "",
-                    running && st != null ? percent(st.path("MemPerc").asText("")) : -1));
+                    running && st != null ? percent(st.path("MemPerc").asText("")) : -1,
+                    running && st != null ? st.path("NetIO").asText("") : ""));
         }
         containers.sort(java.util.Comparator.comparing((Container c) -> !c.isRunning()).thenComparing(Container::name));
         return new Listing(Listing.Status.OK, containers, null);

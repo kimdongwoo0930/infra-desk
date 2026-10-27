@@ -20,6 +20,13 @@ final class DemoDocker {
     private DemoDocker() {
     }
 
+    /** 컨테이너 이름으로 정해지는 가짜 네트워크 양("받은 / 보낸"). 같은 이름은 항상 같은 값이라 화면이 흔들리지 않는다. */
+    private static String netIo(String name) {
+        double received = 0.2 + Math.floorMod(name.hashCode(), 900) / 10.0;
+        double sent = 0.1 + Math.floorMod(name.hashCode() * 31, 600) / 10.0;
+        return String.format(java.util.Locale.ROOT, "%.1fMB / %.1fMB", received, sent);
+    }
+
     /** {@link DockerCommands} 명령의 출력. 실제 셸이 출력하는 것과 같은 형태. */
     static String run(String host, String command) {
         Map<String, Box> boxes = HOSTS.computeIfAbsent(host, DemoDocker::seed);
@@ -39,7 +46,7 @@ final class DemoDocker {
                     stats.append("{\"ID\":\"").append(b.id).append("\",\"Name\":\"").append(b.name)
                             .append("\",\"CPUPerc\":\"").append(cpu).append("%\",\"MemUsage\":\"").append(mem)
                             .append("MiB / 23.4GiB\",\"MemPerc\":\"").append(String.format(java.util.Locale.ROOT, "%.2f", mem / 239.6))
-                            .append("%\"}\n");
+                            .append("%\",\"NetIO\":\"").append(netIo(b.name)).append("\"}\n");
                 }
                 i++;
             }
