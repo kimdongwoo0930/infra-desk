@@ -41,6 +41,7 @@ class ContainerServiceTest {
         assertTrue(docker.list(server, (h, p, t, f) -> true).containers().stream()
                 .filter(c -> c.name().equals("redis")).findFirst().orElseThrow().isRunning());
 
-        assertTrue(docker.logs(server, redis, 200, (h, p, t, f) -> true).contains("redis"));
+        // 데모 redis 로그의 한 줄(컨테이너마다 다른 로그가 돌아오는지 확인한다)
+        assertTrue(docker.logs(server, redis, 200, (h, p, t, f) -> true).contains("Ready to accept connections"));
     }
 }

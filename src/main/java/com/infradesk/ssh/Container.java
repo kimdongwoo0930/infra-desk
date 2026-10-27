@@ -9,9 +9,10 @@ package com.infradesk.ssh;
  * @param cpuPercent CPU %. 실행 중이 아니거나 알 수 없으면 -1
  * @param memUsage   예: "120MiB / 23.4GiB". 알 수 없으면 ""
  * @param memPercent 메모리 %. 알 수 없으면 -1
+ * @param netIo      네트워크 받은/보낸 양. 예: "1.2MB / 3.4MB". 실행 중이 아니거나 알 수 없으면 ""
  */
 public record Container(String id, String name, String image, String state, String status, String ports,
-                        double cpuPercent, String memUsage, double memPercent) {
+                        double cpuPercent, String memUsage, double memPercent, String netIo) {
 
     public boolean isRunning() {
         return "running".equals(state);

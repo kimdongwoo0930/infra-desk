@@ -24,9 +24,9 @@
 - **직접 연결 서버** — 맥미니, 집 서버처럼 클라우드가 아닌 컴퓨터도 주소와 SSH 키만으로 추가해요. 응답 여부로 상태를 보여 주고, CPU·메모리·네트워크는 SSH로 1분마다 읽어 그래프로 보여 줘요. 터미널·SFTP·Docker·실시간 모드도 똑같이 써요(켜고 끄기는 없음). Linux·macOS 지원.
 - **상태와 제어** — 실행 중 / 정지 / 변경 중 상태를 자동 새로고침(평소 45초, 시작·정지 직후 5초)으로 보여주고, 시작·정지·재부팅은 확인 후 실행해요.
 - **모니터링** — CPU·메모리·네트워크 최근 1시간 그래프(OCI Monitoring), SSH로 2초마다 읽는 실시간 모드.
-- **SSH 터미널** — 서버별 탭, 저장된 명령어, 여러 서버에 한 번에 명령 실행, SFTP 파일 탐색기. `~/.ssh/config`에서 사용자·키를 자동으로 가져와요.
+- **SSH 터미널** — 서버별 탭, 저장된 명령어, SFTP 파일 탐색기. `~/.ssh/config`에서 사용자·키를 자동으로 가져와요.
 - **서버 정보** — 업타임, OS, 디스크 사용량, 열린 포트(SSH로 확인).
-- **Docker 컨테이너** — 컨테이너 목록·상태·CPU·메모리·포트, 로그 보기, 시작·정지·재시작, 컨테이너 안 셸과 DB 콘솔(MySQL·PostgreSQL·Redis·MongoDB). SSH로만 접근하고 Docker 포트는 열지 않아요.
+- **Docker 컨테이너** — 컨테이너 목록·상태·CPU·메모리·포트, 로그 보기(경고·오류 거르기, 검색, 10초마다 자동 새로고침), 시작·정지·재시작, 컨테이너 안 셸과 DB 콘솔(MySQL·PostgreSQL·Redis·MongoDB). SSH로만 접근하고 Docker 포트는 열지 않아요.
 - **메뉴 막대 아이콘** — 창을 닫아도 메뉴 막대에서 서버 상태를 보고 바로 제어할 수 있어요. 로그인할 때 자동 실행도 가능.
 - **디스코드 알림** (준비 중) — 서버가 예상치 않게 멈추거나, 계정 연결이 끊기거나, CPU가 높게 유지될 때.
 - **안전하게** — 키·비밀번호는 암호화해서 이 PC에만 저장, 공인 IP는 기본으로 가려서 표시, 로그에서도 비밀값을 가려요.
@@ -47,22 +47,23 @@
 
 | 클라우드 | 상태 |
 |---|---|
-| Oracle Cloud (OCI) | ✅ 서버 목록·IP·그래프 / 🟡 시작·정지·재부팅 |
+| Oracle Cloud (OCI) | ✅ |
 | AWS, GCP | ⏳ 준비중 |
 
-**서버 OS** — 기능마다 필요한 게 달라요.
+**서버 OS** — Ubuntu를 기준으로 제작되었습니다.
 
-| 기능 | 필요한 것 | Ubuntu | Oracle Linux · Debian · RHEL 계열 | Windows Server |
-|---|---|---|---|---|
-| 목록 · 시작/정지 · IP | OCI API만 | ✅ | 🟡 | 🟡 |
-| CPU·메모리·네트워크 그래프 | Oracle Cloud Agent (OCI 기본 이미지에 포함) | ✅ | 🟡 | 🟡 |
-| SSH 터미널 · 일괄 실행 | SSH 서버 | ✅ | 🟡 | 🟡 (OpenSSH 사용 시) |
-| SFTP | SSH 서버 (sftp 서브시스템) | 🟡 | 🟡 | 🟡 (OpenSSH 사용 시) |
-| 서버 정보 · 실시간 모니터링 | Linux `/proc`, `df`, `ss`/`netstat` | ✅ | 🟡 | — |
-| Docker 컨테이너 | `docker` + docker 그룹 또는 비밀번호 없는 `sudo` | ✅ | 🟡 | — |
+| 기능 | 필요한 것 | Ubuntu |
+|---|---|---|
+| 목록 · 시작/정지 · IP | OCI API만 | ✅ |
+| CPU·메모리·네트워크 그래프 | Oracle Cloud Agent (OCI 기본 이미지에 포함) | ✅ | 
+| SSH 터미널 | SSH 서버 | ✅ | 
+| SFTP | SSH 서버 | ✅ | 
+| 서버 정보 · 실시간 모니터링 | Linux `/proc`, `df`, `ss`/`netstat` | ✅ | 
+| Docker 컨테이너 | `docker` + docker 그룹 또는 비밀번호 없는 `sudo` | ✅ | 
 
-- **직접 연결한 macOS 컴퓨터(맥미니 등)** ✅: 터미널·SFTP·일괄 실행은 그대로 되고, 실시간 모드와 서버 정보는 macOS 도구(`iostat`, `vm_stat`, `netstat`, `sysctl`, `sw_vers`)로 읽어요. Docker Desktop이나 Homebrew로 설치한 `docker`도 찾아요. 시스템 설정 → 일반 → 공유 → **원격 로그인**을 켜 주세요.
-- 서버 쪽 명령은 모두 표준 POSIX 셸로 작성해서 특정 배포판에 의존하지 않아요. OCI 기본 사용자 `ubuntu`(Ubuntu)와 `opc`(Oracle Linux)는 비밀번호 없이 `sudo`가 되므로 Docker도 바로 보여요.
+- **직접 연결 서버(맥미니 등)** ✅: 터미널·SFTP는 그대로 되고, Docker Desktop이나 Homebrew로 설치한 `docker`도 찾아요.
+- 서버 쪽 명령은 모두 표준 POSIX 셸로 작성해서 특정 배포판에 의존하지 않아요. 
+- OCI 기본 사용자 `ubuntu`(Ubuntu)와 `opc`(Oracle Linux)는 비밀번호 없이 `sudo`가 되므로 Docker도 바로 보여요.
 - ARM(Ampere A1)과 x86 인스턴스 모두 같은 방식으로 동작해요.
 - SSH 키는 RSA, ed25519 모두 지원해요.
 
@@ -84,7 +85,6 @@
 | macOS (Apple Silicon) | [InfraDesk-beta-macOS.dmg](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-macOS.dmg) |
 | Windows | [InfraDesk-beta-windows.zip](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-windows.zip) |
 
-Java는 앱에 들어 있어 따로 설치할 필요가 없어요.
 
 **macOS** — 서명·공증되지 않은 앱이라 처음 한 번 아래 명령이 필요해요.
 
@@ -112,7 +112,7 @@ OCI 콘솔 → 오른쪽 위 프로필 → **내 프로필** → **API 키** →
 
 ### 3. SSH 설정 (터미널·실시간·SFTP를 쓰려면)
 
-서버 상세의 **SSH 열기**를 누르면 SSH 설정 창이 떠요. `~/.ssh/config`에 그 서버(IP)가 있으면 사용자 이름과 키가 미리 채워져요.
+서버 화면의 **터미널** 탭에서 **접속**을 누르면 SSH 설정 창이 떠요. `~/.ssh/config`에 그 서버(IP)가 있으면 사용자 이름과 키가 미리 채워져요.
 처음 접속할 때 호스트 키 지문을 확인하고 신뢰하면, 이후에는 키가 바뀌었을 때만 경고해요.
 
 ## 데모 모드
@@ -156,4 +156,4 @@ Java 25가 필요해요 (Gradle은 Wrapper 포함).
 
 ## 라이선스
 
-[MIT](LICENSE). 포함된 오픈소스 라이브러리의 라이선스는 앱의 **설정 → 앱 정보 → 오픈소스 라이선스**에서 볼 수 있어요.
+[MIT](LICENSE). 포함된 오픈소스 라이브러리의 라이선스는 앱의 **설정 → 업데이트·정보 → 라이선스 보기**에서 볼 수 있어요.

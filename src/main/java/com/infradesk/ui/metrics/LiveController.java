@@ -1,6 +1,8 @@
 package com.infradesk.ui.metrics;
 
 import java.time.Duration;
+import java.util.Optional;
+import java.util.function.LongSupplier;
 
 /**
  * 실시간(SSH) 모드의 상태. 테스트할 수 있도록 Swing과 분리되어 있다.
@@ -45,11 +47,20 @@ public final class LiveController {
 
     private final Hooks hooks;
     private final Timeout timeout;
+    /** 흐른 시간을 재는 시계(나노초). 테스트가 시간을 직접 흘려 보내려고 바꿀 수 있다. */
+    private final LongSupplier nanoClock;
     private State state = State.OFF;
+    /** 10분 타이머를 시작한 시각({@link #opened()}에서 정한다). */
+    private long openedAtNanos;
 
     public LiveController(Hooks hooks, Timeout timeout) {
+        this(hooks, timeout, System::nanoTime);
+    }
+
+    LiveController(Hooks hooks, Timeout timeout, LongSupplier nanoClock) {
         this.hooks = hooks;
         this.timeout = timeout;
+        this.nanoClock = nanoClock;
     }
 
     public State state() {
@@ -71,8 +82,21 @@ public final class LiveController {
             return false;
         }
         state = State.RUNNING;
+        openedAtNanos = nanoClock.getAsLong();
         timeout.start(AUTO_OFF, () -> turnOff("10분이 지나 실시간을 껐어요. 다시 켜면 이어서 볼 수 있어요"));
         return true;
+    }
+
+    /**
+     * 실시간이 스스로 꺼지기까지 남은 시간. 연결되어 읽는 중({@link State#RUNNING})일 때만 있다.
+     * 일시정지했다가 다시 연결하면 10분이 새로 시작되므로 남은 시간도 다시 시작한다.
+     */
+    public Optional<Duration> remaining() {
+        if (state != State.RUNNING) {
+            return Optional.empty();
+        }
+        Duration left = AUTO_OFF.minusNanos(nanoClock.getAsLong() - openedAtNanos);
+        return Optional.of(left.isNegative() ? Duration.ZERO : left);
     }
 
     /** 연결에 실패했거나 스트림이 스스로 끝났다. */

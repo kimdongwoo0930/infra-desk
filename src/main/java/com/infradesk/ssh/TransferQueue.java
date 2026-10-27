@@ -255,7 +255,16 @@ public final class TransferQueue implements AutoCloseable {
         worker.submit(() -> run(job));
     }
 
+    /** 작업 하나를 실행하고, 이어서 할 작업이 없으면 연결을 풀에 돌려준다. */
     private void run(Job job) {
+        try {
+            runJob(job);
+        } finally {
+            releaseIfIdle();
+        }
+    }
+
+    private void runJob(Job job) {
         if (closed || job.state != State.QUEUED || job.cancelRequested) {
             if (job.state == State.QUEUED) {
                 finish(job, State.CANCELLED, "취소했어요");
@@ -286,6 +295,8 @@ public final class TransferQueue implements AutoCloseable {
         } catch (CancellationException e) {
             finish(job, State.CANCELLED, "취소했어요. 다시 시도하면 이어서 전송해요");
         } catch (Exception e) {
+            // 연결이 끊겨서 실패했을 수 있다. 같은 연결로는 다시 시도해도 계속 실패하므로 버리고, 다시 시도할 때 새로 맺는다.
+            closeRemote();
             finish(job, State.FAILED, describe(e) + " · 다시 시도하면 이어서 전송해요");
         }
     }
@@ -295,6 +306,24 @@ public final class TransferQueue implements AutoCloseable {
             remote = opener.call();
         }
         return remote;
+    }
+
+    /**
+     * 끝나지 않은 작업이 없으면 전송 연결을 풀에 돌려준다. 목록과 화면은 그대로이고, 다음 전송이 시작될 때
+     * 다시 연결한다. 연결을 계속 쥐고 있으면 풀이 유휴 연결을 정리하지 못하고, 끊어진 연결을 계속 붙들게 된다.
+     */
+    private synchronized void releaseIfIdle() {
+        if (remote != null && jobs.stream().allMatch(j -> j.state.finished())) {
+            closeRemote();
+        }
+    }
+
+    private synchronized void closeRemote() {
+        RemoteFiles r = remote;
+        remote = null;
+        if (r != null) {
+            r.close();
+        }
     }
 
     // ---- 올리기 ----
@@ -655,6 +684,7 @@ public final class TransferQueue implements AutoCloseable {
             } catch (Exception ignored) {
                 // 연결이 없으면 서버의 임시 파일은 남는다.
             }
+            releaseIfIdle();
         });
     }
 

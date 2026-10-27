@@ -37,6 +37,14 @@ public final class DockerCommands {
     private DockerCommands() {
     }
 
+    /**
+     * {@link #list()}에서 사용량(stats)을 뺀 가벼운 목록. 개요처럼 여러 서버를 한꺼번에 읽을 때 쓴다. 결과는
+     * {@link #parseList}로 읽고, CPU·메모리는 모르는 값(-1)으로 나온다.
+     */
+    public static String listPlain() {
+        return PRELUDE + "echo " + PS + "; $D ps -a --no-trunc --format '{{json .}}'; true";
+    }
+
     /** 모든 상태의 컨테이너와, 실행 중인 컨테이너의 1회성 stats 샘플. */
     public static String list() {
         return PRELUDE + "echo " + PS + "; $D ps -a --no-trunc --format '{{json .}}'; "
@@ -180,7 +188,8 @@ public final class DockerCommands {
                     n.path("Status").asText(""), n.path("Ports").asText(""),
                     running && st != null ? percent(st.path("CPUPerc").asText("")) : -1,
                     running && st != null ? st.path("MemUsage").asText("") : "",
-                    running && st != null ? percent(st.path("MemPerc").asText("")) : -1));
+                    running && st != null ? percent(st.path("MemPerc").asText("")) : -1,
+                    running && st != null ? st.path("NetIO").asText("") : ""));
         }
         containers.sort(java.util.Comparator.comparing((Container c) -> !c.isRunning()).thenComparing(Container::name));
         return new Listing(Listing.Status.OK, containers, null);

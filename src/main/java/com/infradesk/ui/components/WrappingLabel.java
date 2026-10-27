@@ -15,7 +15,8 @@ import javax.swing.UIManager;
  */
 public class WrappingLabel extends JTextArea {
 
-    private final int wrapWidth;
+    private int wrapWidth;
+    private String rawText = "";
 
     /** @param sizeDelta 기본 라벨 글꼴 대비 글꼴 크기. 예: -1 */
     public WrappingLabel(String text, int wrapWidth, float sizeDelta, Color color) {
@@ -32,8 +33,17 @@ public class WrappingLabel extends JTextArea {
         setText(text);
     }
 
+    /** 폭이 바뀌면 같은 글을 새 폭으로 다시 줄바꿈한다(칸의 폭이 창 크기에 따라 변하는 곳에서 쓴다). */
+    public void setWrapWidth(int width) {
+        if (width != wrapWidth) {
+            wrapWidth = width;
+            setText(rawText);
+        }
+    }
+
     @Override
     public void setText(String t) {
+        rawText = t == null ? "" : t;
         String text = t == null || t.isBlank() ? " " : t;
         super.setText(wrapWidth <= 0 || getFont() == null ? text : wrap(text, getFontMetrics(getFont()), wrapWidth));
         revalidate();

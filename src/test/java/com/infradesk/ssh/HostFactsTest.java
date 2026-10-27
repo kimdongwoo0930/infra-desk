@@ -8,6 +8,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HostFactsTest {
 
@@ -61,5 +62,36 @@ class HostFactsTest {
         HostFacts f = HostFacts.parse(new String(shell.output().readAllBytes()));
         assertEquals("Ubuntu 22.04.4 LTS", f.osName());
         assertEquals(22, f.ports().getFirst());
+    }
+    @Test
+    void parsesTheUsedMemorySectionAndComputesAPercentage() {
+        HostFacts f = HostFacts.parse("@memkb\n24576000\n@memusedkb\n8192000\n@ports\n");
+
+        assertEquals(24576000, f.memoryKb());
+        assertEquals(8192000, f.memoryUsedKb());
+        assertEquals(33.3, f.memoryPercent(), 0.1);
+    }
+
+    @Test
+    void memoryPercentIsUnknownWhenEitherNumberIsMissing() {
+        assertEquals(-1, HostFacts.parse("@memkb\n1000\n@ports\n").memoryPercent(), "사용량을 모르면");
+        assertEquals(-1, HostFacts.parse("@memusedkb\n500\n@ports\n").memoryPercent(), "전체를 모르면");
+        assertEquals(-1, HostFacts.parse("@memkb\n1000\n@memusedkb\nabc\n@ports\n").memoryPercent(), "숫자가 아니면");
+    }
+
+    @Test
+    void theCommandReadsTheUsedMemoryInTheSameRun() {
+        // 접속을 늘리지 않으려고 같은 명령 안에 섹션을 덧붙였다.
+        assertTrue(HostFacts.COMMAND.contains("echo @memusedkb"));
+        assertTrue(HostFacts.COMMAND.indexOf("@memusedkb") < HostFacts.COMMAND.indexOf("@ports"));
+    }
+
+    @Test
+    void demoFactsIncludeUsedMemory() throws Exception {
+        var shell = new DemoShellConnector(Duration.ZERO, Duration.ofMillis(50))
+                .exec(new SshTarget("demo:bot", 22, "ubuntu", "demo", null), (h, p, t, fp) -> true, HostFacts.COMMAND);
+        HostFacts f = HostFacts.parse(new String(shell.output().readAllBytes()));
+
+        assertTrue(f.memoryPercent() > 0 && f.memoryPercent() < 100);
     }
 }

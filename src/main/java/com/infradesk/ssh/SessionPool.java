@@ -8,7 +8,9 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -257,6 +259,54 @@ final class SessionPool implements AutoCloseable {
         }
     }
 
+    /**
+     * 사용자가 설정 화면에서 연결 하나를 끊었다. 놀고 있는 연결은 바로 닫는다. 쓰는 중인 연결(전송, 실행 중인 명령,
+     * 파일 탭이 쥐고 있는 것)은 {@code force}일 때만 닫는다: 그 연결 위의 채널은 끊기고, 쥐고 있던 쪽은 다음에 쓸 때
+     * 알아서 다시 맺거나(파일 탭) 실패로 끝난다(전송, 명령). 닫은 뒤 그 서버를 다시 쓰면 필요할 때 새로 맺는다.
+     *
+     * @return 끊었으면 true. 열려 있지 않거나, 쓰는 중인데 {@code force}가 아니거나, 접속·반납 중이라 잠글 수 없으면 false
+     */
+    boolean disconnect(String serverId, Purpose purpose, boolean force) {
+        Entry e = entries.get(new Key(serverId, purpose));
+        return e != null && close(e, force);
+    }
+
+    /** 연결을 모두 끊는다. {@code force}가 아니면 쓰는 중인 연결은 둔다. @return 끊은 연결 수 */
+    int disconnectAll(boolean force) {
+        int closed = 0;
+        for (Entry e : entries.values()) {
+            if (close(e, force)) {
+                closed++;
+            }
+        }
+        return closed;
+    }
+
+    private boolean close(Entry e, boolean force) {
+        try {
+            // 강제로 끊을 때는 접속하는 중인 연결이 끝나기를 잠깐(화면이 멈추지 않을 만큼만) 기다린다
+            if (!(force ? e.lock.tryLock(300, java.util.concurrent.TimeUnit.MILLISECONDS) : e.lock.tryLock())) {
+                return false;
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+        try {
+            if (e.session == null || (!force && e.active > 0)) {
+                return false;
+            }
+            ClientSession s = e.session;
+            closeSession(e);
+            if (force) {
+                s.close(true);   // 쓰는 중인 채널을 기다리지 않고 바로 끊는다
+            }
+            return true;
+        } finally {
+            e.lock.unlock();
+        }
+    }
+
     /** 주기적으로 부른다: 죽은 연결, 유휴 연결, 수명이 다한 연결을 닫는다. 쓰는 중인 연결은 건드리지 않는다. */
     void maintain() {
         Instant now = clock.instant();
@@ -279,6 +329,29 @@ final class SessionPool implements AutoCloseable {
                 e.lock.unlock();
             }
         }
+    }
+
+    /**
+     * 지금 열려 있는 연결들의 상태(읽기 전용, 서버 이름순 → 용도순). 연결을 만들거나 닫지 않고 화면에 보여 주기만
+     * 한다. 연결하는 중이거나 닫는 중이라 잠겨 있는 것은 이번에는 건너뛴다(곧 다음에 나온다).
+     */
+    List<OpenConnection> snapshot() {
+        List<OpenConnection> result = new ArrayList<>();
+        for (Entry e : entries.values()) {
+            if (!e.lock.tryLock()) {
+                continue;
+            }
+            try {
+                if (e.session != null && e.session.isOpen()) {
+                    result.add(new OpenConnection(e.key.id(), e.key.purpose(), e.createdAt, e.lastUsed, e.active));
+                }
+            } finally {
+                e.lock.unlock();
+            }
+        }
+        result.sort(java.util.Comparator.comparing(OpenConnection::serverId)
+                .thenComparing(c -> c.purpose().ordinal()));
+        return result;
     }
 
     /** 지금 열려 있는 연결 수(테스트·점검용). */
