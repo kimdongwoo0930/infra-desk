@@ -47,22 +47,23 @@
 
 | 클라우드 | 상태 |
 |---|---|
-| Oracle Cloud (OCI) | ✅ 서버 목록·IP·그래프 / 🟡 시작·정지·재부팅 |
+| Oracle Cloud (OCI) | ✅ |
 | AWS, GCP | ⏳ 준비중 |
 
-**서버 OS** — 기능마다 필요한 게 달라요.
+**서버 OS** — Ubuntu를 기준으로 제작되었습니다.
 
-| 기능 | 필요한 것 | Ubuntu | Oracle Linux · Debian · RHEL 계열 | Windows Server |
-|---|---|---|---|---|
-| 목록 · 시작/정지 · IP | OCI API만 | ✅ | 🟡 | 🟡 |
-| CPU·메모리·네트워크 그래프 | Oracle Cloud Agent (OCI 기본 이미지에 포함) | ✅ | 🟡 | 🟡 |
-| SSH 터미널 · 일괄 실행 | SSH 서버 | ✅ | 🟡 | 🟡 (OpenSSH 사용 시) |
-| SFTP | SSH 서버 (sftp 서브시스템) | 🟡 | 🟡 | 🟡 (OpenSSH 사용 시) |
-| 서버 정보 · 실시간 모니터링 | Linux `/proc`, `df`, `ss`/`netstat` | ✅ | 🟡 | — |
-| Docker 컨테이너 | `docker` + docker 그룹 또는 비밀번호 없는 `sudo` | ✅ | 🟡 | — |
+| 기능 | 필요한 것 | Ubuntu |
+|---|---|---|
+| 목록 · 시작/정지 · IP | OCI API만 | ✅ |
+| CPU·메모리·네트워크 그래프 | Oracle Cloud Agent (OCI 기본 이미지에 포함) | ✅ | 
+| SSH 터미널 · 일괄 실행 | SSH 서버 | ✅ | 
+| SFTP | SSH 서버 | ✅ | 
+| 서버 정보 · 실시간 모니터링 | Linux `/proc`, `df`, `ss`/`netstat` | ✅ | 
+| Docker 컨테이너 | `docker` + docker 그룹 또는 비밀번호 없는 `sudo` | ✅ | 
 
-- **직접 연결한 macOS 컴퓨터(맥미니 등)** ✅: 터미널·SFTP·일괄 실행은 그대로 되고, 실시간 모드와 서버 정보는 macOS 도구(`iostat`, `vm_stat`, `netstat`, `sysctl`, `sw_vers`)로 읽어요. Docker Desktop이나 Homebrew로 설치한 `docker`도 찾아요. 시스템 설정 → 일반 → 공유 → **원격 로그인**을 켜 주세요.
-- 서버 쪽 명령은 모두 표준 POSIX 셸로 작성해서 특정 배포판에 의존하지 않아요. OCI 기본 사용자 `ubuntu`(Ubuntu)와 `opc`(Oracle Linux)는 비밀번호 없이 `sudo`가 되므로 Docker도 바로 보여요.
+- **직접 연결 서버(맥미니 등)** ✅: 터미널·SFTP·일괄 실행은 그대로 되고, Docker Desktop이나 Homebrew로 설치한 `docker`도 찾아요.
+- 서버 쪽 명령은 모두 표준 POSIX 셸로 작성해서 특정 배포판에 의존하지 않아요. 
+- OCI 기본 사용자 `ubuntu`(Ubuntu)와 `opc`(Oracle Linux)는 비밀번호 없이 `sudo`가 되므로 Docker도 바로 보여요.
 - ARM(Ampere A1)과 x86 인스턴스 모두 같은 방식으로 동작해요.
 - SSH 키는 RSA, ed25519 모두 지원해요.
 
@@ -84,7 +85,6 @@
 | macOS (Apple Silicon) | [InfraDesk-beta-macOS.dmg](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-macOS.dmg) |
 | Windows | [InfraDesk-beta-windows.zip](https://github.com/kimdongwoo0930/infra-desk/releases/download/beta/InfraDesk-beta-windows.zip) |
 
-Java는 앱에 들어 있어 따로 설치할 필요가 없어요.
 
 **macOS** — 서명·공증되지 않은 앱이라 처음 한 번 아래 명령이 필요해요.
 

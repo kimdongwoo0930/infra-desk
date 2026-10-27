@@ -1,4 +1,4 @@
-# Git 작업 가이드
+      # Git 작업 가이드
 
 이 저장소에서 브랜치를 만들고, 커밋하고, PR을 올리고, 머지하는 방법이다. 직접 작업할 때 보는 용도이고, 명령은 복사해서 그대로 쓸 수 있게 적었다. PR과 머지는 GitHub CLI(`gh`)로 한다.
 
@@ -8,15 +8,15 @@
 
 ```
 feat/xxx ─┐
-fix/xxx  ─┼─► PR ─► develop ─► PR(직접) ─► main ─► CI가 beta 릴리스 갱신
+fix/xxx  ─┼─► Merge(직접 / 자동) ─► develop ─► PR(직접) ─► main ─► CI가 beta 릴리스 갱신
 docs/xxx ─┘
 ```
 
 | 브랜치 | 역할 | 규칙 |
 |---|---|---|
 | `main` | 배포용. 여기에 들어가면 CI가 베타 릴리스를 갱신한다 | **`develop`에서만** PR로 들어온다. 직접 푸시하지 않는다 |
-| `develop` | 개발 통합. 모든 작업이 여기로 모인다 | 직접 푸시하지 않는다. PR로만 합친다 |
-| `feat/…`, `fix/…` 등 | 작업 하나당 브랜치 하나 | **항상 최신 `develop`에서 만든다.** 끝나면 `develop`으로 PR |
+| `develop` | 개발 통합. 모든 작업이 여기로 모인다 | 직접 푸시하지 않는다. 브랜치를 생성 후 개발하고 머지한다. |
+| `feat/…`, `fix/…` 등 | 작업 하나당 브랜치 하나 | **항상 최신 `develop`에서 만든다.** 끝나면 `develop`으로 머지요청 |
 
 ## 2. 브랜치 이름
 
@@ -91,24 +91,8 @@ git commit -m "SFTP 창을 내 컴퓨터/서버 2창 구조로 변경"
 
 PR은 GitHub CLI(`gh`)로 만든다.
 
-### gh 설치와 로그인 (처음 한 번)
-
-```bash
-brew install gh                    # macOS
-winget install --id GitHub.cli     # Windows (설치 후 터미널을 다시 연다)
-gh --version                       # 설치 확인
-gh auth login                      # GitHub.com → HTTPS → 브라우저로 로그인
-gh auth status                     # 로그인됐는지 확인
-```
 
 이 저장소 폴더 안에서 `gh`를 실행하면 저장소(`kimdongwoo0930/infra-desk`)를 알아서 인식한다. 못 찾는다는 오류가 나면 한 번만 `gh repo set-default kimdongwoo0930/infra-desk`를 실행한다.
-
-### 푸시
-
-```bash
-git push -u origin feat/내-작업     # 처음 올릴 때 (-u로 이후 git push만 써도 된다)
-git push                           # 같은 브랜치에 커밋을 더 올릴 때
-```
 
 ### PR 만들기
 
@@ -157,17 +141,6 @@ gh pr create --base develop --title "docs: Git 가이드 추가" --body "GIT.md 
 ```bash
 gh alias set prd 'pr create --base develop'     # 한 번만
 gh prd --title "제목" --body "설명"              # 이후 이렇게
-```
-
-### PR 확인과 수정
-
-```bash
-gh pr view                         # 현재 브랜치의 PR 내용 (--web 을 붙이면 브라우저로)
-gh pr list                         # 열려 있는 PR 목록
-gh pr status                       # 내 PR과 현재 브랜치 PR 상태
-gh pr diff                         # PR에 포함된 변경 내용
-gh pr checks                       # CI 결과 (작업 PR에는 CI가 없어서 "no checks reported"가 정상이다)
-gh pr view --json mergeable,mergeStateStatus     # MERGEABLE이면 충돌 없음, CONFLICTING이면 충돌
 ```
 
 | 하고 싶은 일 | 명령 |
