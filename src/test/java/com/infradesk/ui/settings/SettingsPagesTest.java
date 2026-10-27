@@ -56,8 +56,9 @@ class SettingsPagesTest {
     @Test
     void loginDescriptionExplainsTheDemoAndMissingTargetCases() {
         assertEquals("데모 모드에서는 바꿀 수 없어요.", GeneralPage.loginDescription(true, Optional.of(Path.of("/x"))));
-        assertTrue(GeneralPage.loginDescription(false, Optional.of(Path.of("/Applications/InfraDesk.app")))
-                .endsWith("실행 대상: /Applications/InfraDesk.app"));
+        // 경로 표기는 OS마다 다르다(Windows는 \ 로 나온다). 기대값도 같은 Path에서 만든다.
+        Path app = Path.of("/Applications/InfraDesk.app");
+        assertTrue(GeneralPage.loginDescription(false, Optional.of(app)).endsWith("실행 대상: " + app));
         assertTrue(GeneralPage.loginDescription(false, Optional.empty()).contains("찾지 못했어요"));
     }
 
