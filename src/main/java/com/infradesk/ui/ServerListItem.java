@@ -112,6 +112,18 @@ class ServerListItem extends JPanel {
         return server;
     }
 
+    /**
+     * 사이드바가 좁을 때(이름만 모드)는 오른쪽의 CPU%·상태 글자를 숨긴다. 이름이 잘릴 수 있어서, 마우스를 올리면
+     * 이름과 상태를 툴팁으로 보여 준다.
+     */
+    void setCompact(boolean compact) {
+        detail.setVisible(!compact);
+        setToolTipText(compact ? server.name() + " · " + server.status().label()
+                + (detail.getText().endsWith("%") ? " · CPU " + detail.getText() : "") : null);
+        revalidate();
+        repaint();
+    }
+
     void setSelected(boolean selected) {
         this.selected = selected;
         applyColors();

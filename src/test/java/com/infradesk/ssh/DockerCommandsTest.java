@@ -15,19 +15,32 @@ class DockerCommandsTest {
     private static final String ID2 = "9a8b7c6d5e4f" + "1".repeat(52);
 
     @Test
+    void plainListHasNoStatsAndStillParses() {
+        assertFalse(DockerCommands.listPlain().contains("stats"), "개요용 목록은 사용량을 재지 않는다");
+        String out = "@@ps\n{\"ID\":\"" + ID1 + "\",\"Names\":\"web\",\"Image\":\"nginx\",\"State\":\"running\","
+                + "\"Status\":\"Up 3 days\",\"Ports\":\"\"}\n";
+        DockerCommands.Listing l = DockerCommands.parseList(out);
+        assertEquals(DockerCommands.Listing.Status.OK, l.status());
+        assertEquals(1, l.containers().size());
+        assertEquals(-1, l.containers().getFirst().cpuPercent(), 1e-9, "사용량을 모르면 -1");
+    }
+
+    @Test
     void parsesContainersAndStats() {
         String out = String.join("\n",
                 "@@ps",
                 "{\"ID\":\"" + ID2 + "\",\"Names\":\"worker\",\"Image\":\"app:1\",\"State\":\"exited\",\"Status\":\"Exited (1) 2 hours ago\",\"Ports\":\"\"}",
                 "{\"ID\":\"" + ID1 + "\",\"Names\":\"web\",\"Image\":\"nginx:1.27\",\"State\":\"running\",\"Status\":\"Up 3 days\",\"Ports\":\"0.0.0.0:80->80/tcp, :::80->80/tcp\"}",
                 "@@stats",
-                "{\"ID\":\"" + ID1.substring(0, 12) + "\",\"Name\":\"web\",\"CPUPerc\":\"1.25%\",\"MemUsage\":\"120MiB / 23.4GiB\",\"MemPerc\":\"0.50%\"}");
+                "{\"ID\":\"" + ID1.substring(0, 12) + "\",\"Name\":\"web\",\"CPUPerc\":\"1.25%\",\"MemUsage\":\"120MiB / 23.4GiB\",\"MemPerc\":\"0.50%\",\"NetIO\":\"1.2MB / 3.4MB\"}");
         DockerCommands.Listing l = DockerCommands.parseList(out);
         assertEquals(DockerCommands.Listing.Status.OK, l.status());
         List<Container> c = l.containers();
         assertEquals("web", c.getFirst().name(), "running first");
         assertEquals(1.25, c.getFirst().cpuPercent(), 1e-9);
         assertEquals("120MiB / 23.4GiB", c.getFirst().memUsage());
+        assertEquals("1.2MB / 3.4MB", c.getFirst().netIo());
+        assertEquals("", c.get(1).netIo(), "no network numbers for stopped containers");
         assertEquals(-1, c.get(1).cpuPercent(), "no stats for stopped containers");
         assertFalse(c.get(1).isRunning());
     }

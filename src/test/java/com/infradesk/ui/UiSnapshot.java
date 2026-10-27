@@ -1,7 +1,7 @@
 package com.infradesk.ui;
 
 import com.infradesk.app.InfraDeskApp;
-import com.infradesk.provider.demo.DemoProviderFactory;
+import com.infradesk.demo.DemoProviderFactory;
 import com.infradesk.service.AccountInventory;
 import com.infradesk.service.InventoryService;
 
@@ -30,6 +30,12 @@ public final class UiSnapshot {
     private UiSnapshot() {
     }
 
+    /** 앱의 첫 화면은 개요다. 서버 화면을 찍는 시나리오는 첫 서버를 직접 고른다. */
+    private static void setInventoryAndOpenFirst(MainFrame frame, List<AccountInventory> inventory) {
+        frame.setInventory(inventory);
+        inventory.stream().flatMap(i -> i.servers().stream()).findFirst().ifPresent(frame::showServer);
+    }
+
     public static void main(String[] args) throws Exception {
         DIR.mkdirs();
         InventoryService service = InfraDeskApp.demoService(new DemoProviderFactory(Clock.systemUTC(), Duration.ZERO));
@@ -45,9 +51,66 @@ public final class UiSnapshot {
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
             mainFrame[0] = new MainFrame(service, fastLiveTerminalService(), InfraDeskApp.demoAlertService(), true);
-            mainFrame[0].setInventory(inventory);
+            setInventoryAndOpenFirst(mainFrame[0], inventory);
+        });
+        // 디자인 v2 공통 부품 모음 (v2-components.png)
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                ComponentGallery.render(DIR);
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
         });
         Thread.sleep(800);
+        // 컨테이너 탭 (디자인 v2 3단계): 탭을 열면 첫 컨테이너의 로그를 SSH(데모)로 읽어 오므로 잠깐 기다린 뒤 찍는다.
+        // 찍은 뒤에는 개요 탭으로 되돌려서 아래의 다른 스냅샷이 달라지지 않게 한다.
+        com.infradesk.ui.containers.ContainerLogWindow[] logWindow = new com.infradesk.ui.containers.ContainerLogWindow[1];
+        SwingUtilities.invokeAndWait(() -> mainFrame[0].serverScreen().showContainersTab());
+        Thread.sleep(1200);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "server-containers.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            // 로그 별도 창 (메인 화면의 로그 패널과 같은 모양이어야 한다). 열면 지금 보던 컨테이너 로그를 읽어 온다.
+            var logs = mainFrame[0].serverScreen().logs();
+            var window = mainFrame[0].openLogWindow(inventory.getFirst().servers().getFirst(), logs.selected());
+            logWindow[0] = window;
+            mainFrame[0].serverScreen().showOverviewTab();
+        });
+        Thread.sleep(1200);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(logWindow[0], logWindow[0].getContentPane(), 1100, 680, "container-log-window.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            logWindow[0].dispose();
+        });
+
+        // 사이드바: 이름만 보이는 폭(150), 닫힘, 다시 펼침. 폭이 바뀌면 이름만 모드로 바뀌는 것은 크기 변경 이벤트로
+        // 일어나므로(비동기) 바꾼 뒤 잠깐 기다렸다가 찍는다. 마지막에 원래대로 돌려 아래 스냅샷이 달라지지 않게 한다.
+        SwingUtilities.invokeAndWait(() -> mainFrame[0].setSidebarWidth(150));
+        Thread.sleep(400);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "sidebar-compact.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            mainFrame[0].collapseSidebar();
+        });
+        Thread.sleep(400);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "sidebar-collapsed.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            mainFrame[0].expandSidebar();
+        });
+        Thread.sleep(400);
         SwingUtilities.invokeAndWait(() -> {
             try {
                 MainFrame empty = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
@@ -57,6 +120,8 @@ public final class UiSnapshot {
                 MainFrame frame = mainFrame[0];
                 write(frame, frame.getContentPane(), 1280, 800, "main.png");
                 write(frame, frame.getContentPane(), 1280, 1080, "main-full.png");
+                // 창이 좁으면 개요의 오른쪽 열이 왼쪽 아래로 내려가서 한 열로 쌓인다.
+                write(frame, frame.getContentPane(), 980, 1700, "main-narrow.png");
                 frame.getContentPane().setSize(1280, 800);
 
                 // 호버: 각 차트 위(왼쪽, 가운데, 오른쪽 끝)로 마우스를 옮기며 렌더링한다.
@@ -75,7 +140,7 @@ public final class UiSnapshot {
                 }
 
                 MainFrame stoppingFrame = new MainFrame(stoppingService, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
-                stoppingFrame.setInventory(stopping);
+                setInventoryAndOpenFirst(stoppingFrame, stopping);
                 write(stoppingFrame, stoppingFrame.getContentPane(), 1280, 800, "main-stopping.png");
                 stoppingFrame.dispose();
 
@@ -97,12 +162,22 @@ public final class UiSnapshot {
 
                 var updates = new com.infradesk.service.UpdateService(java.net.http.HttpClient.newHttpClient(),
                         java.net.URI.create("http://127.0.0.1:1"), "x", null);
-                JDialog settings = new SettingsDialog(frame, InfraDeskApp.demoAlertService(), false, updates,
-                        com.infradesk.app.LaunchAtLogin.forCurrentOs(), () -> { });
-                write(settings, settings.getContentPane(), settings.getWidth(),
-                        settings.getContentPane().getPreferredSize().height, "settings.png");
-                settings.dispose();
-
+                // 설정 화면(디자인 v2): 메인 창 안의 화면. 항목마다 한 장씩 찍는다.
+                var settingsScreen = new com.infradesk.ui.settings.SettingsScreen(InfraDeskApp.demoAlertService(), false,
+                        updates, com.infradesk.app.LaunchAtLogin.forCurrentOs(), () -> { }, () -> { },
+                        new com.infradesk.ui.settings.ConnectionPage.Source(() -> List.of(
+                                new com.infradesk.ssh.OpenConnection("a", com.infradesk.ssh.Purpose.QUERY,
+                                        java.time.Instant.now().minus(java.time.Duration.ofMinutes(192)), java.time.Instant.now(), 0),
+                                new com.infradesk.ssh.OpenConnection("a", com.infradesk.ssh.Purpose.FILES,
+                                        java.time.Instant.now().minus(java.time.Duration.ofMinutes(190)), java.time.Instant.now(), 0),
+                                new com.infradesk.ssh.OpenConnection("c", com.infradesk.ssh.Purpose.QUERY,
+                                        java.time.Instant.now().minus(java.time.Duration.ofMinutes(64)), java.time.Instant.now(), 0)),
+                                () -> java.util.Map.of("a", "discord-bot", "b", "api-gateway", "c", "mac-mini", "d", "web-server"),
+                                () -> 2, com.infradesk.ui.settings.ConnectionPage.Disconnector.NONE));
+                for (String page : new String[] {"general", "alerts", "security", "connection", "about"}) {
+                    settingsScreen.show(page);
+                    write(frame, settingsScreen, 1280, 800, "settings-" + page + ".png");
+                }
                 // Windows 트레이 메뉴(Swing 팝업): 메인 목록과 첫 서버의 하위 메뉴를 나란히.
                 TrayController.Actions noop = (TrayController.Actions) java.lang.reflect.Proxy.newProxyInstance(
                         TrayController.Actions.class.getClassLoader(), new Class<?>[]{TrayController.Actions.class}, (o, m, a) -> null);
@@ -161,6 +236,21 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
+        // 개요(앱의 첫 화면, 디자인 v2 9단계): 서버 정보를 한 번에 2대씩 SSH(데모)로 읽어 오므로 잠깐 기다린 뒤 찍는다.
+        MainFrame[] overviewFrame = new MainFrame[1];
+        SwingUtilities.invokeAndWait(() -> {
+            overviewFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
+            overviewFrame[0].setInventory(inventory);
+        });
+        Thread.sleep(3000);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(overviewFrame[0], overviewFrame[0].getContentPane(), 1280, 1100, "overview.png");
+                write(overviewFrame[0], overviewFrame[0].getContentPane(), 980, 1500, "overview-narrow.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        });
         // 직접 연결한 Mac mini: 상세 정보와 첫 SSH 샘플이 비동기로 도착한다.
         MainFrame[] sshFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
@@ -179,26 +269,124 @@ public final class UiSnapshot {
             }
             sshFrame[0].dispose();
         });
-        // 실시간 모드: 메인 프레임의 토글을 켜고 데모 /proc 스트림이 샘플을 만들게 한다.
+        // 열린 포트가 많으면 칩이 다음 줄로 넘어가고 정보 카드가 그만큼 길어진다(잘리지 않는다). 값을 넣은 뒤 화면이
+        // 한 번 다시 계산할 시간을 주고 찍는다(실제 앱과 같은 순서).
         SwingUtilities.invokeAndWait(() -> {
-            MainFrame live = mainFrame[0];
-            live.addNotify();
-            find(live.getContentPane(), javax.swing.JToggleButton.class).doClick();
+            mainFrame[0].addNotify();
+            mainFrame[0].getContentPane().setSize(1280, 1000);
+            layoutAll(mainFrame[0].getContentPane());
+            mainFrame[0].serverScreen().setFacts(new com.infradesk.ssh.HostFacts(java.time.Duration.ofDays(6), "macOS 26.6.2",
+                    42L << 30, 99L << 30, List.of(22, 80, 443, 5000, 7000, 49154, 59869, 61000)), java.time.Instant.now());
         });
-        Thread.sleep(9000);
+        Thread.sleep(400);
         SwingUtilities.invokeAndWait(() -> {
             try {
-                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "main-live.png");
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 1000, "main-ports.png");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+            mainFrame[0].getContentPane().setSize(1280, 800);
         });
+        // 모니터링 탭 (디자인 v2 4단계): 기본 1시간, 24시간, 실시간 순서로 찍는다. 기간 칸을 누르면 그 기간을 비동기로
+        // 읽어 오므로 잠깐 기다린다. 실시간은 데모 /proc 스트림이 샘플을 쌓을 시간을 준다. 마지막에 1시간으로 돌려
+        // 실시간을 끄고 개요 탭으로 돌아가서 아래 스냅샷에 영향이 없게 한다.
+        SwingUtilities.invokeAndWait(() -> {
+            MainFrame live = mainFrame[0];
+            live.addNotify();
+            live.serverScreen().showMonitoringTab();
+        });
+        Thread.sleep(1200);
+        snapshotMonitoring("monitoring.png", mainFrame[0]);
+        // 첫 번째(CPU) 차트 위에 마우스를 올린다: 세 차트가 같은 시점에 선과 값 상자를 그려야 한다.
+        SwingUtilities.invokeAndWait(() -> {
+            var chart = find(mainFrame[0].getContentPane(), "ZoomChartPanel");
+            var move = new java.awt.event.MouseEvent(chart, java.awt.event.MouseEvent.MOUSE_MOVED,
+                    System.currentTimeMillis(), 0, chart.getWidth() * 3 / 5, 80, 0, false);
+            for (var l : chart.getMouseMotionListeners()) {
+                l.mouseMoved(move);
+            }
+        });
+        snapshotMonitoring("monitoring-hover.png", mainFrame[0]);
+        SwingUtilities.invokeAndWait(() -> {
+            var chart = find(mainFrame[0].getContentPane(), "ZoomChartPanel");
+            var exit = new java.awt.event.MouseEvent(chart, java.awt.event.MouseEvent.MOUSE_EXITED,
+                    System.currentTimeMillis(), 0, -1, -1, 0, false);
+            for (var l : chart.getMouseListeners()) {
+                l.mouseExited(exit);
+            }
+        });
+        SwingUtilities.invokeAndWait(() -> ((javax.swing.AbstractButton) findText(mainFrame[0].getContentPane(), "24시간")).doClick());
+        Thread.sleep(1200);
+        snapshotMonitoring("monitoring-24h.png", mainFrame[0]);
+        SwingUtilities.invokeAndWait(() -> ((javax.swing.AbstractButton) findText(mainFrame[0].getContentPane(), "실시간")).doClick());
+        Thread.sleep(9000);
+        snapshotMonitoring("monitoring-live.png", mainFrame[0]);
+        SwingUtilities.invokeAndWait(() -> {
+            ((javax.swing.AbstractButton) findText(mainFrame[0].getContentPane(), "1시간")).doClick();   // 실시간을 끈다
+            mainFrame[0].serverScreen().showOverviewTab();
+        });
+        Thread.sleep(600);
+
+        // 파일 탭 (디자인 v2 5단계): 서버 화면 안의 파일 탭. 서버 파일 하나를 받아서 전송 목록을 채우고, 다른 하나를 편집
+        // 세션으로 열어 배너를 띄운 뒤, 파일 둘을 골라 선택 작업 막대까지 보이게 찍는다. 편집기는 실제로 띄우지 않는다.
+        try {
+            Class<?> editor = Class.forName("com.infradesk.ui.files.ExternalEditor");
+            java.lang.reflect.Field hook = editor.getDeclaredField("launcherOverride");
+            hook.setAccessible(true);
+            hook.set(null, (java.util.function.Consumer<java.nio.file.Path>) opened -> { });
+        } catch (ReflectiveOperationException ex) {
+            throw new RuntimeException(ex);
+        }
+        SwingUtilities.invokeAndWait(() -> mainFrame[0].serverScreen().showFilesTab());
+        Thread.sleep(1500);
+        java.util.function.BiConsumer<String[], String> pickRemote = (names, button) -> {
+            List<java.awt.Component> tabs = new java.util.ArrayList<>();
+            collect(mainFrame[0].getContentPane(), "FilesTab", tabs);
+            List<java.awt.Component> tables = new java.util.ArrayList<>();
+            collect((Container) tabs.getFirst(), "JTable", tables);
+            javax.swing.JTable remote = (javax.swing.JTable) tables.get(1);
+            remote.clearSelection();
+            for (int row = 0; row < remote.getRowCount(); row++) {
+                for (String name : names) {
+                    if (remote.getValueAt(row, 0).toString().contains(name)) {
+                        remote.addRowSelectionInterval(row, row);
+                    }
+                }
+            }
+            if (button != null) {
+                List<java.awt.Component> buttons = new java.util.ArrayList<>();
+                collect((Container) tabs.getFirst(), "JButton", buttons);
+                // 같은 글자("편집")의 버튼이 내 컴퓨터 쪽에도 있다: 서버 쪽 것은 뒤에 온다.
+                buttons.stream().map(b -> (javax.swing.AbstractButton) b)
+                        .filter(b -> button.equals(b.getText())).reduce((first, second) -> second).orElseThrow().doClick();
+            }
+        };
+        SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"docker-compose.yml"}, "내 컴퓨터로 받기"));
+        Thread.sleep(1500);
+        SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"README.md"}, "편집"));
+        Thread.sleep(1500);
+        SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"README.md", "docker-compose.yml"}, null));
+        snapshotMonitoring("files-tab.png", mainFrame[0]);
+        // 정리: 편집을 끝내고 끝난 전송을 지워서 아래 스냅샷에 영향이 없게 한다.
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(mainFrame[0].getContentPane(), "JButton", buttons);
+            for (String text : new String[] {"편집 끝내기", "끝난 항목 지우기"}) {
+                buttons.stream().map(b -> (javax.swing.AbstractButton) b).filter(b -> text.equals(b.getText()))
+                        .findFirst().orElseThrow().doClick();
+            }
+            mainFrame[0].serverScreen().showOverviewTab();
+        });
+        Thread.sleep(300);
+        // 데모의 내 컴퓨터 폴더는 아래 SFTP 시나리오와 공유된다. 위에서 받은 파일을 지워 같은 이름 충돌이 생기지 않게 한다.
+        java.nio.file.Files.deleteIfExists(java.nio.file.Path.of(InfraDeskApp.demoTerminalService().localFiles().home())
+                .resolve("docker-compose.yml"));
 
         // 터미널: 데모 세션을 열고, 가짜 셸이 배너를 출력할 시간을 준 뒤 렌더링한다.
         MainFrame[] terminalFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
             terminalFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
-            terminalFrame[0].setInventory(inventory);
+            setInventoryAndOpenFirst(terminalFrame[0], inventory);
             terminalFrame[0].addNotify();
             terminalFrame[0].getContentPane().setSize(1280, 800);
             layoutAll(terminalFrame[0].getContentPane());
@@ -224,7 +412,7 @@ public final class UiSnapshot {
         // 데모 컨테이너 안의 MySQL 콘솔. 컨테이너 패널의 "MySQL 콘솔" 버튼을 누른 것처럼 연다.
         SwingUtilities.invokeAndWait(() -> terminalFrame[0].openContainerTerminal(inventory.get(1).servers().getFirst(),
                 new com.infradesk.ssh.Container("c".repeat(64), "mysql", "mysql:8.4", "running", "Up 14 days",
-                        "3306/tcp", 0.4, "412MiB / 23.4GiB", 1.7),
+                        "3306/tcp", 0.4, "412MiB / 23.4GiB", 1.7, ""),
                 com.infradesk.ssh.DockerCommands.Console.MYSQL));
         Thread.sleep(1500);
         SwingUtilities.invokeAndWait(() -> {
@@ -245,10 +433,41 @@ public final class UiSnapshot {
                 throw new RuntimeException(e);
             }
         });
+        // 터미널 탭은 보고 있는 서버의 세션만 보여 준다: 세션이 없는 서버로 가면 빈 화면과 [접속]이 나오고,
+        // 세션이 있는 서버로 돌아오면 보던 세션이 그대로 다시 보인다(다른 서버의 세션은 닫히지 않는다).
+        com.infradesk.core.Server withSessions = inventory.get(1).servers().getFirst();
+        com.infradesk.core.Server withoutSessions = inventory.getFirst().servers().getFirst();
+        SwingUtilities.invokeAndWait(() -> terminalFrame[0].showServer(withoutSessions));
+        Thread.sleep(400);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(terminalFrame[0], terminalFrame[0].getContentPane(), 1280, 800, "terminal-empty.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        int[] counts = new int[2];
+        SwingUtilities.invokeAndWait(() -> {
+            counts[0] = terminalFrame[0].terminalSessions(withoutSessions.id());
+            counts[1] = terminalFrame[0].terminalSessions(withSessions.id());
+            terminalFrame[0].showServer(withSessions);
+        });
+        Thread.sleep(300);
+        System.out.println(counts[0] == 0 && counts[1] == 2
+                ? "TERMINAL-PER-SERVER: OK (다른 서버의 세션 2개는 살아 있고, 이 서버는 세션이 없다)"
+                : "TERMINAL-PER-SERVER: FAILED (세션이 없어야 할 서버 " + counts[0] + ", 있어야 할 서버 " + counts[1] + ")");
         // 데모 파일 트리의 SFTP 브라우저.
+        // 파일 탭은 서버 화면 안의 패널이다. 시나리오를 창 하나에서 돌릴 수 있게 테스트용 창에 담는다.
         JDialog[] sftp = new JDialog[1];
-        SwingUtilities.invokeAndWait(() -> sftp[0] = new com.infradesk.ui.terminal.SftpDialog(terminalFrame[0],
-                InfraDeskApp.demoTerminalService(), inventory.getFirst().servers().getFirst()));
+        com.infradesk.ui.files.FilesTab[] filesTab = new com.infradesk.ui.files.FilesTab[1];
+        SwingUtilities.invokeAndWait(() -> {
+            filesTab[0] = new com.infradesk.ui.files.FilesTab(InfraDeskApp.demoTerminalService(),
+                    inventory.getFirst().servers().getFirst());
+            sftp[0] = new JDialog(terminalFrame[0], "files", false);
+            sftp[0].setContentPane(filesTab[0]);
+            sftp[0].setSize(1180, 700);
+            sftp[0].setLocationRelativeTo(terminalFrame[0]);
+        });
         Thread.sleep(1500);
         SwingUtilities.invokeAndWait(() -> {
             try {
@@ -267,7 +486,7 @@ public final class UiSnapshot {
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
             buttons.stream().map(b -> (javax.swing.AbstractButton) b)
-                    .filter(b -> "서버로 업로드".equals(b.getText())).findFirst().orElseThrow().doClick();
+                    .filter(b -> "서버로 올리기".equals(b.getText())).findFirst().orElseThrow().doClick();
         });
         Thread.sleep(2500);
         SwingUtilities.invokeAndWait(() -> {
@@ -286,7 +505,7 @@ public final class UiSnapshot {
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
             buttons.stream().map(x -> (javax.swing.AbstractButton) x)
-                    .filter(x -> "끝난 항목 모두 지우기".equals(x.getText())).findFirst().orElseThrow().doClick();
+                    .filter(x -> "끝난 항목 지우기".equals(x.getText())).findFirst().orElseThrow().doClick();
             panelState[1] = panels.getFirst().isVisible();
         });
         System.out.println(panelState[0] && !panelState[1] ? "TRANSFER-CLEAR: OK (모두 지우면 패널이 접혔다)"
@@ -295,7 +514,7 @@ public final class UiSnapshot {
         // 서버에 다시 올라갔는지 확인한다.
         java.util.concurrent.atomic.AtomicReference<java.nio.file.Path> edited = new java.util.concurrent.atomic.AtomicReference<>();
         try {
-            Class<?> editor = Class.forName("com.infradesk.ui.terminal.ExternalEditor");
+            Class<?> editor = Class.forName("com.infradesk.ui.files.ExternalEditor");
             java.lang.reflect.Field hook = editor.getDeclaredField("launcherOverride");
             hook.setAccessible(true);
             hook.set(null, (java.util.function.Consumer<java.nio.file.Path>) edited::set);
@@ -324,9 +543,9 @@ public final class UiSnapshot {
         edited.set(null);
         // 다운로드 버튼(더블클릭과 같은 동작)은 왼쪽 패널이 어느 폴더에 있든 다운로드 폴더(데모는 시작 폴더)로 받는다.
         try {
-            java.lang.reflect.Field paneField = sftp[0].getClass().getDeclaredField("localPane");
+            java.lang.reflect.Field paneField = filesTab[0].getClass().getDeclaredField("localPane");
             paneField.setAccessible(true);
-            Object leftPane = paneField.get(sftp[0]);
+            Object leftPane = paneField.get(filesTab[0]);
             java.lang.reflect.Method open = leftPane.getClass().getDeclaredMethod("open", String.class);
             open.setAccessible(true);
             SwingUtilities.invokeAndWait(() -> {
@@ -352,32 +571,30 @@ public final class UiSnapshot {
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
             buttons.stream().map(b -> (javax.swing.AbstractButton) b)
-                    .filter(x -> "내 컴퓨터로 다운로드".equals(x.getText())).findFirst().orElseThrow().doClick();
+                    .filter(x -> "내 컴퓨터로 받기".equals(x.getText())).findFirst().orElseThrow().doClick();
         });
         Thread.sleep(2500);
-        // 새 전송이 시작되면 패널이 나타난다. X로 접으면 목록은 남고, "전송 목록 보기"로 다시 열 수 있다.
+        // 새 전송이 시작되면 목록이 펼쳐진다. 접으면 머리 줄만 남고(목록은 그대로), 다시 펼칠 수 있다.
         boolean[] closeState = new boolean[5];
         SwingUtilities.invokeAndWait(() -> {
             List<java.awt.Component> panels = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "TransferPanel", panels);
+            var panel = (com.infradesk.ui.files.TransferPanel) panels.getFirst();
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
-            java.util.function.Function<String, javax.swing.AbstractButton> byText = t -> buttons.stream()
-                    .map(x -> (javax.swing.AbstractButton) x).filter(x -> x.getText() != null && x.getText().startsWith(t))
-                    .findFirst().orElseThrow();
-            closeState[0] = panels.getFirst().isVisible();
-            buttons.stream().map(x -> (javax.swing.AbstractButton) x)
-                    .filter(x -> "닫기".equals(x.getToolTipText())).findFirst().orElseThrow().doClick();
-            closeState[1] = panels.getFirst().isVisible();
-            closeState[2] = byText.apply("전송 목록 보기").isVisible();
-            byText.apply("전송 목록 보기").doClick();
-            closeState[3] = panels.getFirst().isVisible();
-            buttons.stream().map(x -> (javax.swing.AbstractButton) x)
-                    .filter(x -> "닫기".equals(x.getToolTipText())).findFirst().orElseThrow().doClick();
-            closeState[4] = !panels.getFirst().isVisible();
+            java.util.function.Consumer<String> clickTip = tip -> buttons.stream().map(x -> (javax.swing.AbstractButton) x)
+                    .filter(x -> tip.equals(x.getToolTipText())).findFirst().orElseThrow().doClick();
+            closeState[0] = panel.isVisible() && panel.isExpanded();
+            clickTip.accept("접기");
+            closeState[1] = panel.isExpanded();
+            closeState[2] = panel.isVisible();   // 머리 줄은 남는다
+            clickTip.accept("펼치기");
+            closeState[3] = panel.isExpanded();
+            clickTip.accept("접기");
+            closeState[4] = !panel.isExpanded();
         });
         boolean closeOk = closeState[0] && !closeState[1] && closeState[2] && closeState[3] && closeState[4];
-        System.out.println(closeOk ? "TRANSFER-CLOSE: OK (X로 접고, 버튼으로 다시 열고, 다시 접는다)"
+        System.out.println(closeOk ? "TRANSFER-CLOSE: OK (접고, 다시 펼치고, 다시 접는다)"
                 : "TRANSFER-CLOSE: FAILED " + java.util.Arrays.toString(closeState));
         // 패널을 X로 닫은 뒤, 이미 있는 파일을 덮어쓰며 다시 받는다(확인 창에서 "덮어쓰기"). 패널이 다시 나타나야 한다.
         SwingUtilities.invokeLater(() -> {
@@ -392,7 +609,7 @@ public final class UiSnapshot {
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
             buttons.stream().map(x -> (javax.swing.AbstractButton) x)
-                    .filter(x -> "내 컴퓨터로 다운로드".equals(x.getText())).findFirst().orElseThrow().doClick();
+                    .filter(x -> "내 컴퓨터로 받기".equals(x.getText())).findFirst().orElseThrow().doClick();
         });
         boolean answered = false;
         for (int i = 0; i < 40 && !answered; i++) {
@@ -419,7 +636,7 @@ public final class UiSnapshot {
         SwingUtilities.invokeAndWait(() -> {
             List<java.awt.Component> panels = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "TransferPanel", panels);
-            overwriteShown[0] = panels.getFirst().isVisible();
+            overwriteShown[0] = ((com.infradesk.ui.files.TransferPanel) panels.getFirst()).isExpanded();
         });
         System.out.println(answered && overwriteShown[0] ? "REOPEN-ON-OVERWRITE: OK (덮어쓰며 받으면 패널이 나타났다)"
                 : "REOPEN-ON-OVERWRITE: FAILED (확인 창 응답 " + answered + ", 패널 보임 " + overwriteShown[0] + ")");
@@ -478,55 +695,20 @@ public final class UiSnapshot {
                 }
             });
         }
-        // 확대 가능한 메트릭 차트: 24시간 네트워크를 그린 뒤, 확대해서 호버 툴팁과 함께 렌더링한다.
-        var chartServer = inventory.getFirst().servers().getFirst();
-        var chartAccount = inventory.getFirst().account();
-        var chartDialog = new com.infradesk.ui.metrics.MetricChartDialog(terminalFrame[0], chartServer.name(),
-                com.infradesk.ui.metrics.MetricKind.NETWORK, true, range -> service.metrics(chartAccount, chartServer.id(), range));
-        SwingUtilities.invokeAndWait(chartDialog::startLoading);
-        Thread.sleep(1500);
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart.png");
-                var panel = find(chartDialog.getContentPane(), "ZoomChartPanel");
-                for (int i = 0; i < 3; i++) {
-                    var e = new java.awt.event.MouseWheelEvent(panel, java.awt.event.MouseEvent.MOUSE_WHEEL,
-                            System.currentTimeMillis(), 0, 600, 200, 600, 200, 0, false,
-                            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL, 1, -3, -3.0);
-                    for (var l : panel.getMouseWheelListeners()) {
-                        l.mouseWheelMoved(e);
-                    }
-                }
-                var move = new java.awt.event.MouseEvent(panel, java.awt.event.MouseEvent.MOUSE_MOVED,
-                        System.currentTimeMillis(), 0, 500, 200, 0, false);
-                for (var l : panel.getMouseMotionListeners()) {
-                    l.mouseMoved(move);
-                }
-                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart-zoomed.png");
-                ((javax.swing.AbstractButton) findText(chartDialog.getContentPane(), "24시간")).doClick();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        Thread.sleep(1500);
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart-24h.png");
-                ((javax.swing.AbstractButton) findText(chartDialog.getContentPane(), "7일")).doClick();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        Thread.sleep(1500);
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                write(chartDialog, chartDialog.getContentPane(), 960, 520, "metric-chart-7d.png");
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
         System.out.println("Snapshots written to " + DIR.getAbsolutePath());
         System.exit(0);
+    }
+
+    /** 모니터링 탭을 찍는다. 차트 3개가 세로로 쌓여 길어서 높이를 1100으로 키운다. */
+    private static void snapshotMonitoring(String name, MainFrame frame) throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(frame, frame.getContentPane(), 1280, 1100, name);
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            frame.getContentPane().setSize(1280, 800);
+        });
     }
 
     private static java.awt.Component findText(Container root, String text) {
@@ -576,8 +758,8 @@ public final class UiSnapshot {
     private static com.infradesk.service.TerminalService fastLiveTerminalService() {
         return new com.infradesk.service.TerminalService(new com.infradesk.storage.InMemorySshSettingsStore(),
                 new com.infradesk.storage.InMemorySecretStore(),
-                new com.infradesk.ssh.DemoShellConnector(Duration.ZERO, Duration.ofMillis(150)),
-                new com.infradesk.storage.InMemorySavedCommandStore(com.infradesk.provider.demo.DemoData.savedCommands()), true);
+                new com.infradesk.demo.DemoShellConnector(Duration.ZERO, Duration.ofMillis(150)),
+                new com.infradesk.storage.InMemorySavedCommandStore(com.infradesk.demo.DemoData.savedCommands()), true);
     }
 
     private static void collect(Container c, String simpleName, List<java.awt.Component> out) {

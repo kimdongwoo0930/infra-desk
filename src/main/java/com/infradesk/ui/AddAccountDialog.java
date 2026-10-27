@@ -162,7 +162,7 @@ public class AddAccountDialog extends JDialog {
             b.putClientProperty(FlatClientProperties.STYLE,
                     "arc: 16; background: #00000000; disabledBackground: #00000000; borderColor: #43454A; selectedBackground: #25324D;"
                             + " selectedForeground: #FFFFFF; font: +0 $medium.font;"
-                            + " focusedBorderColor: #3B73E0; borderWidth: 1");
+                            + " focusedBorderColor: " + Theme.hex(Theme.ACCENT_LINE) + "; borderWidth: 1");
             if (type == ProviderType.ORACLE) {
                 b.setBorder(BorderFactory.createCompoundBorder(
                         new com.formdev.flatlaf.ui.FlatLineBorder(new java.awt.Insets(0, 0, 0, 0), Theme.ACCENT, 2f, 16),

@@ -26,7 +26,7 @@
 | `storage` | 설정 파일(JSON)과 비밀값(암호화 금고)을 읽고 쓴다 | 그 값이 무슨 뜻인지 | [storage.md](storage.md) |
 | `alert` | 서버 상태 변화를 감지해서 디스코드로 알린다 (현재 꺼져 있음) | 화면 | [alert.md](alert.md) |
 
-이 밖에 `app`이 있다. 시작할 때 위 모듈들을 **조립**하는 `main`이다. 어떤 저장소·provider·SSH 연결을 쓸지는 여기서 정한다. 다만 `MainFrame`이 `ContainerService`와 `SshMetricsService`를 직접 만드는 예외가 있다.
+이 밖에 `demo`(데모 모드용 가짜 부품을 모아 둔 패키지. [demo.md](demo.md))와 `app`이 있다. 시작할 때 위 모듈들을 **조립**하는 `main`이다. 어떤 저장소·provider·SSH 연결을 쓸지는 여기서 정한다. 다만 `MainFrame`이 `ContainerService`와 `SshMetricsService`를 직접 만드는 예외가 있다.
 
 ### `app`에 있는 것
 
@@ -50,9 +50,10 @@
 | `ssh` | 없음 |
 | `provider` | `core`만 |
 | `storage` | `core`, `ssh`(SSH 설정 모델), `alert`(알림 설정 모델) |
-| `service` | `core`, `ssh`, `storage` |
+| `service` | `core`, `ssh`, `storage`, `demo`(데모 모드의 가짜 로컬 파일 한 곳) |
 | `alert` | `core`, `service`, `storage` |
 | `ui` | `core`, `service`, `ssh`, `alert` |
+| `demo` | `core`, `ssh` (인터페이스를 구현할 뿐, 서로 다른 모듈은 `demo`를 모른다. 단 `app`과 `service/TerminalService`가 쓴다) |
 | `app` | 전부 (조립하는 곳) |
 
 위에서 아래로 읽으면 대체로 "의존이 적은 모듈 → 많은 모듈" 순서다. `core`와 `ssh`는 아무것도 모르니 가장 안전하게 읽을 수 있다.

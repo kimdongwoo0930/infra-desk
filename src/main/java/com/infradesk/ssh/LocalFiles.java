@@ -21,29 +21,50 @@ public final class LocalFiles {
 
     private final Path home;
     private final Path root;
+    private final Path downloads;
 
     /**
-     * 사용자의 다운로드 폴더에서 시작한다(없으면 홈 폴더). 제한 없음. 서버 파일을 내려받으면 왼쪽 패널의
-     * 현재 폴더에 저장되므로, 시작 위치가 곧 기본 다운로드 위치다.
+     * 사용자의 홈 폴더({@code /Users/이름})에서 시작한다. 제한 없음. 홈 폴더 자체는 macOS가 막지 않지만 그 아래의
+     * {@code Downloads}·{@code Desktop}·{@code Documents} 등은 앱에 따로 허용해야 열리므로, 시작하자마자 권한
+     * 오류가 나지 않게 시작 위치는 홈으로 한다. 서버 파일을 내려받는 곳은 {@link #downloadFolder()}다.
      */
     public static LocalFiles userHome() {
-        return new LocalFiles(startFolder(Path.of(System.getProperty("user.home"))), null);
+        return forHome(Path.of(System.getProperty("user.home")));
+    }
+
+    static LocalFiles forHome(Path home) {
+        Path normalized = home.toAbsolutePath().normalize();
+        return new LocalFiles(normalized, null, downloadsFolder(normalized));
     }
 
     /** {@code home} 아래 {@code Downloads} 폴더가 있으면 그것, 없으면 {@code home}. macOS와 Windows 모두 이 이름이다. */
-    static Path startFolder(Path home) {
+    static Path downloadsFolder(Path home) {
         Path downloads = home.resolve("Downloads");
         return Files.isDirectory(downloads) ? downloads : home;
     }
 
-    /** {@code root} 아래만 볼 수 있다. {@code home}은 그 안에 있어야 한다. */
+    /**
+     * {@code root} 아래만 볼 수 있다. {@code home}은 그 안에 있어야 한다. 받은 파일은 {@code home}에 저장된다
+     * (데모처럼 홈이 곧 작업 폴더인 경우).
+     */
     public LocalFiles(Path home, Path root) {
-        this.home = home.toAbsolutePath().normalize();
-        this.root = root == null ? null : root.toAbsolutePath().normalize();
+        this(home.toAbsolutePath().normalize(), root == null ? null : root.toAbsolutePath().normalize(), null);
     }
 
+    private LocalFiles(Path home, Path root, Path downloads) {
+        this.home = home;
+        this.root = root;
+        this.downloads = downloads == null ? home : downloads;
+    }
+
+    /** 처음 보여 줄 폴더(홈). */
     public String home() {
         return home.toString();
+    }
+
+    /** 서버에서 받은 파일이 저장되는 폴더: 홈 아래 Downloads가 있으면 그것, 없으면 홈. */
+    public String downloadFolder() {
+        return downloads.toString();
     }
 
     /** 폴더 항목. 폴더가 먼저, 그다음 이름순(대소문자 무시). 읽을 수 없는 항목은 건너뛴다. */

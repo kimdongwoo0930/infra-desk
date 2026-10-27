@@ -59,10 +59,25 @@ OCI API 요청 제한을 지키려고 평소엔 느리게, 필요할 때만 빠�
 |---|---|
 | `TerminalService` | 서버별 SSH 설정·키 저장(저장·삭제하면 그 서버의 풀 연결을 끊는다), 셸 열기(`open`, 풀 밖), 명령 한 번 실행(`run`: 목적 지정, 제한 시간·출력 상한), SFTP 열기(`openFiles` = FILES, `openTransferFiles` = TRANSFER), 이 컴퓨터 폴더(`localFiles`), 저장된 명령어, 서버 정보 읽기(`facts`). 실제 SSH 연결은 `ssh.ShellConnector`에 맡긴다 |
 | `ContainerService` | 컨테이너 목록·시작/정지/재시작·로그. `TerminalService.run`으로 `docker` 명령을 실행한다 |
+| `FleetService` | 개요가 서버 여러 대의 정보(`HostFacts`와 가벼운 컨테이너 목록)를 한꺼번에 읽는다(아래) |
 | `LiveStats` | 실시간 모드. SSH exec 세션의 출력을 읽어 2초마다 `ProcStats.Sample`을 알린다 |
 | `SshMetricsService` | 클라우드 메트릭이 없는 직접 연결 서버용. 분당 한 번 짧은 SSH 명령으로 CPU·메모리를 재서 최근 1시간을 메모리에 보관한다. 접속은 `QUERY` 연결을 재사용하고, 접속을 시도해도 되는지는 `SamplingGate`가 정한다(아래) |
 
 `TerminalService.target(server)`가 SSH 접속 정보(`SshTarget`: 호스트, 포트, 사용자, 개인키)를 만든다. 호스트는 서버의 공인 IP, 사용자·포트는 `SshSettingsStore`, 개인키는 `SecretStore`에서 가져온다. 하나라도 없으면 한국어 안내 메시지가 담긴 `SshException`을 던진다.
+
+### 여러 서버를 읽는 규칙 (`FleetService`)
+
+개요는 서버 전부를 보여 주므로 접속 수가 늘지 않게 규칙을 둔다. 시계와 읽는 방법을 바꿔 끼울 수 있어서(`Reader`) `FleetServiceTest`로 검증한다.
+
+| 상황 | 동작 |
+|---|---|
+| 읽는 방식 | 조회용(`QUERY`) 연결을 빌려 서버마다 `facts` 한 번과 `docker ps -a`(stats 없음) 한 번. **한 번에 2대씩**(스레드 2개) |
+| 읽지 않는 서버 | 실행 중이 아니거나 SSH 설정이 없는 서버 |
+| 값 재사용 | 읽은 값은 5분 동안 다시 쓴다. 새로고침(`force`)이면 다시 읽는다 |
+| 읽기에 실패한 서버 | 시간이 지나도 **새로고침하기 전에는 다시 읽지 않는다**(자동 재시도 없음) |
+| 처음 보는 호스트 키 | 묻지 않고 거절한다. 사용자가 터미널로 한 번 접속해서 믿어야 한다 |
+| 개요를 떠남 | `cancel()`: 아직 시작하지 않은 서버는 읽지 않는다 |
+| 컨테이너만 실패 | 서버 정보는 그대로 보여 주고 컨테이너 칸만 "—" |
 
 ### 자동 SSH 접속 규칙 (`SamplingGate`)
 
@@ -84,5 +99,9 @@ SSH 접속은 서버의 인증 로그에 남고, 인증이 계속 실패하면 �
 
 | 클래스 | 역할 |
 |---|---|
-| `UpdateService` | GitHub `beta` 릴리스에서 최신 빌드 번호·다운로드·`SHA256SUMS.txt` 주소 확인, 자동 확인 설정 저장 |
+| `UpdateService` | GitHub 최신 정식 릴리스(`releases/latest`)에서 버전·다운로드·`SHA256SUMS.txt` 주소 확인, **버전 번호로** 새 버전 비교(`isNewer`: 1.0.10 > 1.0.9), 자동 확인 설정 저장. 태그가 `v1.0.0` 모양이 아니거나 프리릴리스·초안이면(옛 베타 릴리스) 정식 릴리스가 아니라고 본다 |
 | `UpdateInstaller` | 앱 안 업데이트: 받기(리디렉트 따라감) → SHA-256 대조 → 앱 옆 `.infradesk-update`에 풀기(macOS `ditto`) → 새 앱 `--self-test` → `update-swap.sh`/`.ps1`가 앱 종료를 기다려 교체하고 다시 실행(실패하면 원래 앱 복원) |
+
+### 베타에서 정식 릴리스로 넘어온 방법
+
+베타 때 설치된 앱은 롤링 `beta` 릴리스만 보고 빌드 번호로 새 버전을 비교했다. 정식 릴리스(1.0.0)로 옮길 때 설치된 앱이 끊기지 않도록, **첫 정식 릴리스를 만들 때 CI가 같은 빌드를 `InfraDesk-beta-*` 이름으로 `beta` 릴리스에도 한 번 올렸다**(`.github/workflows/build.yml`의 "Legacy beta" 단계, 첫 릴리스에서만). 옛 앱은 평소처럼 빌드 번호가 더 큰 `beta` 릴리스를 받아 설치하고, 그 앱은 이미 1.0.0이라 그 뒤로는 정식 릴리스(`latest`)만 본다. 새 앱 코드에는 베타를 보는 부분이 없다. 옛 `beta`, `beta-N` 릴리스는 기록으로 남아 있고 `delete-beta-archives.yml`로 지울 수 있다.

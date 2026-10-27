@@ -194,6 +194,123 @@ class SessionPoolTest {
         assertEquals(2, created.get(), "조회는 터미널과 별개로 새 연결을 맺는다");
     }
 
+    // ---- 열린 연결 목록(읽기 전용) ----
+
+    @Test
+    void listsTheOpenPooledConnectionsWithoutOpeningAnyNewOne() throws Exception {
+        assertEquals(List.of(), connector.openConnections(), "아무것도 쓰기 전에는 비어 있다");
+
+        SshTarget t = target(pem);
+        query(t);
+        connector.sftp(Purpose.FILES, t, TRUST).close();
+        int sessionsBefore = created.get();
+
+        List<OpenConnection> open = connector.openConnections();
+
+        assertEquals(2, open.size());
+        assertEquals(List.of(Purpose.QUERY, Purpose.FILES), open.stream().map(OpenConnection::purpose).toList());
+        assertEquals("server-1", open.getFirst().serverId());
+        assertTrue(open.stream().allMatch(c -> c.active() == 0), "채널을 닫았으니 놀고 있다");
+        assertEquals(sessionsBefore, created.get(), "목록을 읽는다고 접속하지 않는다");
+    }
+
+    @Test
+    void aClosedConnectionDisappearsFromTheList() throws Exception {
+        SshTarget t = target(pem);
+        query(t);
+        assertEquals(1, connector.openConnections().size());
+
+        connector.invalidate("server-1");
+
+        eventually(() -> connector.openConnections().isEmpty(), "끊긴 연결은 목록에서 빠져야 한다");
+    }
+
+    @Test
+    void terminalsAreNotInTheList() throws Exception {
+        ShellSession shell = connector.open(target(pem), TRUST, 80, 24);
+        try {
+            assertEquals(List.of(), connector.openConnections(), "터미널은 풀 밖의 연결이다");
+        } finally {
+            shell.close();
+        }
+    }
+
+    // ---- 사용자가 연결을 끊는다(설정 화면) ----
+
+    @Test
+    void disconnectingAnIdleConnectionClosesItAndTheNextUseReconnects() throws Exception {
+        SshTarget t = target(pem);
+        query(t);
+        connector.sftp(Purpose.FILES, t, TRUST).close();
+        assertEquals(2, connector.openConnections().size());
+
+        assertTrue(connector.disconnect("server-1", Purpose.FILES, false), "놀고 있는 연결은 끊긴다");
+
+        eventually(() -> connector.openConnections().size() == 1, "끊은 연결만 목록에서 빠진다");
+        assertEquals(Purpose.QUERY, connector.openConnections().getFirst().purpose(), "다른 용도의 연결은 그대로");
+        int before = created.get();
+        connector.sftp(Purpose.FILES, t, TRUST).close();
+        assertEquals(before + 1, created.get(), "다시 쓰면 새로 맺는다");
+    }
+
+    @Test
+    void aConnectionInUseIsLeftAloneUnlessForced() throws Exception {
+        SshTarget t = target(pem);
+        ShellSession busy = connector.exec(Purpose.QUERY, t, TRUST, "x");
+        try {
+            assertEquals(false, connector.disconnect("server-1", Purpose.QUERY, false), "쓰는 중인 연결은 강제가 아니면 끊지 않는다");
+            assertEquals(0, connector.disconnectAll(false), "모두 끊기도 강제가 아니면 쓰는 중인 연결은 건드리지 않는다");
+            assertEquals(1, connector.openConnections().size());
+            assertEquals(1, connector.openConnections().getFirst().active());
+        } finally {
+            busy.close();
+        }
+        eventually(() -> connector.openConnections().getFirst().active() == 0, "다 쓰면 놀고 있는 연결이 된다");
+        assertTrue(connector.disconnect("server-1", Purpose.QUERY, false), "다 쓴 뒤에는 그냥 끊을 수 있다");
+    }
+
+    @Test
+    void forcingClosesAConnectionEvenWhileItIsInUseAndLaterUseReconnects() throws Exception {
+        SshTarget t = target(pem);
+        ShellSession busy = connector.exec(Purpose.QUERY, t, TRUST, "x");
+        try {
+            assertTrue(connector.disconnect("server-1", Purpose.QUERY, true), "강제로 끊는다");
+
+            eventually(() -> connector.openConnections().isEmpty(), "쓰는 중이던 연결도 목록에서 빠진다");
+            eventually(() -> serverSessions() == 0, "서버 쪽에서도 연결이 끊긴다");
+        } finally {
+            busy.close();   // 이미 끊긴 연결을 쥐고 있던 쪽이 돌려줘도 아무 일도 없어야 한다
+        }
+        int before = created.get();
+        assertEquals("ok\n", query(t), "끊은 뒤에 다시 쓰면 새로 맺어서 동작한다");
+        assertEquals(before + 1, created.get());
+        assertEquals(1, connector.openConnections().size());
+        assertEquals(0, connector.openConnections().getFirst().active(), "옛 연결을 돌려준 것이 새 연결의 사용 수를 건드리지 않는다");
+    }
+
+    @Test
+    void disconnectingWhatIsNotOpenDoesNothing() throws Exception {
+        assertEquals(false, connector.disconnect("server-1", Purpose.QUERY, false));
+        assertEquals(false, connector.disconnect("nobody", Purpose.FILES, true));
+        assertEquals(0, connector.disconnectAll(true));
+    }
+
+    @Test
+    void disconnectAllCountsWhatItClosedAndSkipsTheBusyOnesUnlessForced() throws Exception {
+        SshTarget t = target(pem);
+        query(t);
+        connector.sftp(Purpose.FILES, t, TRUST).close();
+        ShellSession busy = connector.exec(Purpose.COMMAND, t, TRUST, "x");
+        try {
+            assertEquals(2, connector.disconnectAll(false), "조회·파일은 끊고 쓰는 중인 명령은 둔다");
+            assertEquals(List.of(Purpose.COMMAND), connector.openConnections().stream().map(OpenConnection::purpose).toList());
+            assertEquals(1, connector.disconnectAll(true), "강제로 끊으면 쓰는 중인 것도 끊는다");
+            assertEquals(List.of(), connector.openConnections());
+        } finally {
+            busy.close();
+        }
+    }
+
     // ---- 실패 ----
 
     @Test

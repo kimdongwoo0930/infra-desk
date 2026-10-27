@@ -6,14 +6,14 @@ import com.infradesk.alert.AlertService;
 import com.infradesk.alert.AlertSettings;
 import com.infradesk.alert.Notifier;
 import com.infradesk.core.ProviderType;
-import com.infradesk.provider.demo.DemoData;
-import com.infradesk.provider.demo.DemoProviderFactory;
+import com.infradesk.demo.DemoData;
+import com.infradesk.demo.DemoProviderFactory;
 import com.infradesk.provider.oracle.OracleProviderFactory;
 import com.infradesk.service.InventoryService;
 import com.infradesk.service.ProviderRegistry;
 import com.infradesk.service.TerminalService;
 import com.infradesk.service.UpdateService;
-import com.infradesk.ssh.DemoShellConnector;
+import com.infradesk.demo.DemoShellConnector;
 import com.infradesk.ssh.MinaShellConnector;
 import com.infradesk.storage.AppPaths;
 import com.infradesk.storage.InMemoryAccountStore;
@@ -84,7 +84,7 @@ public final class InfraDeskApp {
                 AlertService alerts = new AlertService(new JsonAlertSettingsStore(AppPaths.configDir()), secrets, null,
                         Clock.systemUTC());
                 UpdateService updates = new UpdateService(java.net.http.HttpClient.newHttpClient(),
-                        UpdateService.BETA_RELEASE_API, UpdateService.assetForCurrentOs(),
+                        UpdateService.RELEASE_API, UpdateService.assetForCurrentOs(),
                         AppPaths.configDir().resolve("app-settings.json"));
                 frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, updates, false);
                 com.infradesk.service.UpdateInstaller.forRunningApp(AppPaths.cacheDir().resolve("update"),

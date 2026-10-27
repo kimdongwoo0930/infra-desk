@@ -15,12 +15,23 @@ import java.util.TreeSet;
  * @param diskTotal /의 전체 바이트. 알 수 없으면 -1
  * @param cpuCount  논리 CPU 수. 알 수 없으면 0
  * @param memoryKb  전체 메모리(KiB). 알 수 없으면 0
+ * @param memoryUsedKb 쓰고 있는 메모리(KiB). Linux는 전체 − MemAvailable, macOS는 active + wired + 압축분. 알 수 없으면 -1
  */
 public record HostFacts(Duration uptime, String osName, long diskUsed, long diskTotal, List<Integer> ports,
-                        int cpuCount, long memoryKb) {
+                        int cpuCount, long memoryKb, long memoryUsedKb) {
 
     public HostFacts(Duration uptime, String osName, long diskUsed, long diskTotal, List<Integer> ports) {
-        this(uptime, osName, diskUsed, diskTotal, ports, 0, 0);
+        this(uptime, osName, diskUsed, diskTotal, ports, 0, 0, -1);
+    }
+
+    public HostFacts(Duration uptime, String osName, long diskUsed, long diskTotal, List<Integer> ports,
+                     int cpuCount, long memoryKb) {
+        this(uptime, osName, diskUsed, diskTotal, ports, cpuCount, memoryKb, -1);
+    }
+
+    /** 메모리 사용률(0~100). 전체나 사용량을 모르면 -1. */
+    public double memoryPercent() {
+        return memoryKb <= 0 || memoryUsedKb < 0 ? -1 : Math.min(100, 100.0 * memoryUsedKb / memoryKb);
     }
 
     /** POSIX sh. 각 섹션은 "@name" 표식 줄로 시작한다. busybox에서도 동작한다. */
@@ -35,6 +46,11 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
             + "echo @cpus; (nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null); "
             + "echo @memkb; (awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null "
             + "|| echo $(( $(sysctl -n hw.memsize 2>/dev/null) / 1024 ))); "
+            // 쓰고 있는 메모리(KiB): Linux는 전체 − MemAvailable, macOS는 vm_stat의 active + wired + 압축분(페이지 수 × 페이지 크기).
+            + "echo @memusedkb; if [ -r /proc/meminfo ]; then "
+            + "awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} END{if (t && a) print t-a}' /proc/meminfo; else "
+            + "vm_stat 2>/dev/null | awk '/page size of/{ps=$8} /^Pages active/{a=$3} /^Pages wired down/{w=$4} "
+            + "/^Pages occupied by compressor/{c=$5} END{if (ps) print int((a+w+c)*ps/1024)}'; fi; "
             + "echo @ports; (ss -tln 2>/dev/null || netstat -an -p tcp 2>/dev/null | grep LISTEN || netstat -tln 2>/dev/null)";
 
     public HostFacts {
@@ -48,6 +64,7 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
         long total = -1;
         int cpus = 0;
         long memKb = 0;
+        long memUsedKb = -1;
         TreeSet<Integer> ports = new TreeSet<>();
         String section = "";
         for (String raw : output.split("\\R")) {
@@ -84,10 +101,20 @@ public record HostFacts(Duration uptime, String osName, long diskUsed, long disk
                 case "@ports" -> listeningPort(line).ifPresent(ports::add);
                 case "@cpus" -> cpus = cpus > 0 ? cpus : parseInt(line);
                 case "@memkb" -> memKb = memKb > 0 ? memKb : parseInt(line);
+                case "@memusedkb" -> memUsedKb = memUsedKb >= 0 ? memUsedKb : parseKb(line);
                 default -> { }
             }
         }
-        return new HostFacts(uptime, os, used, total, new ArrayList<>(ports), cpus, memKb);
+        return new HostFacts(uptime, os, used, total, new ArrayList<>(ports), cpus, memKb, memUsedKb);
+    }
+
+    /** KiB 값 하나. 숫자가 아니면 -1(모름). */
+    private static long parseKb(String s) {
+        try {
+            return Math.max(-1, Long.parseLong(s.strip()));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     private static int parseInt(String s) {

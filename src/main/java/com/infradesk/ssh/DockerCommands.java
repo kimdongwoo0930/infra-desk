@@ -23,8 +23,8 @@ public final class DockerCommands {
     /** 합친 출력 안의 구분자. */
     static final String NO_DOCKER = "@@nodocker";
     static final String NO_ACCESS = "@@noaccess";
-    static final String PS = "@@ps";
-    static final String STATS = "@@stats";
+    public static final String PS = "@@ps";
+    public static final String STATS = "@@stats";
 
     // macOS의 비대화형 SSH는 PATH가 최소한이다. Docker Desktop과 Homebrew는 다른 곳에 설치된다.
     public static final String PRELUDE = "PATH=\"$PATH:/usr/local/bin:/opt/homebrew/bin\"; command -v docker >/dev/null 2>&1 || { echo " + NO_DOCKER + "; exit 0; }; "
@@ -35,6 +35,14 @@ public final class DockerCommands {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private DockerCommands() {
+    }
+
+    /**
+     * {@link #list()}에서 사용량(stats)을 뺀 가벼운 목록. 개요처럼 여러 서버를 한꺼번에 읽을 때 쓴다. 결과는
+     * {@link #parseList}로 읽고, CPU·메모리는 모르는 값(-1)으로 나온다.
+     */
+    public static String listPlain() {
+        return PRELUDE + "echo " + PS + "; $D ps -a --no-trunc --format '{{json .}}'; true";
     }
 
     /** 모든 상태의 컨테이너와, 실행 중인 컨테이너의 1회성 stats 샘플. */
@@ -180,7 +188,8 @@ public final class DockerCommands {
                     n.path("Status").asText(""), n.path("Ports").asText(""),
                     running && st != null ? percent(st.path("CPUPerc").asText("")) : -1,
                     running && st != null ? st.path("MemUsage").asText("") : "",
-                    running && st != null ? percent(st.path("MemPerc").asText("")) : -1));
+                    running && st != null ? percent(st.path("MemPerc").asText("")) : -1,
+                    running && st != null ? st.path("NetIO").asText("") : ""));
         }
         containers.sort(java.util.Comparator.comparing((Container c) -> !c.isRunning()).thenComparing(Container::name));
         return new Listing(Listing.Status.OK, containers, null);

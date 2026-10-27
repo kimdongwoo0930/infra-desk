@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>InfraDesk · discord-bot 개요</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#1E1F22}
+a{color:#79A3F2;text-decoration:none}a:hover{color:#A9C4F7}
+button{font:inherit;cursor:pointer}
+.hv:hover{background:#313338}
+.nav:hover{background:#313338}
+.tab:hover{color:#DFE1E5}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #1E1F22; color: #DFE1E5; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 13px; line-height: 1.45">
+
+  <header style="height: 44px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 12px 0 16px; background: #2B2D30; border-bottom: 1px solid #393B40">
+    <div style="display: flex; align-items: center; gap: 8px; width: 212px; flex: none">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#79A3F2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
+      <span style="font-weight: 700; font-size: 14px">InfraDesk</span>
+    </div>
+    <a href="Palette.dc.html" class="hv" style="flex: 0 1 420px; min-width: 0; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #9A9DA3; font-size: 12.5px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">서버, 작업, 저장된 명령어 찾기</span>
+      <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #B4B8BF; border: 1px solid #43454A; border-radius: 4px; padding: 0 5px">⌘K</kbd>
+    </a>
+    <div style="flex: 1"></div>
+    <a href="AgentDock.dc.html" class="hv" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; color: #DFE1E5; font-size: 12px; white-space: nowrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A9C4F7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+      에이전트 <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #9A9DA3">⌘J</kbd>
+    </a>
+    <span style="font-size: 12px; color: #B4B8BF; white-space: nowrap">실행 4 · 정지 2</span>
+    <button type="button" aria-pressed="false" class="hv" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #B4B8BF; font-size: 12px; white-space: nowrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      읽기 전용
+      <span style="width: 22px; height: 12px; border-radius: 6px; background: #43454A; position: relative; display: inline-block"><span style="position: absolute; left: 2px; top: 2px; width: 8px; height: 8px; border-radius: 50%; background: #B4B8BF"></span></span>
+    </button>
+    <span style="font-size: 12px; color: #9A9DA3; white-space: nowrap">15:31 갱신</span>
+    <button type="button" aria-label="새로고침" class="hv" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: transparent; color: #B4B8BF">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0">
+
+    <nav aria-label="탐색" style="flex: 1 1 240px; display: flex; flex-direction: column; background: #2B2D30; border-right: 1px solid #393B40">
+      <div style="padding: 10px 8px 4px; display: flex; flex-direction: column; gap: 2px">
+        <a href="Main.dc.html" class="nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 6px; color: #B4B8BF; font-size: 13px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          <span style="flex: 1">개요</span>
+          <span style="min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #4A3E22; color: #F0CD8A; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">2</span>
+        </a>
+        <a href="Activity.dc.html" class="nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 6px; color: #B4B8BF; font-size: 13px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span style="flex: 1">활동 기록</span>
+        </a>
+      </div>
+      <div style="padding: 8px 10px 4px">
+        <input type="search" placeholder="서버 검색" aria-label="서버 검색" style="width: 100%; box-sizing: border-box; height: 30px; padding: 0 10px; border: 1px solid #43454A; border-radius: 6px; background: #1E1F22; color: #DFE1E5; font: inherit; font-size: 12.5px">
+      </div>
+      <div style="flex: 1; overflow: auto; padding: 0 8px 8px">
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+          <div style="display: flex; justify-content: space-between; padding: 12px 10px 4px; font-size: 11.5px; color: #9A9DA3"><span>{{g.label}}</span><span>{{g.region}}</span></div>
+          <sc-for list="{{g.servers}}" as="s" hint-placeholder-count="2">
+            <a href="Server.dc.html" class="nav" style="{{s.rowStyle}}">
+              <sc-if value="{{s.run}}" hint-placeholder-val="{{true}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: #5FB865; flex: none"></span></sc-if>
+              <sc-if value="{{s.stop}}" hint-placeholder-val="{{false}}"><span style="width: 5px; height: 5px; border-radius: 50%; border: 1.5px solid #9A9DA3; flex: none"></span></sc-if>
+              <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{s.name}}</span>
+              <sc-if value="{{s.warn}}" hint-placeholder-val="{{false}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E5C07B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="확인 필요"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg></sc-if>
+              <span style="font-size: 11.5px; color: #9A9DA3; font-variant-numeric: tabular-nums">{{s.right}}</span>
+            </a>
+          </sc-for>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 8px; padding: 10px; border-top: 1px solid #393B40">
+        <button type="button" class="hv" style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px dashed #4E5157; border-radius: 6px; background: transparent; color: #B4B8BF; font-size: 12.5px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          계정·서버 추가
+        </button>
+        <a href="Settings.dc.html" aria-label="설정" class="hv" style="width: 32px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #4E5157; border-radius: 6px; color: #B4B8BF">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+        </a>
+      </div>
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+      <div style="padding: 18px 28px 0; border-bottom: 1px solid #393B40">
+        <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 16px">
+          <div style="flex: 1 1 320px; min-width: 0">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px">
+              <button type="button" aria-label="즐겨찾기" aria-pressed="true" class="hv" style="width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: transparent; color: #E5C07B">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>
+              </button>
+              <h1 style="margin: 0; font-size: 22px; font-weight: 700">discord-bot</h1>
+              <span style="padding: 2px 9px; border-radius: 10px; background: #1F3A24; color: #7FD184; font-size: 12px; font-weight: 600">실행 중</span>
+              <span style="padding: 2px 9px; border-radius: 10px; background: #3D3320; color: #F0CD8A; font-size: 12px; font-weight: 600">확인 필요 1</span>
+            </div>
+            <div style="margin: 6px 0 0 36px; font-size: 12.5px; color: #B4B8BF">계정 A · ap-chuncheon-1 · VM.Standard.A1.Flex · 2 OCPU · 12 GB</div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <a href="Terminal.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 6px; background: #3469D4; color: #FFFFFF; font-size: 13px; font-weight: 600">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>SSH 열기</a>
+            <button type="button" class="hv" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 13px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2.3 5.7"/><path d="M4 5v6h6"/></svg>재부팅</button>
+            <a href="Dialogs.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid #6B3A3A; border-radius: 6px; color: #F08A8A; font-size: 13px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>정지</a>
+            <button type="button" aria-label="작업 더 보기" class="hv" style="width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #B4B8BF">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+            </button>
+          </div>
+        </div>
+        <nav aria-label="서버 화면" style="display: flex; gap: 2px; margin-top: 14px; overflow-x: auto">
+          <a href="Server.dc.html" aria-current="page" class="tab" style="display: inline-flex; align-items: center; gap: 6px; padding: 9px 12px; border-bottom: 2px solid #5B8DEF; color: #DFE1E5; font-weight: 600; font-size: 13px; white-space: nowrap">개요</a>
+          <a href="Monitor.dc.html" class="tab" style="display: inline-flex; align-items: center; gap: 6px; padding: 9px 12px; border-bottom: 2px solid transparent; color: #B4B8BF; font-size: 13px; white-space: nowrap">모니터링</a>
+          <a href="ContainersStacked.dc.html" class="tab" style="display: inline-flex; align-items: center; gap: 6px; padding: 9px 12px; border-bottom: 2px solid transparent; color: #B4B8BF; font-size: 13px; white-space: nowrap">컨테이너 <span style="padding: 0 6px; border-radius: 8px; background: #393B40; color: #B4B8BF; font-size: 11px">4</span></a>
+          <a href="Files.dc.html" class="tab" style="display: inline-flex; align-items: center; gap: 6px; padding: 9px 12px; border-bottom: 2px solid transparent; color: #B4B8BF; font-size: 13px; white-space: nowrap">파일</a>
+          <a href="Terminal.dc.html" class="tab" style="display: inline-flex; align-items: center; gap: 6px; padding: 9px 12px; border-bottom: 2px solid transparent; color: #B4B8BF; font-size: 13px; white-space: nowrap">터미널 <span style="padding: 0 6px; border-radius: 8px; background: #393B40; color: #B4B8BF; font-size: 11px">2</span></a>
+          <span aria-disabled="true" style="display: inline-flex; align-items: center; gap: 6px; padding: 9px 12px; border-bottom: 2px solid transparent; color: #9A9DA3; font-size: 13px; white-space: nowrap">로그 <span style="font-size: 11px; color: #9A9DA3">준비 중</span></span>
+        </nav>
+      </div>
+
+      <div style="padding: 20px 28px 28px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+          <section aria-labelledby="now">
+            <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; margin-bottom: 10px">
+              <h2 id="now" style="margin: 0; font-size: 14px; font-weight: 600">지금 상태</h2>
+              <span style="font-size: 12px; color: #9A9DA3">OCI 모니터링 · 1분 간격 · 15:31</span>
+              <span style="flex: 1"></span>
+              <a href="Monitor.dc.html" style="font-size: 12.5px">모니터링 탭에서 자세히</a>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px">
+              <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+                <a href="Monitor.dc.html" class="hv" style="display: flex; flex-direction: column; padding: 14px 14px 10px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; color: #DFE1E5">
+                  <span style="font-size: 12px; color: #B4B8BF">{{t.label}}</span>
+                  <span style="margin-top: 2px; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums">{{t.value}}</span>
+                  <span style="font-size: 11.5px; color: #9A9DA3">{{t.sub}}</span>
+                  <sc-if value="{{t.spark}}" hint-placeholder-val="{{true}}">
+                    <svg viewBox="0 0 200 36" preserveAspectRatio="none" style="display: block; width: 100%; height: 36px; margin-top: 8px" aria-hidden="true">
+                      <polygon points="{{t.area}}" fill="{{t.color}}" fill-opacity="0.14"/>
+                      <polyline points="{{t.line}}" fill="none" stroke="{{t.color}}" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </sc-if>
+                  <sc-if value="{{t.isBar}}" hint-placeholder-val="{{false}}">
+                    <span style="display: block; height: 8px; margin: 22px 0 6px; border-radius: 4px; background: #393B40; overflow: hidden"><span style="display: block; width: 42%; height: 100%; border-radius: 4px; background: #5B8DEF"></span></span>
+                  </sc-if>
+                </a>
+              </sc-for>
+            </div>
+          </section>
+
+          <section aria-labelledby="ctr" style="border-radius: 8px; background: #2B2D30; border: 1px solid #393B40; overflow: hidden">
+            <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 12px 16px; border-bottom: 1px solid #393B40">
+              <h2 id="ctr" style="margin: 0; font-size: 14px; font-weight: 600">컨테이너</h2>
+              <span style="font-size: 12px; color: #9A9DA3">실행 중 3 / 4 · 15:31:28 기준</span>
+              <span style="flex: 1"></span>
+              <a href="ContainersStacked.dc.html" style="font-size: 12.5px">모두 보기</a>
+            </div>
+            <sc-for list="{{ctrs}}" as="c" hint-placeholder-count="4">
+              <div style="{{c.rowStyle}}">
+                <sc-if value="{{c.run}}" hint-placeholder-val="{{true}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: #5FB865; flex: none"></span></sc-if>
+                <sc-if value="{{c.stop}}" hint-placeholder-val="{{false}}"><span style="width: 5px; height: 5px; border-radius: 50%; border: 1.5px solid #9A9DA3; flex: none"></span></sc-if>
+                <span style="flex: 1 1 140px; min-width: 0">
+                  <span style="display: block; font-weight: 500">{{c.name}}</span>
+                  <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #9A9DA3">{{c.image}}</span>
+                </span>
+                <span style="{{c.stateStyle}}">{{c.state}}</span>
+                <span style="width: 56px; text-align: right; font-variant-numeric: tabular-nums; color: #DFE1E5">{{c.cpu}}</span>
+                <span style="width: 64px; text-align: right; font-variant-numeric: tabular-nums; color: #DFE1E5">{{c.mem}}</span>
+                <span style="display: flex; gap: 2px; width: 96px; justify-content: flex-end">
+                  <sc-if value="{{c.run}}" hint-placeholder-val="{{true}}">
+                    <a href="ContainersStacked.dc.html" aria-label="{{c.logLabel}}" class="hv" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: #B4B8BF">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h6"/></svg></a>
+                    <a href="Terminal.dc.html" aria-label="{{c.shLabel}}" class="hv" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: #B4B8BF">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg></a>
+                    <button type="button" aria-label="{{c.rsLabel}}" class="hv" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: transparent; color: #B4B8BF">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2.3 5.7"/><path d="M4 5v6h6"/></svg></button>
+                  </sc-if>
+                  <sc-if value="{{c.stop}}" hint-placeholder-val="{{false}}">
+                    <button type="button" class="hv" style="height: 28px; padding: 0 10px; border: 1px solid #4E5157; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12px">시작</button>
+                  </sc-if>
+                </span>
+              </div>
+            </sc-for>
+          </section>
+        </div>
+
+        <aside style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+          <section aria-label="확인 필요" style="padding: 14px 16px; border-radius: 8px; background: #2E2A21; border: 1px solid #5A4A27">
+            <div style="display: flex; gap: 10px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E5C07B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg>
+              <div>
+                <div style="font-weight: 600"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px">watchtower</span> 컨테이너가 멈춰 있어요</div>
+                <div style="margin-top: 2px; font-size: 12px; color: #B4B8BF">3일 전 종료 · 종료 코드 0</div>
+                <div style="display: flex; gap: 6px; margin-top: 10px">
+                  <a href="ContainersStacked.dc.html" style="display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border: 1px solid #6B5A33; border-radius: 6px; color: #DFE1E5; font-size: 12px">로그 보기</a>
+                  <button type="button" style="height: 28px; padding: 0 10px; border: 1px solid #6B5A33; border-radius: 6px; background: transparent; color: #DFE1E5; font-size: 12px">시작</button>
+                  <button type="button" style="height: 28px; padding: 0 8px; border: none; border-radius: 6px; background: transparent; color: #B4B8BF; font-size: 12px">이 알림 숨기기</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section aria-labelledby="info" style="padding: 14px 16px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40">
+            <div style="display: flex; align-items: center">
+              <h2 id="info" style="margin: 0; flex: 1; font-size: 13.5px; font-weight: 600">정보</h2>
+              <button type="button" class="hv" style="height: 26px; padding: 0 8px; border: none; border-radius: 6px; background: transparent; color: #B4B8BF; font-size: 12px">SSH 설정</button>
+            </div>
+            <dl style="margin: 10px 0 0; display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 8px 12px; font-size: 12.5px">
+              <dt style="color: #9A9DA3">공인 IP</dt>
+              <dd style="margin: 0; display: flex; align-items: center; gap: 4px"><span style="font-family: 'JetBrains Mono', monospace">•••.•••.•••.24</span>
+                <button type="button" aria-label="공인 IP 보기" class="hv" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 4px; background: transparent; color: #B4B8BF"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                <button type="button" aria-label="공인 IP 복사" class="hv" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 4px; background: transparent; color: #B4B8BF"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+              </dd>
+              <dt style="color: #9A9DA3">사설 IP</dt>
+              <dd style="margin: 0; font-family: 'JetBrains Mono', monospace">10.0.0.12</dd>
+              <dt style="color: #9A9DA3">OS</dt>
+              <dd style="margin: 0">Ubuntu 22.04.4 LTS</dd>
+              <dt style="color: #9A9DA3">업타임</dt>
+              <dd style="margin: 0">9일 6시간</dd>
+              <dt style="color: #9A9DA3">열린 포트</dt>
+              <dd style="margin: 0; display: flex; flex-wrap: wrap; gap: 4px">
+                <span style="padding: 0 6px; border-radius: 4px; background: #393B40; font-family: 'JetBrains Mono', monospace; font-size: 11.5px">22</span>
+                <span style="padding: 0 6px; border-radius: 4px; background: #393B40; font-family: 'JetBrains Mono', monospace; font-size: 11.5px">80</span>
+                <span style="padding: 0 6px; border-radius: 4px; background: #393B40; font-family: 'JetBrains Mono', monospace; font-size: 11.5px">443</span>
+              </dd>
+              <dt style="color: #9A9DA3">SSH</dt>
+              <dd style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px">ubuntu · ed25519</dd>
+              <dt style="color: #9A9DA3">생성일</dt>
+              <dd style="margin: 0">2025-11-03</dd>
+            </dl>
+          </section>
+
+          <section aria-labelledby="cmds" style="padding: 14px 16px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40">
+            <h2 id="cmds" style="margin: 0; font-size: 13.5px; font-weight: 600">저장된 명령어</h2>
+            <p style="margin: 2px 0 10px; font-size: 12px; color: #9A9DA3">누르면 터미널 탭에서 실행해요</p>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <sc-for list="{{cmds}}" as="m" hint-placeholder-count="3">
+                <a href="Terminal.dc.html" class="hv" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #393B40; border-radius: 6px; color: #DFE1E5">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#79A3F2" aria-hidden="true" style="flex: none"><path d="M7 5l12 7-12 7z"/></svg>
+                  <span style="flex: 1; min-width: 0">
+                    <span style="display: block; font-size: 12.5px">{{m.name}}</span>
+                    <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #9A9DA3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{m.cmd}}</span>
+                  </span>
+                </a>
+              </sc-for>
+            </div>
+          </section>
+
+          <section aria-labelledby="recent" style="padding: 14px 16px; border-radius: 8px; background: #2B2D30; border: 1px solid #393B40">
+            <div style="display: flex; align-items: baseline">
+              <h2 id="recent" style="margin: 0; flex: 1; font-size: 13.5px; font-weight: 600">최근 활동</h2>
+              <a href="Activity.dc.html" style="font-size: 12px">모두 보기</a>
+            </div>
+            <ul style="margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px">
+              <li style="display: flex; gap: 10px"><span style="width: 40px; flex: none; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #9A9DA3; padding-top: 1px">15:12</span><span>저장된 명령어 "봇 재시작" 실행 · <span style="color: #7FD184">성공</span></span></li>
+              <li style="display: flex; gap: 10px"><span style="width: 40px; flex: none; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #9A9DA3; padding-top: 1px">14:40</span><span>nginx 재시작 · <span style="color: #7FD184">성공</span></span></li>
+              <li style="display: flex; gap: 10px"><span style="width: 40px; flex: none; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #9A9DA3; padding-top: 1px">13:55</span><span>docker-compose.yml 업로드 · 덮어씀</span></li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <footer style="height: 26px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 14px; background: #2B2D30; border-top: 1px solid #393B40; font-size: 11.5px; color: #9A9DA3; white-space: nowrap; overflow: hidden">
+    <span style="display: flex; align-items: center; gap: 6px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #5FB865"></span>SSH 연결 3 · 조회 2 · 파일 1</span>
+    <span>실시간 꺼짐</span>
+    <span>전송 1개 진행 중 · 63%</span>
+    <span style="flex: 1"></span>
+    <span>상태 30초 · 메트릭 1분마다</span>
+    <span>v1.1.9</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = 'discord-bot';
+    const rowBase = 'display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; ';
+    const groups = [
+      { label: 'Oracle · 계정 A', region: '춘천', servers: [
+        { name: 'discord-bot', st: 'run', right: '24%', warn: true },
+        { name: 'api-gateway', st: 'run', right: '11%' },
+        { name: 'batch-worker', st: 'stop', right: '정지됨' } ] },
+      { label: 'Oracle · 계정 B', region: '서울', servers: [ { name: 'web-server', st: 'run', right: '32%', warn: true } ] },
+      { label: 'Oracle · 계정 C', region: '서울', servers: [ { name: 'test-box', st: 'stop', right: '정지됨' } ] },
+      { label: '직접 연결', region: 'SSH', servers: [ { name: 'mac-mini', st: 'run', right: '8%' } ] }
+    ].map(g => ({ ...g, servers: g.servers.map(s => ({ ...s, run: s.st === 'run', stop: s.st !== 'run', warn: !!s.warn,
+      rowStyle: rowBase + (s.name === active ? 'background: #2E436E; color: #FFFFFF;' : (s.st === 'run' ? 'color: #DFE1E5;' : 'color: #B4B8BF;')) })) }));
+
+    const wave = (n, base, amp, seed) => {
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const v = base + amp * Math.sin(i * 0.31 + seed) + amp * 0.55 * Math.sin(i * 0.97 + seed * 1.7) + amp * 0.3 * Math.sin(i * 2.3 + seed * 0.5);
+        out.push(Math.max(1, v));
+      }
+      return out;
+    };
+    const line = (vals, w, h, max) => vals.map((v, i) => (i * w / (vals.length - 1)).toFixed(1) + ',' + (h - Math.min(v, max) / max * h).toFixed(1)).join(' ');
+    const area = (vals, w, h, max) => '0,' + h + ' ' + line(vals, w, h, max) + ' ' + w + ',' + h;
+    const cpu = wave(40, 24, 6, 1);
+    const mem = wave(40, 45, 1.2, 2);
+    const net = wave(40, 38, 12, 3);
+    const tiles = [
+      { label: 'CPU', value: '24%', sub: '2 OCPU · 최근 1시간', spark: true, isBar: false, color: '#5B8DEF', line: line(cpu, 200, 36, 100), area: area(cpu, 200, 36, 100) },
+      { label: '메모리', value: '45%', sub: '5.4 / 12 GB', spark: true, isBar: false, color: '#4FB6A8', line: line(mem, 200, 36, 100), area: area(mem, 200, 36, 100) },
+      { label: '네트워크', value: '38.2 KB/s', sub: '수신 28.3 · 송신 9.9', spark: true, isBar: false, color: '#E8925A', line: line(net, 200, 36, 80), area: area(net, 200, 36, 80) },
+      { label: '디스크 (/)', value: '42%', sub: '42 / 99 GB', spark: false, isBar: true }
+    ];
+    const ctrList = [
+      { name: 'discord-bot', image: 'discord-bot:latest', state: 'Up 14 days', cpu: '12.8%', mem: '46 MiB', run: true },
+      { name: 'nginx', image: 'nginx:1.27', state: 'Up 9 days', cpu: '18.0%', mem: '258 MiB', run: true },
+      { name: 'redis', image: 'redis:7-alpine', state: 'Up 14 days', cpu: '11.7%', mem: '195 MiB', run: true },
+      { name: 'watchtower', image: 'containrrr/watchtower', state: '멈춤 · 3일 전', cpu: '—', mem: '—', run: false }
+    ];
+    const ctrs = ctrList.map((c, i) => ({
+      ...c, stop: !c.run,
+      logLabel: c.name + ' 로그', shLabel: c.name + ' 셸 열기', rsLabel: c.name + ' 재시작',
+      rowStyle: 'display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 9px 16px;' + (i < ctrList.length - 1 ? ' border-bottom: 1px solid #393B40;' : ''),
+      stateStyle: 'width: 104px; font-size: 12px; ' + (c.run ? 'color: #B4B8BF;' : 'color: #F0CD8A;')
+    }));
+    const cmds = [
+      { name: '봇 재시작', cmd: 'docker restart bot-app' },
+      { name: '봇 로그 보기', cmd: 'docker logs -f --tail 100 bot-app' },
+      { name: '디스크 확인', cmd: 'df -h && du -sh /var/lib/docker' }
+    ];
+    return { groups, tiles, ctrs, cmds };
+  }
+}
+</script>
+</body>
+</html>

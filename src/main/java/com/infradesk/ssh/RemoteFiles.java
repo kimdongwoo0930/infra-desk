@@ -64,6 +64,14 @@ public interface RemoteFiles extends AutoCloseable {
     /** @param permissions POSIX 권한 비트(예: 0644) */
     void chmod(String path, int permissions) throws IOException;
 
+    /**
+     * 연결이 아직 살아 있는지. 서버가 끊었거나 네트워크가 사라졌으면 false. 끊긴 연결로는 아무것도 할 수 없으니
+     * {@link ReconnectingFiles}가 다음에 쓸 때 새로 맺는 데 쓴다. 연결을 확인할 방법이 없는 구현은 true를 돌려준다.
+     */
+    default boolean isOpen() {
+        return true;
+    }
+
     @Override
     void close();
 

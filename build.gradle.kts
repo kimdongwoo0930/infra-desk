@@ -3,17 +3,9 @@ plugins {
 }
 
 group = "com.infradesk"
-// Beta builds derive the version from the CI run number: MAJOR.(n/10).(n%10) with n = run - RUN_OFFSET,
-// so 1.0.1 … 1.0.9, then 1.1.0. MAJOR is bumped by hand (and RUN_OFFSET set to the last run) for big releases.
-// -PappVersion (release tags) overrides; local builds are 1.0.0.
-val majorVersion = 1
-val runOffset = 0
-version = providers.gradleProperty("appVersion").orNull
-    ?: providers.gradleProperty("buildNumber").orNull?.toIntOrNull()?.let { run ->
-        val n = maxOf(run - runOffset, 0)
-        "$majorVersion.${n / 10}.${n % 10}"
-    }
-    ?: "$majorVersion.0.0"
+// The release version (MAJOR.MINOR.PATCH) is decided by CI from the existing v* tags and passed in as
+// -PappVersion (see .github/workflows/build.yml). Local builds are 1.0.0.
+version = providers.gradleProperty("appVersion").orNull ?: "1.0.0"
 
 java {
     toolchain {

@@ -29,7 +29,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * 실행 중인 앱 위에 베타 빌드를 설치한다:
+ * 실행 중인 앱 위에 새 버전을 설치한다:
  * <ol>
  *   <li>릴리스의 앱 아카이브를 내려받아 릴리스의 {@code SHA256SUMS.txt}와 대조한다;</li>
  *   <li>설치된 앱 옆의 임시 폴더에 풀어 놓는다(같은 볼륨이므로 교체가 이름 변경으로 끝난다);</li>

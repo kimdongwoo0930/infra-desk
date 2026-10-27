@@ -13,9 +13,9 @@ import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
 
 /** InfraDesk의 MIT 라이선스와 생성된 서드파티 고지문을 보여준다. */
-final class LicensesDialog extends JDialog {
+public final class LicensesDialog extends JDialog {
 
-    LicensesDialog(Window owner) {
+    public LicensesDialog(Window owner) {
         super(owner, "오픈소스 라이선스", ModalityType.APPLICATION_MODAL);
         JTextArea text = new JTextArea("InfraDesk — MIT License\n\n" + resource("LICENSE.txt")
                 + "\n\n────────────────────────────────────────\n\n" + resource("THIRD-PARTY-NOTICES.txt"));

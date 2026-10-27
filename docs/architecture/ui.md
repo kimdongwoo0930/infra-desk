@@ -10,25 +10,27 @@
 
 ## 화면의 큰 구조
 
-창 하나(`MainFrame`)가 두 "화면"을 번갈아 보여 준다(`CardLayout`).
+창 하나(`MainFrame`)에 사이드바와 본문이 있다. 본문은 앱의 첫 화면인 **개요**(`FleetScreen`, 모든 서버를 한눈에)이거나, 서버를 골랐을 때의 **서버 화면**이다. 사이드바 맨 위 [개요]와 서버 행이 둘을 오간다. 터미널도 별도 화면이 아니라 서버 화면의 "터미널" 탭이다.
 
 ```
-┌─ TitleBar ──────────────────────────────────────────────────┐  앱 이름, 서버·계정 수, 마지막 새로고침, (터미널일 때) 뒤로가기
+┌─ TitleBar ──────────────────────────────────────────────────┐  앱 이름, 서버·계정 수, 마지막 새로고침
 ├─────────────────────────────────────────────────────────────┤
-│  [대시보드 화면]                                              │
-│  ┌ Sidebar ─┐ ┌ 서버 상세 ──────────────────────────────┐   │
-│  │ 검색      │ │ ServerDetailPanel                       │   │
-│  │ 계정별    │ │   헤더 · 시작/정지/재부팅 · 정보 그리드   │   │
-│  │ 서버 목록 │ │   MetricsPanel   (CPU·메모리·네트워크)   │   │
-│  │ (CPU%)    │ │   ContainersPanel (Docker 컨테이너)     │   │
-│  └──────────┘ └─────────────────────────────────────────┘   │
-│                         ── 또는 ──                           │
-│  [터미널 화면]  TerminalView: 서버·컨테이너별 SSH 탭들         │
+│  ┌ Sidebar ─┐ ┌ 서버 화면 (ServerScreen) ────────────────┐   │
+│  │ 검색      │ │ ServerHeader  이름 · 배지 · 버튼         │   │
+│  │ 계정별    │ │ TabBar        개요 / 모니터링 / …        │   │
+│  │ 서버 목록 │ │ ───────────── (여기부터 스크롤) ──────── │   │
+│  │ (CPU%)    │ │ 탭 본문: 개요(ServerDetailPanel)        │   │
+│  │           │ │   · 모니터링(MetricsPanel)              │   │
+│  └──────────┘ │   · 컨테이너(ContainersTab)              │   │
+│               │   · 파일(FilesHost) · 터미널(TerminalView)│   │
+│               └─────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────────────────┤
+│ StatusBar  SSH 연결 · 실시간 상태 ·········· 조회 주기 · 버전 │  (항상 보인다)
 └─────────────────────────────────────────────────────────────┘
 ```
 
-- **대시보드 → 터미널:** 상세의 "SSH" 버튼 → `MainFrame.openSsh()` → `showTerminal()`.
-- **터미널 → 대시보드:** 타이틀바 뒤로가기, 또는 탭이 모두 닫히면.
+- **사이드바 폭:** `MainFrame`이 사이드바와 본문을 가로 `JSplitPane`으로 나눈다. 손잡이를 끌어 폭을 바꾸고(최대 420), 200px 미만이면 이름만, 90px 미만으로 끌면 자동으로 닫힌다. 타이틀바의 버튼으로 접고 펼친다(펼치면 닫기 전 폭으로 돌아간다). 규칙은 `SidebarWidth`에 있다.
+- **터미널 탭:** 터미널 탭이 비어 있을 때의 [접속] → `MainFrame.openSsh()` → 설정이 없으면 SSH 설정 창을 띄우고, 그 서버의 로그인 셸 세션을 선택하거나 만든다(서버 화면 머리에는 [SSH 열기] 버튼이 없다. 트레이 메뉴의 "SSH 열기"는 같은 일을 한다). 탭에는 **보고 있는 서버의 세션만** 보이고 다른 서버의 세션은 닫히지 않고 숨어 있다. 세션이 없으면 빈 화면과 [접속] 버튼이 나온다(탭을 열기만 해서는 접속하지 않는다). 마지막 세션을 닫아도 다른 화면으로 나가지 않는다. 실시간 모니터링은 터미널 탭을 보는 동안에도 멈추지 않는다.
 - 창을 닫으면 종료가 아니라 메뉴 막대(macOS)/알림 영역(Windows) 아이콘으로 숨는다(`TrayController`).
 
 ## `MainFrame`이 하는 일 (약 1,150줄, 가장 큰 클래스)
@@ -43,7 +45,7 @@
 | 실시간 모드(SSH로 `/proc` 읽기) 켜기·끄기 | `LiveHooks`, `LiveController` |
 | 컨테이너·서버 정보 불러오기 | `loadContainers()`, `loadFacts()` |
 | 업데이트 확인 | `updateTimer` (6시간마다) |
-| 계정 추가/삭제, 설정 | `AddAccountDialog`, `SettingsDialog` |
+| 계정 추가/삭제, 설정 | `AddAccountDialog`, `SettingsScreen` |
 
 조회가 실패해도 서버 목록을 지우지 않는다. 마지막으로 알던 서버를 `UNREACHABLE`로 남겨서 잠깐의 네트워크 끊김에 화면이 비지 않게 한다(`keepLastKnownServers`).
 
@@ -70,56 +72,102 @@ Async.run(
 |---|---|
 | `MainFrame` | 위에서 설명한 지휘자 |
 | `Async` | 가상 스레드에서 작업 → 결과는 EDT로 |
-| `Theme`, `Icons` | DESIGN.md 색상, FlatLaf 설치, SVG 아이콘 |
-| `TitleBar` | 앱 이름, 서버·계정 수, 마지막 새로고침 |
-| `Sidebar`, `ServerListItem` | 검색, 계정별 그룹, 서버 행 |
-| `ServerDetailPanel` | 서버 헤더, 시작/정지/재부팅 버튼(상태별 활성화), 요청 결과 한 줄, 정보 그리드 |
+| `Theme`, `Icons` | DESIGN-v2.md 색상 토큰(색마다 이름을 붙여 화면은 이름만 씀), FlatLaf 설치, SVG 아이콘 |
+| `TitleBar` | 앱 이름, 서버·계정 수, 마지막 새로고침, 사이드바 접기/펼치기 버튼 |
+| `Sidebar`, `ServerListItem`, `SidebarNavItem` | 맨 위 [개요] [활동 기록(준비 중)], 검색, 계정별 그룹, 서버 행. 개요를 보는 동안은 [개요]가 강조되고 서버 행의 선택은 풀린다. 폭이 200px보다 좁아지면 이름만(항목은 아이콘만) 보이는 모드로 바뀐다(`SidebarWidth`가 폭에 따른 규칙을 정한다) |
+| `ConnectionSummary` | 열린 SSH 연결 목록(`OpenConnection`)을 상태 막대 글자("SSH 연결 3 · 조회 2 · 파일 1")와 설정 표의 행으로 바꾸는 순수 함수. 설정 "연결·조회" 표(`ConnectionPage`)는 연결마다 [×], 아래 [모든 연결 끊기]를 가진다(쓰는 중인 연결은 확인 창 뒤에 강제로, 규칙은 ssh.md "사용자가 연결을 끊기") |
+| `ServerScreen` | 서버를 골랐을 때의 화면 전체: 머리(`ServerHeader`) + 탭 줄(`TabBar`) + 스크롤되는 본문. `MainFrame`이 부르던 `ServerDetailPanel`의 메서드 이름을 그대로 머리와 본문에 나눠 넘긴다. 개요·모니터링·컨테이너·파일·터미널 탭이 동작하고 로그는 `ComingSoon`이다. 파일 탭은 스크롤 창에 넣지 않고 `FilesHost`가 서버별로 `FilesTab`을 들고 있다 |
+| `ServerHeader` | 즐겨찾기 별(준비 중), 서버 이름, 상태 배지, 계정·리전 한 줄, [재부팅] [정지/시작] [⋯(준비 중)], 시작/정지/재부팅 버튼의 상태별 활성화 규칙, 요청 결과 한 줄. IP 가림을 켜고 끌 때 부제의 IP도 같이 바뀐다 |
+| `ServerDetailPanel` | 개요 탭 본문. 두 열(창이 좁으면 한 열로 쌓임, `TwoColumnLayout`): 왼쪽 **지금 상태 4칸**(`StatusSection`)과 **컨테이너 요약**(`ContainerSummaryCard`), 오른쪽 **확인 필요**(`AttentionCard`, 멈춘 컨테이너가 있을 때만), **정보**(공인 IP 가림·복사, 사설 IP, OS, 업타임, 열린 포트 칩, SSH 사용자, 생성일, [SSH 설정]), **저장된 명령어**(`SavedCommandsCard`, 누르면 터미널 탭에서 실행), **최근 활동**(`RecentActivityCard`, 준비 중). 서버에 따로 묻지 않고 다른 탭이 읽은 값을 받아 보여 준다 |
 | `AddAccountDialog`, `AddSshServerDialog` | 계정 추가, 연결 테스트 / 직접 연결 기기 추가 |
-| `SettingsDialog` | 설정 (디스코드 알림은 "준비 중") |
+| `LicensesDialog` | 오픈소스 라이선스 보기(설정의 "업데이트·정보"에서 연다) |
 | `TrayController`, `SwingTrayMenu` | 메뉴 막대(macOS)·알림 영역(Windows) 아이콘과 서버 상태 메뉴. macOS는 네이티브 AWT 메뉴, Windows는 `SwingTrayMenu`가 그림 |
 | `IpPrivacy` | 공인 IP 가리기/보이기 (앱 전체, 기본 가림) |
+
+### `ui.fleet` — 개요 (앱의 첫 화면)
+
+| 클래스 | 역할 |
+|---|---|
+| `FleetScreen` | 위에서부터 제목·부제와 [새로고침], 요약 4칸(실행 중, 확인 필요, 평균 CPU, 컨테이너 실행), "확인이 필요해요", 서버 거르기 칩(전체/실행 중/정지)과 묶기·보기 방식, 서버 카드 격자. 스크롤 창 안에서 폭을 따라간다 |
+| `ServerCard` | 서버 카드 하나: 상태 점·이름, 이름 아래 한 줄, CPU·메모리·디스크 막대(85% 이상이면 숫자도 경고색), 컨테이너 수·멈춘 수·업타임, [SSH] [파일] [모니터링]. 정지 서버는 안내 글자와 [시작] |
+| `CardData`, `FleetSummary` | 카드와 요약에 보일 값·문구를 정하는 순수 계산(화면 없이 시험한다) |
+| `CardGridLayout` | `auto-fill/auto-fit minmax` 같은 격자. 뷰포트 폭으로 칸 수를 정한다 |
+
+- **개요와 서버 화면 전환:** 앱이 처음 목록을 받으면(계정이 있을 때) 개요를 보여 준다. `showServer`(사용자가 서버를 고름, 설정 화면이 열려 있으면 닫음)와 `showOverview`가 사용자 이동이고, 주기적으로 목록이 갱신될 때는 `showServerView`/`showOverviewView`로 현재 화면만 새로 그린다(설정 화면을 닫지 않는다). 개요를 떠나면 `FleetService.cancel()`로 아직 시작하지 않은 읽기를 그만둔다. 읽은 서버 정보는 서버 화면의 `factsCache`에도 넣어 같은 값을 다시 읽지 않는다.
+- 이 화면은 값을 읽지 않는다. 서버 목록·CPU·SSH로 읽은 값(`FleetService.Reading`)을 `setData`로 받는다. 읽기는 `MainFrame.readFleet`이 `FleetService`로 시작한다(개요가 보일 때, 새로고침, 목록 갱신으로 새 서버가 생겼을 때).
+- 카드를 누르면 그 서버의 개요 탭, 버튼은 그 서버 화면의 터미널·파일·모니터링 탭으로 **이동만** 한다(`MainFrame.openServerTab`). 버튼이 직접 접속하지 않는다. [시작]은 그 서버를 열고 시작 요청을 보낸다(확인 창이 필요 없는 동작).
+- CPU는 클라우드 지표나 직접 연결의 1분 샘플(`lastCpu`), 메모리·디스크·업타임·컨테이너는 SSH로 읽은 값이다. 읽기 전이나 SSH 설정이 없으면 막대 없이 "—"와 안내가 나온다.
+- 준비 중: "확인 필요"(요약 칸, 목록, 칩, 사이드바 개수) — 무엇을 볼지 정하지 않았다. 묶기(계정별만), 목록 보기, 타이틀바 검색(⌘K), 활동 기록.
+- 일괄 선택(체크박스, 선택 바)은 일괄 실행을 없앴으므로 만들지 않았다.
 
 ### `ui.metrics` — 그래프
 
 | 클래스 | 역할 |
 |---|---|
-| `MetricsPanel` | 모니터링 섹션: 카드 3개, 상태 문구, 실시간 토글 |
-| `MetricCard` | 스탯 타일: 현재값 + XChart 스파크라인 + 범례/설명 |
-| `MetricKind` | CPU/메모리/네트워크 정의(제목, 시리즈 색, 포맷, y 최댓값, `Metrics`에서 꺼내는 법). 카드와 확대 창이 같이 씀 |
-| `MetricChartDialog` | 카드를 클릭하면 열리는 확대 차트. 기간 버튼(1시간/6시간/24시간/7일), 1분마다 재조회 |
-| `ZoomChartPanel`, `ZoomWindow` | 휠 확대·축소, 드래그 이동. `ZoomWindow`는 UI 없는 순수 계산이라 단위 테스트가 있다 |
-| `ChartTooltip`, `HoverChartPanel` | 마우스를 올렸을 때 세로선과 값 툴팁 |
-| `LiveController` | 실시간 모드 상태(OFF/CONNECTING/RUNNING/PAUSED), 일시정지·재개, 10분 뒤 자동 꺼짐 |
+| `MetricsPanel` | "모니터링" 탭 본문: 구간 선택(실시간·1시간·6시간·24시간·7일), 안내 문구, 큰 차트 카드 3개, 오른쪽 열. "실시간"은 구간 선택의 첫 칸이다(고르면 `onLiveToggle(true)`, 다른 기간으로 가면 `onLiveToggle(false)`, 기록 기간끼리 바꾸면 `onRangeChanged`). 직접 연결 서버는 1시간 외의 기간 칸이 비활성이다 |
+| `MetricChartCard` | 큰 차트 카드: 제목, 지금 값(선이 둘이면 합), 범례, `ZoomChartPanel` |
+| `MetricsSidePanel` | 오른쪽 열 카드 셋: 이 기간 요약, 디스크(/), 알림 기준(+ [설정에서 바꾸기]). 서버에 묻지 않고 받은 값만 보여 준다 |
+| `MetricSummary` | "이 기간 요약" 계산(평균, 최대와 그 시각, 수신+송신 합). UI 없는 순수 계산이라 단위 테스트가 있다 |
+| `MetricKind` | CPU/메모리/네트워크 정의(제목, 시리즈 색, 포맷, y 최댓값, `Metrics`에서 꺼내는 법) |
+| `ZoomChartPanel`, `ZoomWindow` | 큰 차트: 휠 확대·축소, 드래그 이동, 두 번 눌러 초기화, 선 아래 채움, CPU 알림 기준선. `ZoomWindow`는 UI 없는 순수 계산 |
+| `HoverSync`, `ChartTooltip` | 세 차트가 마우스가 가리키는 시각을 함께 쓰는 공유 상태와, 세로선·값 상자 그리기 |
+| `LiveController` | 실시간 모드 상태(OFF/CONNECTING/RUNNING/PAUSED), 일시정지·재개, 10분 뒤 자동 꺼짐, 남은 시간(`remaining()`) |
 
 ### `ui.terminal` — SSH 터미널
 
 | 클래스 | 역할 |
 |---|---|
-| `TerminalView` | 세션 탭 모음, 새 세션 메뉴 |
+| `TerminalView` | 터미널 탭 본문. 세션은 모든 서버의 것을 들고 있지만 탭 줄에는 보고 있는 서버(`showServer`)의 세션만 보인다. 서버마다 마지막으로 보던 세션을 기억하고, 세션이 없으면 빈 화면과 [접속]을 보여 준다. 탭 줄의 `＋ 새 세션 ▾`는 이 서버의 새 셸과 실행 중인 컨테이너의 셸·DB 콘솔을 고르는 메뉴, 오른쪽 끝의 분할 보기 아이콘은 준비 중 |
 | `TerminalPanel` | 탭 하나: 연결, JediTerm 위젯, 상태바, 실패 안내와 "다시 연결" |
 | `ShellTtyConnector` | `ssh.ShellSession`을 JediTerm이 쓰는 형태로 이어 주는 어댑터 |
-| `TerminalSidePanel` | 오른쪽 패널: 저장된 명령어, 일괄 실행, SFTP 버튼 |
-| `SftpDialog` | SFTP 파일 관리. **왼쪽 내 컴퓨터(처음엔 `Downloads` 폴더, 없으면 홈 폴더), 오른쪽 서버**의 2창이고 아래에 전송 대기열이 있다. 여러 파일·폴더를 골라 `서버로 업로드` / `내 컴퓨터로 다운로드`(서버 파일 더블클릭·버튼·우클릭 메뉴는 **다운로드 폴더**로 받고, **끌어서 놓기**는 놓은 폴더에 받는다)로 반대쪽에 보낸다. 내 컴퓨터 쪽 파일도 `편집` 버튼으로 바로 편집기에 열 수 있다(서버와 주고받지 않으니 복사본 없이 그 파일을 연다). 폴더 행 위에 놓으면 그 폴더 안으로 들어가고, Finder·탐색기에서 서버 쪽으로 끌어다 놓아도 올라간다. 새 폴더, 새 파일, 이름 바꾸기(F2), 삭제(Delete), 권한 변경, 편집은 버튼·우클릭 메뉴·단축키로 쓴다(새 파일은 우클릭 메뉴) |
-| `FilePane` | `SftpDialog`의 폴더 패널 하나(제목, 경로 입력, 상위 폴더·새로고침, 여러 선택이 되는 파일 표, 서버 쪽은 권한 열). 이 컴퓨터와 서버가 같은 모양으로 쓰고, 목록과 파일 작업을 하는 `Source`만 다르다. 작업은 EDT 밖에서 하고 한 번에 하나만 받는다. 영어 오류(`PERMISSION_DENIED` 등)는 한국어로 바꿔 보여준다 |
-| `TransferPanel` | 전송 대기열 표: 작업마다 진행 막대와 상태, 취소·다시 시도(이어받기)·지우기·`끝난 항목 모두 지우기`. 목록이 비면 패널이 접히고, 오른쪽 위 X로도 접을 수 있다. X는 목록과 진행 중인 전송을 그대로 두고 패널만 접으며, 아래쪽 `전송 목록 보기 (n)` 버튼으로 다시 연다. 새 전송이 시작되거나 실패가 생기면 저절로 다시 나타난다 |
-| `PermissionDialog` | 서버 파일 권한 변경 창. 읽기·쓰기·실행 체크박스 9개와 8진수 입력(644)이 서로 맞춰지고, 폴더는 안의 모든 항목에 적용할 수 있다 |
-| `ChangeWatch`, `ExternalEditor` | 서버 파일 편집. 임시 폴더에 받은 복사본을 내 편집기(`ExternalEditor`)로 열고, `ChangeWatch`가 저장이 끝났는지 알아본다 |
-| `BatchResultDialog`, `CommandEditDialog` | 일괄 실행 결과 / 명령어 편집 |
+| `TerminalSidePanel` | 오른쪽 330px 패널: **저장된 명령어**(찾기, `SavedCommandCard` 카드와 ▶, 우클릭 편집·삭제). 카드를 누르면 열려 있는 터미널에 그 명령어를 보낸다. 파일은 파일 탭에서 다루므로 [SFTP 파일] 버튼은 없고, 여러 서버에 한 번에 보내는 일괄 실행은 쓰는 일이 적어서 없앴다 |
+| `CommandEditDialog` | 저장된 명령어 추가·편집 |
 | `SshSettingsDialog` | 서버별 사용자 이름·포트·SSH 키 등록 |
 | `HostKeyDialog` | 처음 보는 호스트 키 확인. `ssh.HostKeyPrompt`를 구현하며 어느 스레드에서든 호출 가능 |
+
+### `ui.settings` — 설정 화면
+
+메인 창 안의 화면이다(예전 모달 창을 바꿨다). 사이드바의 [설정]이나 모니터링 탭의 "설정에서 바꾸기"로 열고, "← 개요로 돌아가기"나 ESC로 나온다. 서버를 고르면(사이드바·트레이) 설정에서 나와 그 서버를 보여 준다. **바꾼 설정은 바로 저장된다**(저장 버튼이 없다). 아직 동작하지 않는 설정은 모두 만들어 두고 "준비 중" 배지와 비활성으로 보인다(`ComingSoon`).
+
+| 클래스 | 역할 |
+|---|---|
+| `SettingsScreen` | 왼쪽 메뉴(일반 / 알림 / 보안·안전 / 연결·조회 / 업데이트·정보, 에이전트는 뺀다)와 오른쪽 항목 전환. 항목마다 스크롤 창을 따로 둔다 |
+| `SettingsPage` | 항목 하나의 틀: 큰 제목, 부제, 카드들이 세로로 쌓인다(폭은 창을 따르되 최대 980) |
+| `SettingsCard`, `SettingsRow` | 카드(행들을 가는 선으로 구분)와 한 줄(굵은 제목 + 흐린 설명 + 오른쪽 컨트롤). `SettingsRow.comingSoon()`은 "준비 중" 배지를 붙이고 컨트롤을 비활성으로 만든다 |
+| `GeneralPage` | "로그인할 때 실행"(동작). 창을 닫으면 숨기기 끄기·시작 화면·서버 목록 묶기·단축키는 준비 중 |
+| `AlertsPage` | 디스코드 알림, 웹훅 URL(Enter나 칸을 떠날 때 형식을 확인해 저장), 테스트 메시지, 서버 멈춤·계정 오류·CPU 기준. 알림 기능 전체가 아직 열리지 않은 빌드(`AlertService.AVAILABLE`=false)에서는 전부 비활성. 앱 안 알림, 다시 보내기 간격, 디스크·컨테이너 규칙은 준비 중. 저장은 한 번에 하나씩, 저장 중에 또 바뀌면 끝난 뒤 최신 값으로 한 번 더 |
+| `SecurityPage` | 비밀값 저장 안내(실제 정보)와, 공인 IP 기본 가리기·읽기 전용·되돌릴 수 없는 작업 확인·활동 기록 보관·알고 있는 호스트 키(모두 준비 중) |
+| `ConnectionPage` | 서버 상태 새로고침(30초), 메트릭(1분), 실시간 자동 꺼짐(10분), SSH 연결 새로 맺기(12시간)를 **읽기 전용 글자**로. 값은 코드의 상수(`RefreshPolicy`, `LiveController.AUTO_OFF`)에서 가져온다. "지금 열린 SSH 연결" 표는 틀만(준비 중) |
+| `AboutPage` | 버전과 [업데이트 확인], 새 빌드 자동 확인, 업데이트 파일 확인 설명, 로그 폴더, 라이선스 |
+
+### `ui.files` — 파일 탭
+
+서버 화면의 "파일" 탭이다(예전 SFTP 창을 탭으로 옮겼다). 왼쪽 **내 컴퓨터**, 오른쪽 **서버** 두 창이 카드 하나씩이고, 위에 편집 중 배너, 아래에 전송 목록이 붙는다.
+
+| 클래스 | 역할 |
+|---|---|
+| `FilesHost` | 서버마다 `FilesTab`을 하나씩 만들어 들고 있다가 보고 있는 서버의 것을 보여 준다. 서버를 바꿨다 돌아와도 목록·전송·편집 상태가 그대로다. 탭은 그 서버의 파일 탭을 처음 열 때 만든다(서버를 고르기만 해서는 접속이 늘지 않는다). SSH 설정이 없거나 서버가 꺼져 있으면 탭 대신 안내와 [SSH 설정]. 앱을 끌 때 `closeAll()`, 목록에서 사라진 서버는 `retainOnly()`로 닫고, 전송 수는 서버 모두 합쳐 상태 막대에 준다 |
+| `FilesTab` | 파일 탭 하나. 업로드·다운로드, 끌어서 놓기, 같은 이름 확인, 삭제 확인, 새 폴더·새 파일·이름 바꾸기(F2)·권한 변경, 서버 파일 편집(`EditSession`)을 한다. 두 창은 가운데 줄로 폭을 나누고(처음엔 반반), 아래에 결과 한 줄과 안내 문구, 그 아래에 `TransferPanel`이 있다 |
+| `FilePane` | 창 하나(카드). 머리(제목, 위로·새로고침·새 폴더 아이콘, 서버 쪽은 `숨김 파일` 토글), 경로 입력, 칩 줄(`처음 경로`, 준비 중인 `＋ 경로 추가`), 파일 표(이름·크기·수정한 날짜, 서버 쪽은 권한), 선택 작업 막대(`N개 선택` + 버튼, 선택이 있을 때만), 요약 줄("폴더 1개 · 파일 3개 · 지우면 휴지통으로 가요" / "… · ubuntu 권한으로 접속 중")이 한 테두리 안에 든다. 내 컴퓨터와 서버가 같은 모양이고 목록·파일 작업을 하는 `Source`만 다르다. 작업은 EDT 밖에서 하고 한 번에 하나만 받는다. 영어 오류(`PERMISSION_DENIED` 등)는 한국어로 바꿔 보여준다. 내 컴퓨터 쪽(macOS)에서 권한 오류가 나면 어느 경로든 안내 문구와 함께 요약 줄 옆에 [권한 설정 열기](시스템 설정의 전체 디스크 접근 화면)가 나온다 |
+| `EditBanner` | 서버 파일을 편집하는 동안만 위쪽에 나오는 배너: "편집 중 1개 · 경로 — 편집기에서 저장하면 서버에 자동으로 올려요 · 마지막 업로드 15:28" + [편집기 열기] [편집 끝내기]. 글자와 버튼만 가지고, 세션 처리는 `FilesTab`이 한다 |
+| `TransferPanel` | 아래 "전송" 목록: 머리에 "1개 진행 중 · 2개 끝남", [끝난 항목 지우기], 접기/펼치기. 행마다 방향 아이콘, 이름과 "서버 → ~/Downloads · 30.4 MB / 48.2 MB · 12.4 MB/s", 얇은 진행 막대(진행 파랑·끝남 초록·실패 빨강), 상태 글자("63% · 2초 남음", "끝남 · …", "실패 · …"), [취소]/[다시 시도]. 접으면 머리 줄만 남고 목록과 진행 중인 전송은 그대로이며, 새 전송이 시작되거나 실패가 생기면 저절로 펼쳐진다. 목록이 비면 패널이 숨는다. 행을 골라 Delete를 누르면 끝난 행 하나를 지운다 |
+| `TransferRate` | 전송 속도와 남은 시간을 어림한다(큐는 받은 바이트 수만 준다). 진행을 받을 때마다 이전 값과 비교하고 최근 값에 가중을 둔 평균을 쓴다 |
+| `PermissionDialog` | 서버 파일 권한 변경 창. 읽기·쓰기·실행 체크박스 9개와 8진수 입력(644)이 서로 맞춰지고, 폴더는 안의 모든 항목에 적용할 수 있다 |
+| `ChangeWatch`, `ExternalEditor` | 서버 파일 편집. 임시 폴더에 받은 복사본을 내 편집기(`ExternalEditor`)로 열고, `ChangeWatch`가 저장이 끝났는지 알아본다 |
 
 ### 그 밖의 하위 패키지
 
 | 패키지 | 내용 |
 |---|---|
-| `ui.containers` | `ContainersPanel`(서버 상세의 컨테이너 표와 동작 버튼), `ContainerLogsDialog`(로그 창) |
-| `ui.components` | 공용 부품: `Buttons`, `DashedButton`, `StatusDot`, `StatusBadge`, `RoundedPanel`, `Toast`(오른쪽 아래 잠깐 뜨는 알림) 등 |
+| `ui.containers` | `ContainersPanel`(서버 상세의 컨테이너 표와 동작 버튼), `ContainersTab`(위 표 / 아래 로그를 나누는 탭 본문), `ContainerLogView`(로그 패널), `LogTable`(로그 줄 표), `ContainerLogWindow`(로그 화면 전체를 담는 별도 창), `ContainerFormat`·`ContainerRowActions`(표 글자와 행 작업 아이콘 계산) |
+| `ui.components` | 공용 부품: `Buttons`, `DashedButton`, `StatusDot`, `StatusBadge`(종류 5가지: 성공·경고·위험·정보·중립), `TabBar`(밑줄 탭 줄), `StatusBar`(아래 26px 상태 막대), `RoundedPanel`, `Toast`(오른쪽 아래 잠깐 뜨는 알림) 등. 디자인 v2 부품: `ToggleSwitch`(스위치), `FilterChip`(거르기 칩), `SegmentedControl`(구간 선택), `Meter`(사용률 막대), `ComingSoon`(기능이 아직 없는 요소를 비활성 + "준비 중이에요" 안내로 만드는 도구) |
 
-## SFTP 창의 동작 규칙
+## 파일 탭의 동작 규칙
 
 - **소유자 변경 경고:** 덮어써서 서버 파일의 소유자가 이 계정으로 바뀌면, 전송 하나가 끝났을 때 **한 번만** 경고 창을 띄운다(어떤 파일인지 3개까지, 나머지는 개수로). 권한(rwx)은 유지되지만 소유자는 일반 계정으로 되돌릴 수 없다는 안내를 포함한다.
 - **삭제는 신중하게:** 지우기 전에 폴더 안 항목 수를 세어(`COUNT_CAP` 5,000개에서 멈춤) 확인 창에 보여준다. 서버는 "되돌릴 수 없어요"라고 알리고, `/etc` 같은 시스템 폴더에는 따로 경고한다. 이 컴퓨터 쪽은 휴지통으로 보낸다. 폴더를 통째로 지우다 중간에 권한 오류가 나면 일부만 지워질 수 있어서, 오류가 나도 목록을 다시 읽어 실제 상태를 보여준다.
-- **서버 파일 편집:** `편집` → 임시 폴더로 받기 → 편집기 열기 → 저장하면 자동으로 서버에 올린다. 올리기 전에 서버 쪽 파일이 그 사이 바뀌었는지(크기·수정 시각) 확인해서, 바뀌었으면 덮어쓸지 묻는다. 저장하는 도중의 파일은 올리지 않고(`ChangeWatch`), 창을 닫을 때 못 올린 편집 내용이 있으면 경고한다. 임시 복사본은 창을 닫으면 지운다.
+- **서버 파일 편집:** `편집` → 임시 폴더로 받기 → 편집기 열기 → 저장하면 자동으로 서버에 올린다. 올리기 전에 서버 쪽 파일이 그 사이 바뀌었는지(크기·수정 시각) 확인해서, 바뀌었으면 덮어쓸지 묻는다. 저장하는 도중의 파일은 올리지 않는다(`ChangeWatch`). 편집 중인 파일은 위쪽 배너에 보이고 [편집 끝내기]로 놓는다(못 올린 내용이 있으면 먼저 묻고, 진행 중인 업로드는 취소하고, 임시 복사본을 지운다). 앱을 끌 때도 못 올린 편집 내용이나 진행 중인 전송이 있으면 확인한다.
+- **연결은 쓸 때만 쥔다:** 탭은 서버별로 계속 살아 있지만 SSH 연결을 계속 쥐고 있지는 않다. 탐색 연결(`ReconnectingFiles`)은 3분 동안 안 쓰면 풀에 돌려주고, 끊겼으면 다음에 쓸 때 다시 맺는다. 전송 연결은 큐가 비면 돌려주고, 전송이 실패하면 버려서 다시 시도할 때 새로 맺는다. 그래서 목록·전송 목록·편집 상태는 남아 있고 풀의 유휴 종료·12시간 수명 규칙도 그대로 적용된다([ssh.md](ssh.md)의 "오래 열어 두는 화면").
 - **같은 이름 처리:** 현재 폴더로 보낼 때만 미리 묻는다(덮어쓰기 / 겹치는 항목 건너뛰기 / 취소). 폴더 행에 끌어다 놓은 경우는 덮어쓰지 않고 겹치는 파일을 건너뛴다.
 
 ## 흐름 예시
@@ -127,22 +175,28 @@ Async.run(
 ### 모니터링
 
 ```
-서버 선택     → Async: service.metrics(account, id)          → MetricsPanel.showHistory (1시간, 1분 점)
-카드 클릭     → MetricChartDialog → Async: service.metrics(account, id, range) → ZoomChartPanel
+서버 선택     → Async: service.metrics(account, id, 고른 기간)   → MetricsPanel.showHistory (기본 1시간, 1분 점)
+기간 선택     → MetricsPanel.onRangeChanged → MainFrame.loadMetrics → 같은 흐름으로 그 기간을 읽는다
                   OCI 간격: 6시간 이하 1분, 24시간 이하 5분, 그 이상 15분
-                  직접 연결 서버는 기간 선택 없이 수집분만
-1분 타이머    → 선택 서버 메트릭 + service.currentCpu(inventory) → 사이드바 CPU%
-[실시간 (SSH)] → LiveController → TerminalService.openStats (exec: ProcStats.COMMAND, 최대 310회)
-                  → LiveStats: '---' 블록마다 파싱 → 이전 스냅샷과 차이 → MetricsPanel.addLive (최근 5분)
-터미널 화면 / 최소화 → LiveController.pause (연결 닫음) → 대시보드 복귀 → resume (다시 연결)
+                  직접 연결 서버는 1시간 외 기간 칸이 비활성(앱이 켜져 있는 동안 모은 수집분만)
+                  차트를 전체보다 더 축소하면 다음으로 긴 기간으로 넘어간다(`ZoomChartPanel.onZoomOutFull`)
+1분 타이머    → 선택 서버의 고른 기간 + service.currentCpu(inventory) → 사이드바 CPU%
+[● 실시간]    → MetricsPanel.onLiveToggle(true) → MainFrame.toggleLive → LiveController → TerminalService.openStats
+                  (exec: ProcStats.COMMAND, 최대 310회) → LiveStats: '---' 블록마다 파싱 → 이전 스냅샷과 차이
+                  → MetricsPanel.addLive (최근 5분) · 안내 문구에 남은 시간("8분 뒤 자동으로 꺼져요")
+최소화        → LiveController.pause (연결 닫음) → 다시 나타나면 resume (다시 연결, 10분이 새로 시작)
 켠 지 10분    → 자동 꺼짐
+서버 정보(HostFacts) → ServerScreen.setFacts → 개요의 정보 카드·지금 상태의 디스크 칸 + 모니터링 탭의 디스크 카드(같은 값)
+모니터링 탭이 읽은 점 → MetricsObserver → 개요의 지금 상태(CPU·메모리·네트워크 최근 값과 최근 1시간 그래프)
+컨테이너 목록 → ServerScreen.setContainers → 컨테이너 탭 + 개요의 컨테이너 요약·확인 필요
+알림 설정     → MetricsPanel.setAlert → "알림 기준" 카드 + CPU 차트의 기준선(전체 스위치와 "CPU가 높을 때" 둘 다 켜져 있을 때만)
 ```
 
 ### SSH 터미널 열기
 
 ```
-[SSH 열기] → 설정 없음? → SshSettingsDialog (키 → 금고에 저장)
-          → TerminalView 탭 추가 → Async: TerminalService.open(server)
+[접속] → 설정 없음? → SshSettingsDialog (키 → 금고에 저장)
+          → 터미널 탭을 열고(ServerScreen.showTerminalTab) → TerminalView 탭 추가 → Async: TerminalService.open(server)
              → MinaShellConnector: 연결 → 호스트 키 확인(known_hosts / HostKeyDialog)
                → 공개키 인증 → shell 채널(PTY xterm-256color)
           → ShellTtyConnector로 JediTerm에 연결 → 창 크기 변경 시 window-change

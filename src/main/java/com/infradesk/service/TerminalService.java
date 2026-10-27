@@ -1,7 +1,7 @@
 package com.infradesk.service;
 
 import com.infradesk.core.Server;
-import com.infradesk.ssh.DemoLocalFiles;
+import com.infradesk.demo.DemoLocalFiles;
 import com.infradesk.ssh.HostFacts;
 import com.infradesk.ssh.LocalFiles;
 import com.infradesk.ssh.HostKeyPrompt;
@@ -35,6 +35,8 @@ import java.util.Optional;
  * 서버의 주소만 있으면 된다. 블로킹이므로 EDT 밖에서 호출한다.
  */
 public class TerminalService {
+
+    private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(TerminalService.class.getName());
 
     public static final String SSH_KEY = "sshKey";
     public static final String SSH_PASSPHRASE = "sshPassphrase";
@@ -110,6 +112,28 @@ public class TerminalService {
         connector.invalidate(serverId);
     }
 
+    /** 접속 풀이 지금 열어 두고 있는 연결들(읽기 전용). 상태 막대와 설정의 "지금 열린 SSH 연결" 표가 쓴다. */
+    public List<com.infradesk.ssh.OpenConnection> openConnections() {
+        return connector.openConnections();
+    }
+
+    /**
+     * 설정 화면에서 연결 하나를 끊는다. 쓰는 중인 연결은 {@code force}일 때만 끊는다(전송 중인 파일은 실패하고, 파일 탭은
+     * 다시 연결한다). 필요하면 나중에 새로 맺는다.
+     */
+    public boolean disconnect(String serverId, Purpose purpose, boolean force) {
+        boolean closed = connector.disconnect(serverId, purpose, force);
+        LOG.info(() -> "SSH 연결 끊기: " + purpose + (force ? " (강제)" : "") + (closed ? "" : " — 끊지 못함"));   // 서버 이름·주소는 로그에 남기지 않는다
+        return closed;
+    }
+
+    /** 풀 연결을 모두 끊는다. {@code force}가 아니면 쓰는 중인 연결은 둔다. 터미널 탭은 풀 밖이라 그대로다. @return 끊은 연결 수 */
+    public int disconnectAll(boolean force) {
+        int n = connector.disconnectAll(force);
+        LOG.info(() -> "SSH 연결 " + n + "개를 끊었어요" + (force ? " (쓰는 중인 것 포함)" : ""));
+        return n;
+    }
+
     /**
      * 앱 창이 메뉴 막대로만 숨었는지 알린다. 숨은 동안은 조회 연결만 남기고 나머지는 쓰는 대로 닫는다.
      */
@@ -127,7 +151,7 @@ public class TerminalService {
         return connector.open(target(server), prompt, columns, rows, command);
     }
 
-    /** 일괄 실행에서 서버별로 보관하는 출력. 나머지는 버린다. */
+    /** 명령 실행 결과로 보관하는 출력의 최대 크기. 나머지는 버린다. */
     public static final int MAX_OUTPUT_BYTES = 256 * 1024;
 
     /**

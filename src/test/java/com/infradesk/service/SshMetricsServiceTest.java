@@ -2,7 +2,7 @@ package com.infradesk.service;
 
 import com.infradesk.core.Server;
 import com.infradesk.core.ServerStatus;
-import com.infradesk.ssh.DemoShellConnector;
+import com.infradesk.demo.DemoShellConnector;
 import com.infradesk.ssh.ProcStats;
 import com.infradesk.storage.InMemorySavedCommandStore;
 import com.infradesk.storage.InMemorySecretStore;

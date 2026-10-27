@@ -45,11 +45,17 @@ final class ZoomChartPanel extends XChartPanel<XYChart> {
     private DateTimeFormatter tooltipFormat = TIME;
     private double yTop = 100;
     private boolean painted;
+    /** 선 아래를 옅은 색으로 채울지(디자인 v2 큰 차트). 확대 창은 채우지 않는다. */
+    private boolean filled;
     private int mouseX = -1;
     private int lastDragX = -1;
     private long lastWidenAt;
     private Runnable onZoomOutFull = () -> { };
     private Consumer<Boolean> onZoomChanged = zoomed -> { };
+    /** 세 차트가 같은 시점을 가리키게 하는 공유 상태. 없으면 이 차트만 자기 마우스 위치를 따른다. */
+    private HoverSync sync;
+    /** 알림 기준선(%). 없으면 그리지 않는다(CPU 차트만 쓴다). */
+    private Double alertThreshold;
 
     ZoomChartPanel(MetricKind kind) {
         super(createChart(kind));
@@ -93,18 +99,23 @@ final class ZoomChartPanel extends XChartPanel<XYChart> {
                     setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
                 }
                 mouseX = e.getX();
+                shareHover(e.getX());
                 repaint();
             }
 
             @Override
             public void mouseMoved(MouseEvent e) {
                 mouseX = e.getX();
+                shareHover(e.getX());
                 repaint();
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
                 mouseX = -1;
+                if (sync != null) {
+                    sync.clear();
+                }
                 repaint();
             }
 
@@ -140,6 +151,10 @@ final class ZoomChartPanel extends XChartPanel<XYChart> {
         st.setAntiAlias(true);
         st.setTimezone(TimeZone.getDefault());
         st.setXAxisMaxLabelCount(8);
+        // 세로축 눈금 사이를 띄운다. 기본은 네트워크가 11개로 너무 촘촘하다. 70이면 5개(0/50/…/200)가 된다.
+        // 주의: 값을 키운다고 눈금이 줄지 않는다(100으로 올렸더니 오히려 9개로 늘었다). XChart가 "보기 좋은 간격"을
+        // 고르는 방식 때문이라 값을 바꿀 때는 스냅샷으로 확인해야 한다. 백분율 차트는 70에서도 0/20/…/100%의 6개다.
+        st.setYAxisTickMarkSpacingHint(70);
         st.setYAxisMin(0.0);
         st.setYAxisTickLabelsFormattingFunction(kind.format()::apply);
         st.setDefaultSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line);
@@ -149,6 +164,31 @@ final class ZoomChartPanel extends XChartPanel<XYChart> {
         st.setLegendBorderColor(Theme.DIVIDER);
         st.setLegendFont(base);
         return chart;
+    }
+
+    /**
+     * 세 차트가 같은 시점을 함께 가리키게 묶는다. 묶으면 이 차트의 마우스 위치가 모든 차트에 시각으로 전해지고,
+     * 다른 차트의 마우스 위치도 이 차트에 그려진다.
+     */
+    void setSync(HoverSync sync) {
+        this.sync = sync;
+        sync.register(this);
+    }
+
+    /** 알림 기준선을 그린다(예: CPU 90%). null이면 지운다. y 범위가 고정된 차트(백분율)에서만 의미가 있다. */
+    void setAlertThreshold(Double percent) {
+        this.alertThreshold = percent;
+        repaint();
+    }
+
+    /** 선 아래를 옅게 채운다(시안의 큰 차트). 다음 {@link #setData}부터 적용된다. */
+    void setFilled(boolean filled) {
+        this.filled = filled;
+    }
+
+    /** 차트 안의 범례를 보이거나 숨긴다. 카드 머리에 범례를 따로 두면 숨긴다. */
+    void setLegendVisible(boolean visible) {
+        getChart().getStyler().setLegendVisible(visible);
     }
 
     /** 불러온 전체보다 더 축소하면 호출된다(예: 더 긴 기간으로 바꾸기 위해). */
@@ -180,7 +220,7 @@ final class ZoomChartPanel extends XChartPanel<XYChart> {
     void setData(List<List<Metrics.Sample>> newData) {
         data = newData;
         XYChart chart = getChart();
-        for (MetricCard.Series meta : kind.series()) {
+        for (MetricKind.Series meta : kind.series()) {
             chart.removeSeries(meta.name());
         }
         double min = Double.MAX_VALUE;
@@ -197,11 +237,16 @@ final class ZoomChartPanel extends XChartPanel<XYChart> {
                 xs.add(Date.from(s.time()));
                 ys.add(s.value());
             }
-            MetricCard.Series meta = kind.series().get(i);
+            MetricKind.Series meta = kind.series().get(i);
             XYSeries xy = chart.addSeries(meta.name(), xs, ys);
             xy.setLineColor(meta.color());
             xy.setLineStyle(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             xy.setMarker(SeriesMarkers.NONE);
+            if (filled) {
+                // 선 아래를 시리즈 색의 18% 농도로 채운다(시안의 옅은 영역).
+                xy.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Area);
+                xy.setFillColor(new Color(meta.color().getRed(), meta.color().getGreen(), meta.color().getBlue(), 46));
+            }
             long first = d.getFirst().time().toEpochMilli();
             long last = d.getLast().time().toEpochMilli();
             min = Math.min(min, first);
@@ -283,17 +328,66 @@ final class ZoomChartPanel extends XChartPanel<XYChart> {
         return getChart().getScreenXFromChart(window.max());
     }
 
+    /** 마우스가 플롯 안에 있으면 그 시각을 공유하고, 벗어났으면(축 글자 영역 등) 지운다. */
+    private void shareHover(int x) {
+        if (sync == null || window == null || !painted) {
+            return;
+        }
+        if (x < plotLeft() || x > plotRight()) {
+            sync.clear();
+            return;
+        }
+        sync.hover(Math.round(getChart().getChartXFromCoordinate(x)));
+    }
+
+    /** 지금 가리키는 시각. 공유 중이면 공유된 시각(다른 차트 위의 마우스도 포함), 아니면 이 차트의 마우스 위치. 없으면 null. */
+    Long hoverTime() {
+        if (sync != null) {
+            return sync.time();
+        }
+        if (mouseX < 0 || window == null || !painted || mouseX < plotLeft() || mouseX > plotRight()) {
+            return null;
+        }
+        return Math.round(getChart().getChartXFromCoordinate(mouseX));
+    }
+
+    /** 알림 기준선: 설정한 %의 높이에 주황 점선과 "알림 기준 90%" 글자. */
+    private void paintAlertLine(Graphics g) {
+        if (alertThreshold == null || kind.yMax() == null || alertThreshold > yTop) {
+            return;
+        }
+        int y = (int) Math.round(getChart().getScreenYFromChart(alertThreshold));
+        int left = (int) Math.round(plotLeft());
+        int right = (int) Math.round(plotRight());
+        java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+        try {
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.setColor(Theme.WARNING_BAR);
+            g2.setStroke(new BasicStroke(1.2f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] {5f, 4f}, 0f));
+            g2.drawLine(left, y, right, y);
+            g2.setFont(getFont().deriveFont(11f));
+            String label = "알림 기준 " + Math.round(alertThreshold) + "%";
+            g2.drawString(label, right - g2.getFontMetrics().stringWidth(label) - 6, y - 5);
+        } finally {
+            g2.dispose();
+        }
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         painted = true;
-        if (mouseX < 0 || window == null || data.isEmpty()) {
+        if (window == null || data.isEmpty()) {
             return;
         }
-        if (mouseX < plotLeft() || mouseX > plotRight()) {
+        paintAlertLine(g);
+        Long hovered = hoverTime();
+        // 가리키는 시각이 이 차트에 보이는 범위 밖이면(확대해서 다른 구간을 보는 중) 그리지 않는다.
+        if (hovered == null || hovered < window.min() || hovered > window.max()) {
             return;
         }
-        long target = Math.round(getChart().getChartXFromCoordinate(mouseX));
+        long target = hovered;
         Instant at = null;
         List<String> lines = new ArrayList<>();
         List<Color> colors = new ArrayList<>();

@@ -6,12 +6,12 @@ import java.io.OutputStream;
 import java.util.function.LongConsumer;
 
 /** 진행률을 알리며 스트림을 복사한다. SFTP 구현들이 함께 쓴다. */
-final class Transfers {
+public final class Transfers {
 
     private Transfers() {
     }
 
-    static void copy(InputStream in, OutputStream out, LongConsumer progress) throws IOException {
+    public static void copy(InputStream in, OutputStream out, LongConsumer progress) throws IOException {
         copy(in, out, 0, progress);
     }
 
@@ -19,7 +19,7 @@ final class Transfers {
      * @param startOffset 이어받기로 이미 옮겨진 바이트 수. 진행률은 이 값을 포함한 누적 바이트로 알린다.
      *                    {@code progress}가 예외를 던지면 복사가 중단된다(전송 취소에 쓴다)
      */
-    static void copy(InputStream in, OutputStream out, long startOffset, LongConsumer progress) throws IOException {
+    public static void copy(InputStream in, OutputStream out, long startOffset, LongConsumer progress) throws IOException {
         byte[] buf = new byte[64 * 1024];
         long total = startOffset;
         int n;
