@@ -127,7 +127,7 @@ public class TerminalService {
         return connector.open(target(server), prompt, columns, rows, command);
     }
 
-    /** 일괄 실행에서 서버별로 보관하는 출력. 나머지는 버린다. */
+    /** 명령 실행 결과로 보관하는 출력의 최대 크기. 나머지는 버린다. */
     public static final int MAX_OUTPUT_BYTES = 256 * 1024;
 
     /**

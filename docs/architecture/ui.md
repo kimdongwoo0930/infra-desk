@@ -103,8 +103,7 @@ Async.run(
 | `TerminalView` | 터미널 탭 본문. 세션은 모든 서버의 것을 들고 있지만 탭 줄에는 보고 있는 서버(`showServer`)의 세션만 보인다. 서버마다 마지막으로 보던 세션을 기억하고, 세션이 없으면 빈 화면과 [접속]을 보여 준다. 탭 줄의 `＋ 새 세션 ▾`는 이 서버의 새 셸과 실행 중인 컨테이너의 셸·DB 콘솔을 고르는 메뉴, 오른쪽 끝의 분할 보기 아이콘은 준비 중 |
 | `TerminalPanel` | 탭 하나: 연결, JediTerm 위젯, 상태바, 실패 안내와 "다시 연결" |
 | `ShellTtyConnector` | `ssh.ShellSession`을 JediTerm이 쓰는 형태로 이어 주는 어댑터 |
-| `TerminalSidePanel` | 오른쪽 330px 패널. **저장된 명령어**(찾기, `SavedCommandCard` 카드와 ▶, 우클릭 편집·삭제)와 **여러 서버에서 실행**(`ServerChip` 서버 칩, 명령 입력, `N대에 실행`, 결과 카드). 파일은 파일 탭에서 다루므로 [SFTP 파일] 버튼은 없다 |
-| `BatchResultView` | 일괄 실행 결과 카드(예전 별도 결과 창을 대신한다): 서버별 성공·실패와 걸린 시간, 출력 첫 줄, 실패한 서버의 [다시]. 행을 누르면 전체 출력이 펼쳐진다. 가장 최근 한 번의 결과만 보여 준다 |
+| `TerminalSidePanel` | 오른쪽 330px 패널: **저장된 명령어**(찾기, `SavedCommandCard` 카드와 ▶, 우클릭 편집·삭제). 카드를 누르면 열려 있는 터미널에 그 명령어를 보낸다. 파일은 파일 탭에서 다루므로 [SFTP 파일] 버튼은 없고, 여러 서버에 한 번에 보내는 일괄 실행은 쓰는 일이 적어서 없앴다 |
 | `CommandEditDialog` | 저장된 명령어 추가·편집 |
 | `SshSettingsDialog` | 서버별 사용자 이름·포트·SSH 키 등록 |
 | `HostKeyDialog` | 처음 보는 호스트 키 확인. `ssh.HostKeyPrompt`를 구현하며 어느 스레드에서든 호출 가능 |

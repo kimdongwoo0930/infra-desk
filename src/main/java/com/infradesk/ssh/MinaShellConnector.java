@@ -250,7 +250,7 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
     /**
      * 풀에서 연결을 빌려 작업을 한다. 재사용하던 연결이 죽어 있어서 채널을 못 열면, 조회(QUERY)만 그 연결을 버리고
      * 새로 맺어 <b>한 번만</b> 다시 시도한다. 새로 맺은 연결에서 난 실패는 다시 시도하지 않는다(접속 실패가
-     * 두 배로 쌓이지 않게). 일괄 실행처럼 서버를 바꾸는 명령은 이미 실행됐을 수 있어서 다시 시도하지 않는다.
+     * 두 배로 쌓이지 않게). 컨테이너 시작·정지처럼 서버를 바꾸는 명령은 이미 실행됐을 수 있어서 다시 시도하지 않는다.
      */
     private <T> T pooled(Purpose purpose, SshTarget target, HostKeyPrompt prompt, LeaseTask<T> task) {
         SessionPool.SessionLease lease = pool.acquire(purpose, target, prompt);

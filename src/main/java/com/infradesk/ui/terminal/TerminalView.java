@@ -45,7 +45,6 @@ public class TerminalView extends JPanel {
 
     private final TerminalService service;
     private final Consumer<Server> openSettings;
-    private final Supplier<List<Server>> connectableServers;
     private final JPanel tabStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
     private final CardLayout cards = new CardLayout();
     private final JPanel terminals = new JPanel(cards);
@@ -69,11 +68,10 @@ public class TerminalView extends JPanel {
     private Supplier<List<Container>> containerSource = List::of;
     private BiConsumer<Container, DockerCommands.Console> containerOpener = (container, console) -> { };
 
-    public TerminalView(TerminalService service, Consumer<Server> openSettings, Supplier<List<Server>> connectableServers) {
+    public TerminalView(TerminalService service, Consumer<Server> openSettings) {
         super(new BorderLayout());
         this.service = service;
         this.openSettings = openSettings;
-        this.connectableServers = connectableServers;
         setBackground(Theme.TERMINAL_BG);
 
         JPanel strip = new JPanel(new BorderLayout());
@@ -102,14 +100,9 @@ public class TerminalView extends JPanel {
         JPanel main = new JPanel(new BorderLayout());
         main.add(strip, BorderLayout.NORTH);
         main.add(terminals, BorderLayout.CENTER);
-        sidePanel = new TerminalSidePanel(service, connectableServers, this::sendToActive);
+        sidePanel = new TerminalSidePanel(service, this::sendToActive);
         add(main, BorderLayout.CENTER);
         add(sidePanel, BorderLayout.EAST);
-    }
-
-    /** 화면이 보일 때 호출되어 일괄 실행 체크박스를 최신 서버 목록에 맞춘다. */
-    public void refreshServers() {
-        sidePanel.refreshServers();
     }
 
     /** 선택한 탭의 서버. 없으면 없음. */

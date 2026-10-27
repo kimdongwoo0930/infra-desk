@@ -32,10 +32,4 @@ class TerminalSidePanelTest {
     void noMatchGivesAnEmptyList() {
         assertEquals(List.of(), TerminalSidePanel.filter(ALL, "없는명령"));
     }
-
-    @Test
-    void runButtonLabelShowsHowManyServers() {
-        assertEquals("실행", TerminalSidePanel.runLabel(0));
-        assertEquals("3대에 실행", TerminalSidePanel.runLabel(3));
-    }
 }

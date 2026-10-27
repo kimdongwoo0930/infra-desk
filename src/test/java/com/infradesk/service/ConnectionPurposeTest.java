@@ -130,7 +130,7 @@ class ConnectionPurposeTest {
         connector.calls.clear();
 
         terminal.run(MAC, "echo hi", NO, Duration.ofSeconds(5));
-        assertEquals("COMMAND", only(), "일괄 실행(목적을 밝히지 않은 명령도 재시도하지 않는 쪽)");
+        assertEquals("COMMAND", only(), "목적을 밝히지 않은 명령도 재시도하지 않는 쪽(COMMAND)");
     }
 
     @Test

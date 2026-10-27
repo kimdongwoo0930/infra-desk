@@ -12,7 +12,7 @@ import java.time.Duration;
 public enum Purpose {
     /** 조회: 측정, 서버 정보, 컨테이너 목록·로그, 실시간 모드. 읽기만 하므로 연결이 죽었을 때 한 번 다시 시도한다. */
     QUERY(Duration.ofMinutes(15), true),
-    /** 일괄 실행, 컨테이너 시작·정지처럼 서버를 바꾸는 명령. 응답만 못 받았을 뿐 이미 실행됐을 수 있어서 **자동으로 다시 시도하지 않는다.** */
+    /** 컨테이너 시작·정지처럼 서버를 바꾸는 명령. 응답만 못 받았을 뿐 이미 실행됐을 수 있어서 **자동으로 다시 시도하지 않는다.** */
     COMMAND(Duration.ofMinutes(5), false),
     /** SFTP 폴더 탐색과 파일 작업. */
     FILES(Duration.ofMinutes(5), false),

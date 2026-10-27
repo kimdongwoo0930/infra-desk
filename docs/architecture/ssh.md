@@ -21,7 +21,7 @@ ShellConnector (인터페이스)           ShellSession (열린 연결)
 |---|---|---|
 | `open(target, prompt, cols, rows)` | PTY가 있는 **대화형 셸** | 터미널 탭 |
 | `open(..., command)` | 같은 PTY로 **명령 하나**를 실행(`docker exec -it`) | 컨테이너 셸 탭 |
-| `exec(target, prompt, command)` | PTY 없이 명령을 실행하고 출력 읽기 | 일괄 실행, 컨테이너 목록, 실시간 모니터링 |
+| `exec(target, prompt, command)` | PTY 없이 명령을 실행하고 출력 읽기 | 컨테이너 목록·시작·정지, 서버 정보, 실시간 모니터링 |
 | `sftp(target, prompt)` | 파일 목록·전송·폴더 만들기·이름 바꾸기·권한·삭제 (`RemoteFiles`) | 파일 탭 |
 
 `service.TerminalService`가 이 인터페이스를 쓰고, 어떤 구현을 쓸지는 `app`이 정한다.
@@ -52,7 +52,7 @@ SshTarget(호스트, 포트, 사용자, 개인키)
 | 목적 | 쓰는 곳 | 유휴 종료 | 연결이 죽어 있었을 때 |
 |---|---|---|---|
 | `QUERY` | 측정, 서버 정보, 컨테이너 목록·로그, 실시간 모드(2초 스트림) | 15분 | **한 번** 새로 맺어 다시 시도 |
-| `COMMAND` | 일괄 실행, 컨테이너 시작·정지 | 5분 | **다시 시도하지 않는다** |
+| `COMMAND` | 컨테이너 시작·정지 | 5분 | **다시 시도하지 않는다** |
 | `FILES` | SFTP 폴더 탐색과 파일 작업 | 5분 | 다시 시도하지 않는다 |
 | `TRANSFER` | SFTP 전송 대기열 | 5분 | 다시 시도하지 않는다 |
 

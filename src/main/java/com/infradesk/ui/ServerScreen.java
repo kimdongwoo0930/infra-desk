@@ -108,8 +108,7 @@ public class ServerScreen extends JPanel {
                 files.show(shownServer);   // 이 서버의 파일 탭을 처음 열 때만 연결한다
             }
             if (TAB_TERMINAL.equals(id) && terminal != null) {
-                terminal.refreshServers();   // 일괄 실행의 서버 칩을 최신 목록에 맞춘다
-                terminal.focusActive();      // 열려 있는 세션이 있으면 바로 입력할 수 있게
+                terminal.focusActive();   // 열려 있는 세션이 있으면 바로 입력할 수 있게
             }
         });
     }

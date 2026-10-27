@@ -133,7 +133,7 @@ public class MainFrame extends JFrame {
         this.alerts = alerts;
         this.updates = updates;
         this.containerService = new com.infradesk.service.ContainerService(terminalService);
-        this.terminalView = new TerminalView(terminalService, this::editSshSettings, this::allServers);
+        this.terminalView = new TerminalView(terminalService, this::editSshSettings);
         this.live = new com.infradesk.ui.metrics.LiveController(new LiveHooks(), new SwingTimeout());
         this.demoMode = demoMode;
         this.titleBar = new TitleBar(demoMode);
