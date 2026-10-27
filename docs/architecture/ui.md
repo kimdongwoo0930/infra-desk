@@ -113,7 +113,7 @@ Async.run(
 | 패키지 | 내용 |
 |---|---|
 | `ui.containers` | `ContainersPanel`(서버 상세의 컨테이너 표와 동작 버튼), `ContainerLogsDialog`(로그 창) |
-| `ui.components` | 공용 부품: `Buttons`, `DashedButton`, `StatusDot`, `StatusBadge`, `RoundedPanel`, `Toast`(오른쪽 아래 잠깐 뜨는 알림) 등 |
+| `ui.components` | 공용 부품: `Buttons`, `DashedButton`, `StatusDot`, `StatusBadge`(종류 5가지: 성공·경고·위험·정보·중립), `RoundedPanel`, `Toast`(오른쪽 아래 잠깐 뜨는 알림) 등 |
 
 ## SFTP 창의 동작 규칙
 
