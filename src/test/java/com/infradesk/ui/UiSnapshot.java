@@ -276,6 +276,61 @@ public final class UiSnapshot {
         });
         Thread.sleep(600);
 
+        // 파일 탭 (디자인 v2 5단계): 서버 화면 안의 파일 탭. 서버 파일 하나를 받아서 전송 목록을 채우고, 다른 하나를 편집
+        // 세션으로 열어 배너를 띄운 뒤, 파일 둘을 골라 선택 작업 막대까지 보이게 찍는다. 편집기는 실제로 띄우지 않는다.
+        try {
+            Class<?> editor = Class.forName("com.infradesk.ui.files.ExternalEditor");
+            java.lang.reflect.Field hook = editor.getDeclaredField("launcherOverride");
+            hook.setAccessible(true);
+            hook.set(null, (java.util.function.Consumer<java.nio.file.Path>) opened -> { });
+        } catch (ReflectiveOperationException ex) {
+            throw new RuntimeException(ex);
+        }
+        SwingUtilities.invokeAndWait(() -> mainFrame[0].serverScreen().showFilesTab());
+        Thread.sleep(1500);
+        java.util.function.BiConsumer<String[], String> pickRemote = (names, button) -> {
+            List<java.awt.Component> tabs = new java.util.ArrayList<>();
+            collect(mainFrame[0].getContentPane(), "FilesTab", tabs);
+            List<java.awt.Component> tables = new java.util.ArrayList<>();
+            collect((Container) tabs.getFirst(), "JTable", tables);
+            javax.swing.JTable remote = (javax.swing.JTable) tables.get(1);
+            remote.clearSelection();
+            for (int row = 0; row < remote.getRowCount(); row++) {
+                for (String name : names) {
+                    if (remote.getValueAt(row, 0).toString().contains(name)) {
+                        remote.addRowSelectionInterval(row, row);
+                    }
+                }
+            }
+            if (button != null) {
+                List<java.awt.Component> buttons = new java.util.ArrayList<>();
+                collect((Container) tabs.getFirst(), "JButton", buttons);
+                // 같은 글자("편집")의 버튼이 내 컴퓨터 쪽에도 있다: 서버 쪽 것은 뒤에 온다.
+                buttons.stream().map(b -> (javax.swing.AbstractButton) b)
+                        .filter(b -> button.equals(b.getText())).reduce((first, second) -> second).orElseThrow().doClick();
+            }
+        };
+        SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"docker-compose.yml"}, "내 컴퓨터로 받기"));
+        Thread.sleep(1500);
+        SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"README.md"}, "편집"));
+        Thread.sleep(1500);
+        SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"README.md", "docker-compose.yml"}, null));
+        snapshotMonitoring("files-tab.png", mainFrame[0]);
+        // 정리: 편집을 끝내고 끝난 전송을 지워서 아래 스냅샷에 영향이 없게 한다.
+        SwingUtilities.invokeAndWait(() -> {
+            List<java.awt.Component> buttons = new java.util.ArrayList<>();
+            collect(mainFrame[0].getContentPane(), "JButton", buttons);
+            for (String text : new String[] {"편집 끝내기", "끝난 항목 지우기"}) {
+                buttons.stream().map(b -> (javax.swing.AbstractButton) b).filter(b -> text.equals(b.getText()))
+                        .findFirst().orElseThrow().doClick();
+            }
+            mainFrame[0].serverScreen().showOverviewTab();
+        });
+        Thread.sleep(300);
+        // 데모의 내 컴퓨터 폴더는 아래 SFTP 시나리오와 공유된다. 위에서 받은 파일을 지워 같은 이름 충돌이 생기지 않게 한다.
+        java.nio.file.Files.deleteIfExists(java.nio.file.Path.of(InfraDeskApp.demoTerminalService().localFiles().home())
+                .resolve("docker-compose.yml"));
+
         // 터미널: 데모 세션을 열고, 가짜 셸이 배너를 출력할 시간을 준 뒤 렌더링한다.
         MainFrame[] terminalFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
@@ -357,7 +412,7 @@ public final class UiSnapshot {
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
             buttons.stream().map(b -> (javax.swing.AbstractButton) b)
-                    .filter(b -> "서버로 업로드".equals(b.getText())).findFirst().orElseThrow().doClick();
+                    .filter(b -> "서버로 올리기".equals(b.getText())).findFirst().orElseThrow().doClick();
         });
         Thread.sleep(2500);
         SwingUtilities.invokeAndWait(() -> {
@@ -376,7 +431,7 @@ public final class UiSnapshot {
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
             buttons.stream().map(x -> (javax.swing.AbstractButton) x)
-                    .filter(x -> "끝난 항목 모두 지우기".equals(x.getText())).findFirst().orElseThrow().doClick();
+                    .filter(x -> "끝난 항목 지우기".equals(x.getText())).findFirst().orElseThrow().doClick();
             panelState[1] = panels.getFirst().isVisible();
         });
         System.out.println(panelState[0] && !panelState[1] ? "TRANSFER-CLEAR: OK (모두 지우면 패널이 접혔다)"
@@ -442,32 +497,30 @@ public final class UiSnapshot {
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
             buttons.stream().map(b -> (javax.swing.AbstractButton) b)
-                    .filter(x -> "내 컴퓨터로 다운로드".equals(x.getText())).findFirst().orElseThrow().doClick();
+                    .filter(x -> "내 컴퓨터로 받기".equals(x.getText())).findFirst().orElseThrow().doClick();
         });
         Thread.sleep(2500);
-        // 새 전송이 시작되면 패널이 나타난다. X로 접으면 목록은 남고, "전송 목록 보기"로 다시 열 수 있다.
+        // 새 전송이 시작되면 목록이 펼쳐진다. 접으면 머리 줄만 남고(목록은 그대로), 다시 펼칠 수 있다.
         boolean[] closeState = new boolean[5];
         SwingUtilities.invokeAndWait(() -> {
             List<java.awt.Component> panels = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "TransferPanel", panels);
+            var panel = (com.infradesk.ui.files.TransferPanel) panels.getFirst();
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
-            java.util.function.Function<String, javax.swing.AbstractButton> byText = t -> buttons.stream()
-                    .map(x -> (javax.swing.AbstractButton) x).filter(x -> x.getText() != null && x.getText().startsWith(t))
-                    .findFirst().orElseThrow();
-            closeState[0] = panels.getFirst().isVisible();
-            buttons.stream().map(x -> (javax.swing.AbstractButton) x)
-                    .filter(x -> "닫기".equals(x.getToolTipText())).findFirst().orElseThrow().doClick();
-            closeState[1] = panels.getFirst().isVisible();
-            closeState[2] = byText.apply("전송 목록 보기").isVisible();
-            byText.apply("전송 목록 보기").doClick();
-            closeState[3] = panels.getFirst().isVisible();
-            buttons.stream().map(x -> (javax.swing.AbstractButton) x)
-                    .filter(x -> "닫기".equals(x.getToolTipText())).findFirst().orElseThrow().doClick();
-            closeState[4] = !panels.getFirst().isVisible();
+            java.util.function.Consumer<String> clickTip = tip -> buttons.stream().map(x -> (javax.swing.AbstractButton) x)
+                    .filter(x -> tip.equals(x.getToolTipText())).findFirst().orElseThrow().doClick();
+            closeState[0] = panel.isVisible() && panel.isExpanded();
+            clickTip.accept("접기");
+            closeState[1] = panel.isExpanded();
+            closeState[2] = panel.isVisible();   // 머리 줄은 남는다
+            clickTip.accept("펼치기");
+            closeState[3] = panel.isExpanded();
+            clickTip.accept("접기");
+            closeState[4] = !panel.isExpanded();
         });
         boolean closeOk = closeState[0] && !closeState[1] && closeState[2] && closeState[3] && closeState[4];
-        System.out.println(closeOk ? "TRANSFER-CLOSE: OK (X로 접고, 버튼으로 다시 열고, 다시 접는다)"
+        System.out.println(closeOk ? "TRANSFER-CLOSE: OK (접고, 다시 펼치고, 다시 접는다)"
                 : "TRANSFER-CLOSE: FAILED " + java.util.Arrays.toString(closeState));
         // 패널을 X로 닫은 뒤, 이미 있는 파일을 덮어쓰며 다시 받는다(확인 창에서 "덮어쓰기"). 패널이 다시 나타나야 한다.
         SwingUtilities.invokeLater(() -> {
@@ -482,7 +535,7 @@ public final class UiSnapshot {
             List<java.awt.Component> buttons = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "JButton", buttons);
             buttons.stream().map(x -> (javax.swing.AbstractButton) x)
-                    .filter(x -> "내 컴퓨터로 다운로드".equals(x.getText())).findFirst().orElseThrow().doClick();
+                    .filter(x -> "내 컴퓨터로 받기".equals(x.getText())).findFirst().orElseThrow().doClick();
         });
         boolean answered = false;
         for (int i = 0; i < 40 && !answered; i++) {
@@ -509,7 +562,7 @@ public final class UiSnapshot {
         SwingUtilities.invokeAndWait(() -> {
             List<java.awt.Component> panels = new java.util.ArrayList<>();
             collect(sftp[0].getContentPane(), "TransferPanel", panels);
-            overwriteShown[0] = panels.getFirst().isVisible();
+            overwriteShown[0] = ((com.infradesk.ui.files.TransferPanel) panels.getFirst()).isExpanded();
         });
         System.out.println(answered && overwriteShown[0] ? "REOPEN-ON-OVERWRITE: OK (덮어쓰며 받으면 패널이 나타났다)"
                 : "REOPEN-ON-OVERWRITE: FAILED (확인 창 응답 " + answered + ", 패널 보임 " + overwriteShown[0] + ")");

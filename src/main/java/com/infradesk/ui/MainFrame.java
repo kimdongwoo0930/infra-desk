@@ -76,6 +76,7 @@ public class MainFrame extends JFrame {
     private final com.infradesk.ui.components.StatusBar statusBar = new com.infradesk.ui.components.StatusBar();
     /** 상태 막대의 "실시간 켜짐/꺼짐" 항목. 실시간이 켜지거나 꺼질 때 글자를 바꾼다. */
     private JLabel liveStatus;
+    private JLabel transferStatus;
     /** 메트릭(차트)을 새로 읽는 주기. 타이머와 상태 막대 문구가 같은 값을 쓴다. */
     private static final java.time.Duration METRICS_INTERVAL = java.time.Duration.ofMinutes(1);
     private final CardLayout cards = new CardLayout();
@@ -240,6 +241,7 @@ public class MainFrame extends JFrame {
         terminalView.onEmpty(this::showDashboard);
         terminalView.onOpenFiles(this::openFilesOf);
         // 파일 탭: 서버마다 연결을 유지한다. SSH 설정이 없으면 탭이 안내하고, 설정을 마치면 다시 시도한다.
+        detail.files().onTransfersChanged(this::updateTransferStatus);
         detail.files().init(terminalService, server -> {
             editSshSettings(server);
             detail.files().retry();
@@ -289,11 +291,26 @@ public class MainFrame extends JFrame {
      * 아래 상태 막대의 항목을 채운다. 왼쪽은 "지금 상태", 오른쪽은 "설정과 버전"이다.
      * 읽을 데이터가 있는 항목은 연결하고, 없는 것은 준비 중으로 자리만 둔다.
      */
+    /** 상태 막대의 "전송 N개 진행 중 · 63%". 진행 중인 전송이 없으면 숨긴다. */
+    private void updateTransferStatus() {
+        var progress = detail.files().transferProgress();
+        transferStatus.setVisible(progress.active() > 0);
+        transferStatus.setText(transferStatusText(progress.active(), progress.percent()));
+    }
+
+    /** 진행 정도(%)를 모르는 동안(파일 목록을 읽는 중)에는 개수만 적는다. */
+    static String transferStatusText(int active, int percent) {
+        return "전송 " + active + "개 진행 중" + (percent >= 0 ? " · " + percent + "%" : "");
+    }
+
     private void buildStatusBar() {
         // 준비 중(v2): SSH 연결 수·용도. SessionPool이 지금 열린 연결을 읽어 주는 방법이 아직 없다
         // (docs/design/v2/GAPS.md "먼저 상의해야 하는 것" 5번). 정해지면 이 항목에 연결한다.
         com.infradesk.ui.components.ComingSoon.apply(statusBar.addLeft("SSH 연결 —"));
         liveStatus = statusBar.addLeft("실시간 꺼짐");
+        // 파일 탭의 전송이 있을 때만 보인다(서버를 바꿔도 이어지는 전송을 어디서든 알 수 있게).
+        transferStatus = statusBar.addLeft(" ");
+        transferStatus.setVisible(false);
         // 조회 주기는 상수에서 만든다. 주기를 바꾸면 이 문구도 따라 바뀐다.
         statusBar.addRight("상태 " + RefreshPolicy.NORMAL_INTERVAL.toSeconds() + "초 · 메트릭 "
                 + METRICS_INTERVAL.toMinutes() + "분마다");

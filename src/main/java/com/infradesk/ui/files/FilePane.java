@@ -9,6 +9,9 @@ import com.infradesk.ui.Icons;
 import com.infradesk.ui.IpPrivacy;
 import com.infradesk.ui.Theme;
 import com.infradesk.ui.components.Buttons;
+import com.infradesk.ui.components.ComingSoon;
+import com.infradesk.ui.components.FilterChip;
+import com.infradesk.ui.components.RoundedPanel;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -44,6 +47,7 @@ import javax.swing.SwingConstants;
 import javax.swing.TransferHandler;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.JTableHeader;
 
 /**
  * SFTP 창의 폴더 패널 하나: 제목, 경로 입력, 상위 폴더·새로고침, 파일 표. 이 컴퓨터와 서버가
@@ -232,7 +236,22 @@ final class FilePane extends JPanel {
     private final JLabel info = new JLabel(" ");
     private final JButton up = Buttons.icon("arrow-up", "상위 폴더", 30);
     private final JButton refresh = Buttons.icon("refresh", "새로고침", 30);
-    private final JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+    private final JButton newFolder = Buttons.icon("folder-plus", "새 폴더", 30);
+    /** "숨김 파일" 토글(서버 창에만 둔다). 켜져 있으면 점(.)으로 시작하는 이름도 보인다. */
+    private final FilterChip hiddenToggle = new FilterChip("숨김 파일");
+    private final FilterChip startChip = new FilterChip("처음 경로");
+    private final JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+    /** 선택한 항목이 있을 때만 보이는 작업 막대: "N개 선택  [받기] [편집] …". */
+    private final JPanel selectionBar = new JPanel(new BorderLayout(12, 0));
+    private final JLabel selectionLabel = new JLabel(" ");
+    /** 폴더에 있는 모든 항목. 표에는 숨김 파일 토글에 따라 걸러서 보이지만 같은 이름 확인은 전부를 본다. */
+    private List<RemoteFile> allFiles = List.of();
+    private boolean showHidden = true;
+    /** 처음 연결한 폴더. [처음 경로] 칩이 돌아가는 곳. */
+    private String startDir;
+    /** 요약 줄 끝에 덧붙이는 안내(예: "지우면 휴지통으로 가요", "ubuntu 권한으로 접속 중"). */
+    private String footerNote = "";
+    private Runnable onNewFolder = () -> { };
 
     private Source source;
     private String cwd;
@@ -249,8 +268,7 @@ final class FilePane extends JPanel {
         setOpaque(false);
 
         JLabel heading = new JLabel(title);
-        heading.putClientProperty(FlatClientProperties.STYLE, "font: bold +0");
-        heading.setBorder(BorderFactory.createEmptyBorder(0, 2, 8, 0));
+        heading.putClientProperty(FlatClientProperties.STYLE, "font: bold +1");
 
         pathField.setFont(Theme.monoFont(12.5f));
         pathField.putClientProperty(FlatClientProperties.STYLE, "background: #1E1F22");
@@ -262,27 +280,54 @@ final class FilePane extends JPanel {
             }
         });
         refresh.addActionListener(e -> reload());
+        newFolder.addActionListener(e -> onNewFolder.run());
+        hiddenToggle.setSelected(true);
+        hiddenToggle.setVisible(false);
+        hiddenToggle.addActionListener(e -> {
+            showHidden = hiddenToggle.isSelected();
+            applyView();
+        });
+        startChip.addActionListener(e -> {
+            startChip.setSelected(false);
+            if (startDir != null) {
+                open(startDir);
+            }
+        });
+        // 준비 중(v2): 자주 가는 경로를 저장해 두는 칩. 저장 기능이 생기면 연다.
+        FilterChip addChip = ComingSoon.apply(new FilterChip("＋ 경로 추가"));
 
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
-        buttons.setOpaque(false);
-        buttons.add(up);
-        buttons.add(refresh);
-        JPanel nav = new JPanel(new BorderLayout(6, 0));
-        nav.setOpaque(false);
-        nav.add(buttons, BorderLayout.WEST);
-        nav.add(pathField, BorderLayout.CENTER);
+        // 머리: 제목, 오른쪽에 위로 · 새로고침 · 새 폴더 (· 숨김 파일)
+        JPanel tools = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
+        tools.setOpaque(false);
+        tools.add(up);
+        tools.add(refresh);
+        tools.add(newFolder);
+        tools.add(hiddenToggle);
+        JPanel head = new JPanel(new BorderLayout(8, 0));
+        head.setOpaque(false);
+        head.add(heading, BorderLayout.CENTER);
+        head.add(tools, BorderLayout.EAST);
 
-        JPanel top = new JPanel(new BorderLayout());
+        JPanel chips = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        chips.setOpaque(false);
+        chips.add(startChip);
+        chips.add(addChip);
+        JPanel pathBlock = new JPanel(new BorderLayout(0, 8));
+        pathBlock.setOpaque(false);
+        pathBlock.add(pathField, BorderLayout.NORTH);
+        pathBlock.add(chips, BorderLayout.CENTER);
+
+        JPanel top = new JPanel(new BorderLayout(0, 10));
         top.setOpaque(false);
-        top.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
-        top.add(heading, BorderLayout.NORTH);
-        top.add(nav, BorderLayout.CENTER);
+        top.setBorder(BorderFactory.createEmptyBorder(14, 16, 12, 16));
+        top.add(head, BorderLayout.NORTH);
+        top.add(pathBlock, BorderLayout.CENTER);
 
-        table.setRowHeight(28);
+        table.setRowHeight(32);
         table.setShowGrid(false);
         table.setFillsViewportHeight(true);
         table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        table.setBackground(Theme.APP_BG);
+        table.setBackground(Theme.PANEL_BG);
         table.getColumnModel().getColumn(0).setPreferredWidth(220);
         table.getColumnModel().getColumn(0).setCellRenderer(new NameRenderer());
         DefaultTableCellRenderer right = new DefaultTableCellRenderer();
@@ -315,24 +360,47 @@ final class FilePane extends JPanel {
         });
         bind("ENTER", this::activateSelected);
         installDragAndDrop();
+        JTableHeader header = table.getTableHeader();
+        header.setReorderingAllowed(false);
+        header.setPreferredSize(new java.awt.Dimension(0, 34));
+        header.setDefaultRenderer(new HeaderRenderer());
         JScrollPane scroll = new JScrollPane(table);
-        scroll.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, Theme.DIVIDER));
-        scroll.getViewport().setBackground(Theme.APP_BG);
+        scroll.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.DIVIDER));
+        scroll.getViewport().setBackground(Theme.PANEL_BG);
 
         info.setForeground(Theme.TEXT_MUTED);
         info.putClientProperty(FlatClientProperties.STYLE, "font: -1");
-        // 상태 문구가 길어도 버튼 위로 넘치지 않게 따로 한 줄을 쓰고, 넘치면 …으로 줄인다.
+        // 상태 문구가 길어도 옆 칸을 밀지 않게 하고, 넘치면 …으로 줄인다.
         info.setMinimumSize(new java.awt.Dimension(0, 0));
         actions.setOpaque(false);
-        JPanel bottom = new JPanel(new BorderLayout(0, 6));
-        bottom.setOpaque(false);
-        bottom.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
-        bottom.add(actions, BorderLayout.NORTH);
-        bottom.add(info, BorderLayout.SOUTH);
 
-        add(top, BorderLayout.NORTH);
-        add(scroll, BorderLayout.CENTER);
-        add(bottom, BorderLayout.SOUTH);
+        // 선택 작업 막대: 왼쪽에 "N개 선택", 오른쪽에 작업 버튼. 선택이 없으면 숨긴다.
+        selectionLabel.putClientProperty(FlatClientProperties.STYLE, "font: bold");
+        selectionBar.setBackground(Theme.ACCENT_SOFT_BG);
+        selectionBar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.DIVIDER),
+                BorderFactory.createEmptyBorder(8, 16, 8, 12)));
+        selectionBar.add(selectionLabel, BorderLayout.WEST);
+        selectionBar.add(actions, BorderLayout.CENTER);
+        selectionBar.setVisible(false);
+
+        JPanel footer = new JPanel(new BorderLayout());
+        footer.setBackground(Theme.PANEL_LOW_BG);
+        footer.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.DIVIDER),
+                BorderFactory.createEmptyBorder(9, 16, 9, 16)));
+        footer.add(info, BorderLayout.CENTER);
+        JPanel bottom = new JPanel(new BorderLayout());
+        bottom.setOpaque(false);
+        bottom.add(selectionBar, BorderLayout.NORTH);
+        bottom.add(footer, BorderLayout.SOUTH);
+
+        // 카드 하나: 머리 · 경로 · 표 · 선택 작업 막대 · 요약 줄이 한 테두리 안에 든다.
+        RoundedPanel card = new RoundedPanel(new BorderLayout(), Theme.PANEL_BG, Theme.DIVIDER, Theme.ARC_CARD);
+        card.add(top, BorderLayout.NORTH);
+        card.add(scroll, BorderLayout.CENTER);
+        card.add(bottom, BorderLayout.SOUTH);
+        add(card, BorderLayout.CENTER);
         updateButtons();
     }
 
@@ -348,9 +416,35 @@ final class FilePane extends JPanel {
         });
     }
 
-    /** 폴더 패널 아래에 줄지어 놓을 동작 버튼. */
+    /** 선택 작업 막대에 줄지어 놓을 동작 버튼(왼쪽부터 순서대로). */
     void addAction(JButton button) {
+        // 막대는 창 폭이 좁아도 버튼 넷(받기·편집·권한·삭제)이 한 줄에 들어가야 해서 안쪽 여백을 줄인다.
+        // 버튼마다 이미 색 설정(STYLE)이 있으므로 덮어쓰지 않고 뒤에 이어 붙인다.
+        Object style = button.getClientProperty(FlatClientProperties.STYLE);
+        button.putClientProperty(FlatClientProperties.STYLE,
+                (style == null ? "" : style + "; ") + "margin: 3,10,3,10; minimumWidth: 0; font: -1");
+        // Buttons가 만들 때 정해 둔 크기는 예전 여백 기준이다: 지우고 새 여백으로 다시 잰다(높이는 그대로).
+        button.setPreferredSize(null);
+        button.setPreferredSize(new java.awt.Dimension(button.getPreferredSize().width + 4, Theme.BUTTON_HEIGHT));
         actions.add(button);
+    }
+
+    /** 머리의 [새 폴더] 아이콘을 눌렀을 때. */
+    void onNewFolder(Runnable listener) {
+        this.onNewFolder = listener;
+    }
+
+    /** 서버 창처럼 "숨김 파일" 토글이 필요한 창에서 켠다. 처음에는 숨김 파일도 보인다(예전과 같다). */
+    void enableHiddenToggle() {
+        hiddenToggle.setVisible(true);
+    }
+
+    /** 요약 줄 끝에 덧붙일 안내. */
+    void setFooterNote(String note) {
+        this.footerNote = note == null ? "" : note;
+        if (cwd != null) {
+            showCount();
+        }
     }
 
     /** 파일을 더블클릭하거나 Enter를 눌렀을 때(폴더는 패널이 직접 연다). */
@@ -487,7 +581,7 @@ final class FilePane extends JPanel {
     /** 지금 보이는 폴더의 항목 이름들(이미 있는 이름인지 확인하는 데 쓴다). */
     Set<String> names() {
         Set<String> names = new HashSet<>();
-        for (RemoteFile f : model.files()) {
+        for (RemoteFile f : allFiles) {
             names.add(f.name());
         }
         return names;
@@ -553,6 +647,10 @@ final class FilePane extends JPanel {
         updateButtons();
         Async.run(task, result -> {
             loading = false;
+            // "~ 하는 중…" 안내를 개수 요약으로 되돌린다. 오류 문구는 실패 쪽에서만 나오므로 지워지지 않는다.
+            if (cwd != null) {
+                showCount();
+            }
             onSuccess.accept(result);
             updateButtons();
             runPendingReload();
@@ -645,14 +743,43 @@ final class FilePane extends JPanel {
     /** 폴더 안의 항목 수 같은 기본 안내 문구로 되돌린다. */
     void showCount() {
         long dirs = model.files().stream().filter(RemoteFile::directory).count();
-        showInfo("폴더 " + dirs + "개 · 파일 " + (model.files().size() - dirs) + "개", false);
+        showInfo(summaryText(dirs, model.files().size() - dirs, footerNote), false);
+    }
+
+    /** 요약 줄 글자: "폴더 1개 · 파일 3개 · 안내". 안내가 없으면 앞부분만. */
+    static String summaryText(long dirs, long files, String note) {
+        String counts = "폴더 " + dirs + "개 · 파일 " + files + "개";
+        return note == null || note.isEmpty() ? counts : counts + " · " + note;
+    }
+
+    /** 숨김 파일 토글에 따라 표에 보일 항목. 숨김은 점(.)으로 시작하는 이름이다. */
+    static List<RemoteFile> visible(List<RemoteFile> files, boolean showHidden) {
+        if (showHidden) {
+            return files;
+        }
+        return files.stream().filter(f -> !f.name().startsWith(".")).toList();
+    }
+
+    /** 숨김 토글이 바뀌었다: 같은 폴더를 다시 읽지 않고 보이는 항목만 바꾼다. */
+    private void applyView() {
+        if (cwd == null) {
+            return;
+        }
+        model.setFiles(visible(allFiles, showHidden), source != null && source.hasPermissions());
+        showCount();
+        updateButtons();
     }
 
     private void show(String directory, List<RemoteFile> list) {
         cwd = directory;
+        if (startDir == null) {
+            startDir = directory;
+            startChip.setToolTipText(directory);
+        }
         pathField.setText(directory);
         boolean permissions = source != null && source.hasPermissions();
-        model.setFiles(list, permissions);
+        allFiles = List.copyOf(list);
+        model.setFiles(visible(allFiles, showHidden), permissions);
         javax.swing.table.TableColumn column = table.getColumnModel().getColumn(3);
         column.setMinWidth(permissions ? 60 : 0);
         column.setMaxWidth(permissions ? 200 : 0);
@@ -695,6 +822,10 @@ final class FilePane extends JPanel {
         refresh.setEnabled(ready);
         pathField.setEnabled(ready);
         table.setEnabled(source != null);
+        newFolder.setEnabled(ready);
+        int selected = table.getSelectedRowCount();
+        selectionBar.setVisible(selected > 0);
+        selectionLabel.setText(selected + "개 선택");
         onSelection.run();
     }
 
@@ -710,6 +841,28 @@ final class FilePane extends JPanel {
             u++;
         }
         return String.format(Locale.ROOT, v >= 100 ? "%.0f %s" : "%.1f %s", v, units[u]);
+    }
+
+    /** 표 머리: 컨테이너 표와 같은 흐린 글자에 아래 선. 크기·권한은 오른쪽·왼쪽 정렬을 칸에 맞춘다. */
+    private static final class HeaderRenderer implements javax.swing.table.TableCellRenderer {
+        private final JLabel label = new JLabel();
+
+        HeaderRenderer() {
+            label.setOpaque(true);
+            label.setBackground(Theme.PANEL_BG);
+            label.setForeground(Theme.TEXT_MUTED);
+            label.putClientProperty(FlatClientProperties.STYLE, "font: -1");
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean focus, int row, int col) {
+            label.setText(String.valueOf(v));
+            label.setHorizontalAlignment(col == 1 ? SwingConstants.RIGHT : SwingConstants.LEFT);
+            label.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.DIVIDER),
+                    BorderFactory.createEmptyBorder(0, col == 0 ? 16 : 8, 0, col == 1 ? 12 : 8)));
+            return label;
+        }
     }
 
     private static final class FileTableModel extends AbstractTableModel {

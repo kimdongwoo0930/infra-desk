@@ -46,6 +46,7 @@ public final class FilesHost extends JPanel {
     private Server noticeServer;
     /** 보여 주려고 한 서버. 설정을 마친 뒤 다시 시도하는 데 쓴다. */
     private Server wanted;
+    private Runnable onTransfersChanged = () -> { };
 
     public FilesHost() {
         super();
@@ -110,6 +111,7 @@ public final class FilesHost extends JPanel {
             showNotice("파일을 보려면 이 서버의 SSH 설정이 필요해요.", true);
         } else {
             FilesTab created = new FilesTab(service, server);
+            created.onTransfersChanged(() -> onTransfersChanged.run());
             tabs.put(server.id(), created);
             add(created, server.id());
             cards.show(this, server.id());
@@ -132,6 +134,25 @@ public final class FilesHost extends JPanel {
     /** 이 서버의 파일 탭. 아직 만들지 않았으면 null. */
     public FilesTab tabOf(String serverId) {
         return tabs.get(serverId);
+    }
+
+    /** 어느 서버의 전송이든 목록이 바뀌면 불린다(EDT). 창 아래 상태 막대가 전송 수를 보여 주는 데 쓴다. */
+    public void onTransfersChanged(Runnable listener) {
+        this.onTransfersChanged = listener;
+    }
+
+    /** 모든 서버의 진행 중인 전송을 합친 진행 정도. */
+    public FilesTab.Progress transferProgress() {
+        int active = 0;
+        long done = 0;
+        long total = 0;
+        for (FilesTab t : tabs.values()) {
+            FilesTab.Progress p = t.transferProgress();
+            active += p.active();
+            done += p.doneBytes();
+            total += p.totalBytes();
+        }
+        return new FilesTab.Progress(active, done, total);
     }
 
     /** 진행 중이거나 기다리는 전송 수 전체(서버 모두 합친 값). */

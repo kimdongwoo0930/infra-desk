@@ -468,6 +468,11 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         }
 
         @Override
+        public boolean isOpen() {
+            return sftp.isOpen() && lease.session().isOpen();
+        }
+
+        @Override
         public void close() {
             try {
                 sftp.close();

@@ -103,6 +103,8 @@ public final class Theme {
                 Map.entry("@foreground", hex(TEXT)),
                 Map.entry("@accentColor", hex(ACCENT)),
                 Map.entry("@selectionBackground", hex(SELECTION_BG)),
+                // 표가 포커스를 잃어도 선택한 행이 회색으로 바뀌지 않고 같은 파랑으로 남게 한다(시안).
+                Map.entry("@selectionInactiveBackground", hex(SELECTION_BG)),
                 // 입력칸·버튼에 포커스가 갈 때의 테두리색. 기본값은 @accentColor인데, v2는 면(ACCENT)보다
                 // 밝은 선용 파랑(ACCENT_LINE)을 쓰도록 했다.
                 Map.entry("Component.focusedBorderColor", hex(ACCENT_LINE)),

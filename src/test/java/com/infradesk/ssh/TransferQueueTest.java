@@ -327,4 +327,92 @@ class TransferQueueTest {
         assertTrue(TransferQueue.describe(new java.nio.file.NoSuchFileException("/x")).contains("찾을 수 없어요"));
         assertEquals("뭔가 잘못됐어요", TransferQueue.describe(new java.io.IOException("뭔가 잘못됐어요")));
     }
+
+    @Test
+    void returnsTheConnectionWhenTheQueueIsIdleAndReconnectsForTheNextTransfer() throws Exception {
+        int[] opens = {0};
+        int[] closes = {0};
+        TransferQueue counted = new TransferQueue(() -> {
+            opens[0]++;
+            RemoteFiles real = connector.sftp(target, (h, p, t, f) -> true);
+            return (RemoteFiles) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[] {RemoteFiles.class},
+                    (proxy, method, args) -> {
+                        if (method.getName().equals("close")) {
+                            closes[0]++;
+                        }
+                        try {
+                            return method.invoke(real, args);
+                        } catch (java.lang.reflect.InvocationTargetException e) {
+                            throw e.getCause();
+                        }
+                    });
+        }, job -> { });
+        try {
+            Path first = Files.writeString(localDir.resolve("one.txt"), "1");
+            Path second = Files.writeString(localDir.resolve("two.txt"), "2");
+
+            await(counted.upload(first, "/", false));
+            waitUntil(() -> closes[0] == 1);
+            assertEquals(1, opens[0], "첫 전송 때 한 번 연결했다");
+
+            await(counted.upload(second, "/", false));
+            waitUntil(() -> closes[0] == 2);
+            assertEquals(2, opens[0], "큐가 비어 연결을 돌려줬으니 다음 전송은 새로 연결한다");
+        } finally {
+            counted.close();
+        }
+    }
+
+    @Test
+    void keepsTheConnectionWhileMoreTransfersAreWaiting() throws Exception {
+        int[] opens = {0};
+        TransferQueue counted = new TransferQueue(() -> {
+            opens[0]++;
+            return connector.sftp(target, (h, p, t, f) -> true);
+        }, job -> { });
+        try {
+            List<TransferQueue.Job> jobs = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                jobs.add(counted.upload(Files.writeString(localDir.resolve("batch" + i + ".txt"), "x" + i), "/", false));
+            }
+            for (TransferQueue.Job job : jobs) {
+                await(job);
+            }
+
+            assertEquals(1, opens[0], "이어서 할 작업이 있는 동안에는 같은 연결을 쓴다");
+        } finally {
+            counted.close();
+        }
+    }
+
+    @Test
+    void dropsTheConnectionAfterAFailureSoARetryConnectsAgain() throws Exception {
+        int[] opens = {0};
+        TransferQueue counted = new TransferQueue(() -> {
+            opens[0]++;
+            return connector.sftp(target, (h, p, t, f) -> true);
+        }, job -> { });
+        try {
+            TransferQueue.Job missing = counted.upload(localDir.resolve("없는파일.txt"), "/", false);
+            await(missing);
+            assertEquals(TransferQueue.State.FAILED, missing.state());
+
+            Files.writeString(localDir.resolve("없는파일.txt"), "이제 있어요");
+            counted.retry(missing);
+            await(missing);
+
+            assertEquals(TransferQueue.State.DONE, missing.state(), missing.message());
+            assertEquals(2, opens[0], "실패한 뒤에는 연결을 버리고, 다시 시도할 때 새로 맺는다");
+        } finally {
+            counted.close();
+        }
+    }
+
+    private void waitUntil(java.util.function.BooleanSupplier condition) throws Exception {
+        long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!condition.getAsBoolean() && System.nanoTime() < end) {
+            Thread.sleep(20);
+        }
+        assertTrue(condition.getAsBoolean(), "시간 안에 조건이 되지 않았다");
+    }
 }

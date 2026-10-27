@@ -2,8 +2,13 @@ package com.infradesk.ui.files;
 
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
+import com.infradesk.ssh.RemoteFile;
 
+import java.io.IOException;
+import java.time.Instant;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -51,5 +56,23 @@ class FilePaneTest {
         assertTrue(FilePane.friendly(new java.nio.file.FileAlreadyExistsException("/x")).contains("이미 있어요"));
         assertTrue(FilePane.friendly(new java.nio.file.FileSystemException("/Users/a/Desktop: Operation not permitted"))
                 .contains("권한이 없어요"));
+    }
+
+    @Test
+    void summaryLineShowsCountsAndAnOptionalNote() {
+        assertEquals("폴더 1개 · 파일 3개", FilePane.summaryText(1, 3, ""));
+        assertEquals("폴더 1개 · 파일 3개", FilePane.summaryText(1, 3, null));
+        assertEquals("폴더 3개 · 파일 3개 · ubuntu 권한으로 접속 중", FilePane.summaryText(3, 3, "ubuntu 권한으로 접속 중"));
+    }
+
+    @Test
+    void hidingHiddenFilesDropsOnlyNamesStartingWithADot() {
+        RemoteFile env = new RemoteFile(".env", "/h/.env", false, 412, Instant.EPOCH);
+        RemoteFile app = new RemoteFile("app", "/h/app", true, 0, Instant.EPOCH);
+        RemoteFile dotDir = new RemoteFile(".cache", "/h/.cache", true, 0, Instant.EPOCH);
+        List<RemoteFile> all = List.of(env, app, dotDir);
+
+        assertEquals(all, FilePane.visible(all, true), "켜 두면 전부 보인다");
+        assertEquals(List.of(app), FilePane.visible(all, false));
     }
 }

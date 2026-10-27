@@ -5,6 +5,7 @@ import com.infradesk.core.Server;
 import com.infradesk.service.TerminalService;
 import com.infradesk.ssh.LocalFiles;
 import com.infradesk.ssh.RemoteFile;
+import com.infradesk.ssh.ReconnectingFiles;
 import com.infradesk.ssh.RemoteFiles;
 import com.infradesk.ssh.TransferQueue;
 import com.infradesk.ui.Async;
@@ -64,22 +65,25 @@ public final class FilesTab extends JPanel {
     private final TransferPanel transfers;
     private final JPanel south = new JPanel(new BorderLayout());
     private final JLabel status = new JLabel(" ");
-    private final JButton upload = Buttons.secondary("서버로 업로드", "upload");
-    private final JButton newLocal = Buttons.secondary("새 폴더", "plus");
-    private final JButton deleteLocal = Buttons.danger("삭제", "trash");
-    private final JButton download = Buttons.secondary("내 컴퓨터로 다운로드", "download");
-    private final JButton newRemote = Buttons.secondary("새 폴더", "plus");
-    private final JButton deleteRemote = Buttons.danger("삭제", "trash");
-    private final JButton edit = Buttons.secondary("편집", "file");
-    private final JButton editLocal = Buttons.secondary("편집", "file");
+    // 선택 작업 막대의 버튼(디자인 v2): 눌렀을 때 하는 일은 예전 창의 버튼과 같다. 새 폴더는 창 머리의 아이콘으로 옮겼다.
+    private final JButton upload = Buttons.primary("서버로 올리기", "upload");
+    private final JButton deleteLocal = Buttons.danger("삭제…", null);
+    private final JButton download = Buttons.primary("내 컴퓨터로 받기", "download");
+    private final JButton deleteRemote = Buttons.danger("삭제…", null);
+    private final JButton permissions = Buttons.secondary("권한…", null);
+    private final JButton edit = Buttons.secondary("편집", null);
+    private final JButton editLocal = Buttons.secondary("편집", null);
+    private final EditBanner banner = new EditBanner();
+    private final JPanel bannerRow = new JPanel(new BorderLayout());
+    private Runnable onTransfersChanged = () -> { };
     private final Set<Long> reloaded = new HashSet<>();
     private final Set<Long> ownerWarned = new HashSet<>();
     private final List<EditSession> edits = new ArrayList<>();
     private final javax.swing.Timer editTimer = new javax.swing.Timer(1000, e -> checkEdits());
+    /** 이 시간 동안 안 쓴 탐색 연결은 풀에 돌려준다(목록은 화면에 그대로 남고, 다음에 쓸 때 다시 연결한다). */
+    private static final java.time.Duration CONNECTION_IDLE = java.time.Duration.ofMinutes(3);
+    private final javax.swing.Timer idleTimer = new javax.swing.Timer(60_000, e -> releaseIdleConnection());
     private Path editRoot;
-    /** 전송 패널을 X로 닫았다. 새 전송이 시작되거나 실패가 생기면 다시 나타나고, 버튼으로 다시 열 수 있다. */
-    private boolean transfersDismissed;
-    private final JButton showTransfers = Buttons.ghost("전송 목록 보기");
     /** 화면에 이미 알린 작업. 처음 알리는 작업이 새 전송이다. */
     private final Set<Long> announced = new HashSet<>();
     /** 더블클릭·버튼으로 받은 파일이 저장되는 폴더(보통 Downloads). 끌어서 놓기는 놓은 곳에 저장된다. */
@@ -96,27 +100,25 @@ public final class FilesTab extends JPanel {
         this.remotePane = new FilePane("서버 · " + server.name(), "원격 경로");
         this.queue = new TransferQueue(() -> service.openTransferFiles(server, new HostKeyDialog(this)),
                 job -> SwingUtilities.invokeLater(() -> onJobChanged(job)));
-        this.transfers = new TransferPanel(queue, this::updateTransfersVisible, () -> {
-            transfersDismissed = true;
-            updateTransfersVisible();
-        });
+        this.transfers = new TransferPanel(queue, this::updateTransfersVisible);
 
         upload.addActionListener(e -> upload());
         download.addActionListener(e -> download());
-        newLocal.addActionListener(e -> newFolder(localPane));
-        newRemote.addActionListener(e -> newFolder(remotePane));
+        localPane.onNewFolder(() -> newFolder(localPane));
+        remotePane.onNewFolder(() -> newFolder(remotePane));
+        permissions.addActionListener(e -> chmod());
         deleteLocal.addActionListener(e -> delete(localPane));
         deleteRemote.addActionListener(e -> delete(remotePane));
         editLocal.addActionListener(e -> editLocal());
         localPane.addAction(upload);
         localPane.addAction(editLocal);
-        localPane.addAction(newLocal);
         localPane.addAction(deleteLocal);
         edit.addActionListener(e -> edit());
         remotePane.addAction(download);
         remotePane.addAction(edit);
-        remotePane.addAction(newRemote);
+        remotePane.addAction(permissions);
         remotePane.addAction(deleteRemote);
+        remotePane.enableHiddenToggle();
         localPane.onActivate(f -> upload());
         remotePane.onActivate(f -> download());
         localPane.onSelectionChange(this::updateButtons);
@@ -132,36 +134,107 @@ public final class FilesTab extends JPanel {
 
         status.setForeground(Theme.TEXT_MUTED);
         status.putClientProperty(FlatClientProperties.STYLE, "font: -1");
-        status.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        JLabel hint = new JLabel("끌어다 놓아 주고받아요 · Finder·탐색기에서 서버 쪽으로 끌어와도 올라가요 · 끊긴 전송은 이어받아요");
+        hint.setForeground(Theme.TEXT_MUTED);
+        hint.putClientProperty(FlatClientProperties.STYLE, "font: -1");
 
-        localPane.setBorder(BorderFactory.createEmptyBorder(12, 12, 8, 6));
-        remotePane.setBorder(BorderFactory.createEmptyBorder(12, 6, 8, 12));
+        // 두 창은 카드 하나씩이고 사이를 16 띄운다. 가운데 줄을 끌어 폭을 나눌 수 있다.
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, localPane, remotePane);
         split.setResizeWeight(0.5);
+        split.setDividerSize(16);
+        split.setContinuousLayout(true);
         split.setBorder(null);
         split.setOpaque(false);
+        split.putClientProperty(FlatClientProperties.STYLE, "gripColor: #00000000");   // 가운데 점 세 개 손잡이는 숨긴다
+        // 처음 폭이 정해질 때 정확히 반반으로 나눈다(기본값은 왼쪽 창의 원래 폭이라 한쪽이 좁아진다). 그 뒤로는 사용자가 끈 대로 둔다.
+        split.addComponentListener(new java.awt.event.ComponentAdapter() {
+            private boolean positioned;
 
-        transfers.setVisible(false);
-        transfers.setPreferredSize(new Dimension(0, 190));
-        south.setOpaque(false);
-        south.add(transfers, BorderLayout.CENTER);
-        JPanel statusRow = new JPanel(new BorderLayout());
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                if (!positioned && split.getWidth() > 0) {
+                    positioned = true;
+                    split.setDividerLocation(0.5);
+                }
+            }
+        });
+
+        // 아래 줄: 작업 결과·오류 한 줄, 그 아래 안내 문구. 닫아 둔 전송 목록을 다시 여는 버튼은 오른쪽.
+        JPanel statusRow = new JPanel(new BorderLayout(12, 0));
         statusRow.setOpaque(false);
         statusRow.add(status, BorderLayout.CENTER);
-        statusRow.add(showTransfers, BorderLayout.EAST);
-        showTransfers.setVisible(false);
-        showTransfers.addActionListener(e -> {
-            transfersDismissed = false;
-            updateTransfersVisible();
-        });
-        south.add(statusRow, BorderLayout.SOUTH);
+        JPanel notes = new JPanel(new BorderLayout(0, 4));
+        notes.setOpaque(false);
+        notes.setBorder(BorderFactory.createEmptyBorder(10, 2, 0, 0));
+        notes.add(statusRow, BorderLayout.NORTH);
+        notes.add(hint, BorderLayout.SOUTH);
 
-        setBackground(Theme.PANEL_BG);
-        add(split, BorderLayout.CENTER);
+        JPanel content = new JPanel(new BorderLayout());
+        content.setOpaque(false);
+        content.setBorder(BorderFactory.createEmptyBorder(20, 28, 14, 28));
+        // 편집 중인 서버 파일이 있을 때만 위쪽에 배너가 나타난다.
+        banner.onOpen(this::openEditorFromBanner);
+        banner.onEnd(this::endEdits);
+        // 배너와 두 창 사이 간격은 배너 바깥에 둔다(배너 테두리 안에 넣으면 배너가 그만큼 높아진다).
+        bannerRow.setOpaque(false);
+        bannerRow.setBorder(BorderFactory.createEmptyBorder(0, 0, 16, 0));
+        bannerRow.add(banner, BorderLayout.CENTER);
+        bannerRow.setVisible(false);
+        content.add(bannerRow, BorderLayout.NORTH);
+        content.add(split, BorderLayout.CENTER);
+        content.add(notes, BorderLayout.SOUTH);
+
+        transfers.setVisible(false);
+        south.setOpaque(false);
+        south.add(transfers, BorderLayout.CENTER);
+
+        setOpaque(false);
+        add(content, BorderLayout.CENTER);
         add(south, BorderLayout.SOUTH);
         setMinimumSize(new Dimension(860, 480));
         updateButtons();
         connect();
+    }
+
+    /** 전송 목록이 바뀔 때마다 불린다(EDT). 상태 막대가 "전송 N개 진행 중"을 갱신하는 데 쓴다. */
+    public void onTransfersChanged(Runnable listener) {
+        this.onTransfersChanged = listener;
+    }
+
+    /**
+     * 진행 중인 전송 전체의 진행 정도: 작업 수와, 크기를 아는 작업들의 받은 바이트·전체 바이트.
+     * 크기를 아직 모르는 작업(목록을 읽는 중)은 바이트에 넣지 않는다.
+     */
+    public Progress transferProgress() {
+        int active = 0;
+        long done = 0;
+        long total = 0;
+        for (TransferQueue.Job j : queue.jobs()) {
+            if (!j.state().finished()) {
+                active++;
+                if (j.totalBytes() >= 0) {
+                    done += j.doneBytes();
+                    total += j.totalBytes();
+                }
+            }
+        }
+        return new Progress(active, done, total);
+    }
+
+    /** 진행 중인 작업 수와 그 진행 정도. */
+    public record Progress(int active, long doneBytes, long totalBytes) {
+
+        /** 0~100. 크기를 모르면 -1. */
+        public int percent() {
+            return totalBytes <= 0 ? -1 : (int) Math.min(100, doneBytes * 100 / totalBytes);
+        }
+    }
+
+    /** 1분마다: 오래 안 쓴 탐색 연결을 풀에 돌려준다. 연결 해제는 EDT 밖에서 한다. */
+    private void releaseIdleConnection() {
+        if (files instanceof ReconnectingFiles connection) {
+            Thread.ofVirtual().start(() -> connection.releaseIfIdle(CONNECTION_IDLE.toNanos()));
+        }
     }
 
     /** 지금 진행 중이거나 기다리는 전송 수. */
@@ -182,6 +255,7 @@ public final class FilesTab extends JPanel {
         RemoteFiles f = files;
         files = null;
         editTimer.stop();
+        idleTimer.stop();
         Path tempEdits = editRoot;
         Thread.ofVirtual().start(() -> {
             queue.close();
@@ -194,16 +268,20 @@ public final class FilesTab extends JPanel {
 
     private void connect() {
         LocalFiles local = service.localFiles();
+        localPane.setFooterNote(local.movesToTrash() ? "지우면 휴지통으로 가요" : "");
+        remotePane.setFooterNote(service.settings(server.id()).map(s -> s.username() + " 권한으로 접속 중").orElse(""));
         localPane.attach(FilePane.local(local), local.home());
         downloadDir = Path.of(local.home());
 
         status.setText("SFTP 연결 중…");
+        // 탐색 연결은 쓸 때 맺고, 한동안 안 쓰면 풀에 돌려주고, 끊어졌으면 다음에 쓸 때 다시 맺는다(탭이 오래 열려 있으므로).
+        ReconnectingFiles connection = new ReconnectingFiles(() -> service.openFiles(server, new HostKeyDialog(this)));
         Async.run(() -> {
-            RemoteFiles f = service.openFiles(server, new HostKeyDialog(this));
-            String home = f.home();
-            return new Object[] {f, home, f.list(home)};
+            String home = connection.home();
+            return new Object[] {connection, home, connection.list(home)};
         }, result -> {
             files = (RemoteFiles) result[0];
+            idleTimer.start();
             @SuppressWarnings("unchecked")
             List<RemoteFile> list = (List<RemoteFile>) result[2];
             remotePane.attach(FilePane.remote(files), (String) result[1], list);
@@ -377,20 +455,18 @@ public final class FilesTab extends JPanel {
         };
     }
 
-    /** 전송 패널은 목록에 항목이 있고 사용자가 닫지 않았을 때만 보인다. */
+    /**
+     * 전송 목록은 항목이 있을 때만 보인다(없으면 자리를 차지하지 않는다). 사용자가 접어 둔 목록은 머리 줄만 남고,
+     * 접거나 펼쳐서 높이가 바뀌면 아래 칸이 다시 배치된다.
+     */
     private void updateTransfersVisible() {
-        boolean show = !transfers.isEmpty() && !transfersDismissed;
-        // 닫아 둔 목록을 다시 열 수 있게, 접혀 있고 항목이 있을 때만 버튼을 보인다.
-        boolean canReopen = !transfers.isEmpty() && transfersDismissed;
-        showTransfers.setVisible(canReopen);
-        if (canReopen) {
-            showTransfers.setText("전송 목록 보기 (" + queue.jobs().size() + ")");
-        }
+        boolean show = !transfers.isEmpty();
         if (transfers.isVisible() != show) {
             transfers.setVisible(show);
-            south.revalidate();
-            south.repaint();
         }
+        south.revalidate();
+        south.repaint();
+        onTransfersChanged.run();
     }
 
     private void onJobChanged(TransferQueue.Job job) {
@@ -398,7 +474,7 @@ public final class FilesTab extends JPanel {
         // 새 전송이 시작되거나 실패가 생기면 닫아 둔 패널을 다시 연다. 상태는 이 코드가 도는 시점의 값이라
         // 작은 파일은 이미 끝나 있을 수 있으므로, 새 작업인지는 처음 알림을 받았는지로 판단한다.
         if (announced.add(job.id()) || job.state() == TransferQueue.State.FAILED) {
-            transfersDismissed = false;
+            transfers.setExpanded(true);   // 접어 둔 목록도 새 전송이나 실패가 생기면 다시 펼친다
         }
         updateTransfersVisible();
         for (EditSession s : edits) {
@@ -406,6 +482,8 @@ public final class FilesTab extends JPanel {
                 s.job = null;
                 if (job.state() == TransferQueue.State.DONE) {
                     s.needsSnapshot = true;
+                    s.lastUpload = Instant.now();
+                    updateBanner();
                     status.setForeground(Theme.TEXT_MUTED);
                     status.setText("'" + s.remote.name() + "' 저장한 내용을 서버에 올렸어요");
                 } else {
@@ -674,6 +752,8 @@ public final class FilesTab extends JPanel {
         TransferQueue.Job job;
         boolean busy;
         boolean needsSnapshot;
+        /** 편집한 내용을 서버에 마지막으로 올린 시각. 아직 올린 적 없으면 null. */
+        Instant lastUpload;
 
         EditSession(RemoteFile remote, String remoteDir, Path local, RemoteFile snapshot) throws IOException {
             this.remote = remote;
@@ -726,6 +806,7 @@ public final class FilesTab extends JPanel {
                 EditSession session = new EditSession(f, remoteDir, local, snapshot);
                 edits.add(session);
                 editTimer.start();
+                updateBanner();
                 openEditor(session);
             } catch (IOException e) {
                 showError("받은 파일을 읽지 못했어요: " + e.getMessage());
@@ -747,6 +828,56 @@ public final class FilesTab extends JPanel {
         } catch (IOException e) {
             showError("편집기를 열지 못했어요: " + file.getFileName());
         }
+    }
+
+    /** 배너를 편집 세션에 맞춘다: 편집 중인 파일이 없으면 숨기고, 있으면 가장 최근 파일과 마지막 업로드 시각을 보여 준다. */
+    private void updateBanner() {
+        bannerRow.setVisible(!edits.isEmpty());
+        if (edits.isEmpty()) {
+            banner.update(0, "", null);
+            return;
+        }
+        Instant lastUpload = edits.stream().map(s -> s.lastUpload).filter(java.util.Objects::nonNull)
+                .max(Instant::compareTo).orElse(null);
+        banner.update(edits.size(), edits.getLast().remote.path(), lastUpload);
+        banner.revalidate();
+    }
+
+    /** [편집기 열기]: 하나뿐이면 바로 열고, 여러 개면 고르게 한다. */
+    private void openEditorFromBanner() {
+        if (edits.size() == 1) {
+            openEditor(edits.getFirst());
+            return;
+        }
+        JPopupMenu menu = new JPopupMenu();
+        for (EditSession s : edits) {
+            addItem(menu, s.remote.path(), true, () -> openEditor(s));
+        }
+        menu.show(banner.openButton(), 0, banner.openButton().getHeight());
+    }
+
+    /**
+     * [편집 끝내기]: 편집 중인 파일을 모두 놓는다. 더 이상 저장을 지켜보지 않고 임시 복사본을 지운다.
+     * 아직 서버에 올리지 못한 내용이 있으면 먼저 묻는다.
+     */
+    private void endEdits() {
+        int unsaved = unsavedEdits();
+        if (unsaved > 0 && JOptionPane.showConfirmDialog(this,
+                "아직 서버에 올리지 못한 편집 내용이 " + unsaved + "개 있어요.\n그래도 편집을 끝낼까요? 올리지 못한 내용은 사라져요.",
+                "편집 끝내기", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        for (EditSession s : edits) {
+            if (s.job != null && !s.job.state().finished()) {
+                queue.cancel(s.job);
+            }
+            deleteTree(s.local.getParent());
+        }
+        edits.clear();
+        editTimer.stop();
+        updateBanner();
+        status.setForeground(Theme.TEXT_MUTED);
+        status.setText("편집을 끝냈어요");
     }
 
     private void openEditor(EditSession s) {
@@ -830,10 +961,10 @@ public final class FilesTab extends JPanel {
         boolean any = !selection.isEmpty();
         JPopupMenu menu = new JPopupMenu();
         if (remote) {
-            addItem(menu, "내 컴퓨터로 다운로드", canTransfer() && any, this::download);
+            addItem(menu, "내 컴퓨터로 받기", canTransfer() && any, this::download);
             addItem(menu, "편집", pane.ready() && selection.size() == 1 && !selection.get(0).directory(), this::edit);
         } else {
-            addItem(menu, "서버로 업로드", canTransfer() && any, this::upload);
+            addItem(menu, "서버로 올리기", canTransfer() && any, this::upload);
             addItem(menu, "편집", pane.ready() && selection.size() == 1 && !selection.get(0).directory(), this::editLocal);
         }
         menu.addSeparator();
@@ -869,9 +1000,8 @@ public final class FilesTab extends JPanel {
         download.setEnabled(transferable && !remote.isEmpty());
         edit.setEnabled(files != null && remotePane.ready() && remote.size() == 1 && !remote.get(0).directory());
         editLocal.setEnabled(localPane.ready() && local.size() == 1 && !local.get(0).directory());
-        newLocal.setEnabled(localPane.ready());
         deleteLocal.setEnabled(localPane.ready() && !local.isEmpty());
-        newRemote.setEnabled(remotePane.ready());
+        permissions.setEnabled(remotePane.ready() && !remote.isEmpty());
         deleteRemote.setEnabled(remotePane.ready() && !remote.isEmpty());
     }
 
