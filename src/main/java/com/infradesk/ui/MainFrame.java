@@ -52,7 +52,13 @@ public class MainFrame extends JFrame {
     private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.DockerCommands.Listing>> containerCache =
             new java.util.HashMap<>();
     private final com.infradesk.app.LaunchAtLogin launchAtLogin = com.infradesk.app.LaunchAtLogin.forCurrentOs();
-    private SettingsDialog settingsDialog;
+    /** 설정 화면. 메인 화면(사이드바 + 서버 화면)과 번갈아 보인다. */
+    private com.infradesk.ui.settings.SettingsScreen settingsScreen;
+    private final CardLayout screens = new CardLayout();
+    private final JPanel screenSwitch = new JPanel(screens);
+    private boolean settingsVisible;
+    private static final String MAIN_SCREEN = "main";
+    private static final String SETTINGS_SCREEN = "settings";
     private int notifiedUpdateBuild = -1;
     private Timer updateTimer;
     private final TerminalView terminalView;
@@ -221,7 +227,14 @@ public class MainFrame extends JFrame {
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Theme.APP_BG);
         root.add(titleBar, BorderLayout.NORTH);
-        root.add(sidebarSplit, BorderLayout.CENTER);
+        // 설정은 모달 창이 아니라 메인 창 안의 화면이다(디자인 v2): 사이드바 + 서버 화면과 번갈아 보인다.
+        settingsScreen = new com.infradesk.ui.settings.SettingsScreen(alerts, demoMode, updates, launchAtLogin,
+                updates == null ? null : () -> checkForUpdate(true),
+                () -> detail.metrics().setAlert(alerts.settings()));   // 알림 기준이 바뀌면 모니터링 탭의 기준선도 바뀐다
+        settingsScreen.onBack(this::closeSettings);
+        screenSwitch.add(sidebarSplit, MAIN_SCREEN);
+        screenSwitch.add(settingsScreen, SETTINGS_SCREEN);
+        root.add(screenSwitch, BorderLayout.CENTER);
         buildStatusBar();
         root.add(statusBar, BorderLayout.SOUTH);
         setContentPane(root);
@@ -290,7 +303,7 @@ public class MainFrame extends JFrame {
         metricsTimer.start();
         // "알림 기준" 카드: 지금 알림 설정을 보여 주고, [설정에서 바꾸기]로 설정 창을 연다(닫은 뒤 다시 읽는다).
         detail.metrics().setAlert(alerts.settings());
-        detail.metrics().onOpenAlertSettings(this::openSettings);
+        detail.metrics().onOpenAlertSettings(() -> openSettings(com.infradesk.ui.settings.AlertsPage.ID));
         detail.metrics().setLiveRemaining(() -> live.remaining());
         detail.metrics().onLiveToggle(this::toggleLive);
         // 구간 선택에서 다른 기록 기간(6시간, 24시간, 7일 …)을 골랐다: 그 기간을 읽는다.
@@ -537,11 +550,23 @@ public class MainFrame extends JFrame {
     }
 
     private void openSettings() {
-        settingsDialog = new SettingsDialog(this, alerts, demoMode, updates, launchAtLogin,
-                updates == null ? null : () -> checkForUpdate(true));
-        settingsDialog.setVisible(true);
-        settingsDialog = null;
-        detail.metrics().setAlert(alerts.settings());   // 설정 창에서 알림 기준을 바꿨을 수 있다
+        openSettings(null);
+    }
+
+    /** 설정 화면을 연다. {@code pageId}가 있으면 그 항목으로 바로 간다(예: 모니터링 탭의 "설정에서 바꾸기" → 알림). */
+    private void openSettings(String pageId) {
+        if (pageId != null) {
+            settingsScreen.show(pageId);
+        }
+        screens.show(screenSwitch, SETTINGS_SCREEN);
+        settingsVisible = true;
+    }
+
+    /** "← 개요로 돌아가기": 메인 화면으로. 알림 기준은 설정 화면이 바로 반영하지만 한 번 더 맞춘다. */
+    private void closeSettings() {
+        screens.show(screenSwitch, MAIN_SCREEN);
+        settingsVisible = false;
+        detail.metrics().setAlert(alerts.settings());
     }
 
     /** 켜져 있으면 주기적인 베타 업데이트 확인을 시작한다(시작 15초 뒤, 그다음 6시간마다). */
@@ -559,7 +584,7 @@ public class MainFrame extends JFrame {
         updateTimer.start();
     }
 
-    /** @param manual 설정 다이얼로그에서 시작함: 모든 결과를 거기에 알린다 */
+    /** @param manual 설정 화면에서 시작함: 모든 결과를 거기에 알린다 */
     private void checkForUpdate(boolean manual) {
         com.infradesk.app.BuildInfo current = com.infradesk.app.BuildInfo.current();
         Async.run(updates::latest, release -> {
@@ -569,21 +594,21 @@ public class MainFrame extends JFrame {
             if (newer && notifiedUpdateBuild != release.build() && !manual) {
                 notifiedUpdateBuild = release.build();
                 com.infradesk.ui.components.Toast.show(this, "업데이트", release.label() + " 버전이 나왔어요",
-                        TRAY_NAME + " 아이콘 → 새 버전 설치, 또는 설정 → 앱 정보 → 업데이트 확인", Theme.ACCENT);
+                        TRAY_NAME + " 아이콘 → 새 버전 설치, 또는 설정 → 업데이트·정보 → 업데이트 확인", Theme.ACCENT);
             }
-            if (manual && settingsDialog != null) {
+            if (manual && settingsScreen != null) {
                 String message = newer ? release.label() + " 버전이 나왔어요."
                         : current.isBeta() ? "최신 버전이에요 (" + current.version() + ")."
                         : "개발 빌드라 비교하지 않아요. 최신 베타는 " + release.label() + "예요.";
-                settingsDialog.showUpdateResult(message, newer);
+                settingsScreen.showUpdateResult(message, newer);
                 if (newer) {
                     offerUpdate(release);
                 }
             }
         }, err -> {
             LOG.log(java.util.logging.Level.INFO, "Update check failed: " + Async.message(err));
-            if (manual && settingsDialog != null) {
-                settingsDialog.showUpdateResult(Async.message(err), false);
+            if (manual && settingsScreen != null) {
+                settingsScreen.showUpdateResult(Async.message(err), false);
             }
         });
     }
@@ -1392,6 +1417,9 @@ public class MainFrame extends JFrame {
     }
 
     void showServer(Server server) {
+        if (settingsVisible) {
+            closeSettings();   // 서버를 고르면(사이드바·트레이) 설정에서 나와 그 서버를 보여 준다
+        }
         Optional<Account> account = accountOf(server);
         if (account.isEmpty()) {
             return;

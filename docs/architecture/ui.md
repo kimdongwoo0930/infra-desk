@@ -45,7 +45,7 @@
 | 실시간 모드(SSH로 `/proc` 읽기) 켜기·끄기 | `LiveHooks`, `LiveController` |
 | 컨테이너·서버 정보 불러오기 | `loadContainers()`, `loadFacts()` |
 | 업데이트 확인 | `updateTimer` (6시간마다) |
-| 계정 추가/삭제, 설정 | `AddAccountDialog`, `SettingsDialog` |
+| 계정 추가/삭제, 설정 | `AddAccountDialog`, `SettingsScreen` |
 
 조회가 실패해도 서버 목록을 지우지 않는다. 마지막으로 알던 서버를 `UNREACHABLE`로 남겨서 잠깐의 네트워크 끊김에 화면이 비지 않게 한다(`keepLastKnownServers`).
 
@@ -79,7 +79,7 @@ Async.run(
 | `ServerHeader` | 즐겨찾기 별(준비 중), 서버 이름, 상태 배지, 계정·리전 한 줄, [재부팅] [정지/시작] [⋯(준비 중)], 시작/정지/재부팅 버튼의 상태별 활성화 규칙, 요청 결과 한 줄. IP 가림을 켜고 끌 때 부제의 IP도 같이 바뀐다 |
 | `ServerDetailPanel` | 개요 탭 본문. 두 열(창이 좁으면 한 열로 쌓임, `TwoColumnLayout`): 왼쪽 **지금 상태 4칸**(`StatusSection`)과 **컨테이너 요약**(`ContainerSummaryCard`), 오른쪽 **확인 필요**(`AttentionCard`, 멈춘 컨테이너가 있을 때만), **정보**(공인 IP 가림·복사, 사설 IP, OS, 업타임, 열린 포트 칩, SSH 사용자, 생성일, [SSH 설정]), **저장된 명령어**(`SavedCommandsCard`, 누르면 터미널 탭에서 실행), **최근 활동**(`RecentActivityCard`, 준비 중). 서버에 따로 묻지 않고 다른 탭이 읽은 값을 받아 보여 준다 |
 | `AddAccountDialog`, `AddSshServerDialog` | 계정 추가, 연결 테스트 / 직접 연결 기기 추가 |
-| `SettingsDialog` | 설정 (디스코드 알림은 "준비 중") |
+| `LicensesDialog` | 오픈소스 라이선스 보기(설정의 "업데이트·정보"에서 연다) |
 | `TrayController`, `SwingTrayMenu` | 메뉴 막대(macOS)·알림 영역(Windows) 아이콘과 서버 상태 메뉴. macOS는 네이티브 AWT 메뉴, Windows는 `SwingTrayMenu`가 그림 |
 | `IpPrivacy` | 공인 IP 가리기/보이기 (앱 전체, 기본 가림) |
 
@@ -107,6 +107,21 @@ Async.run(
 | `CommandEditDialog` | 저장된 명령어 추가·편집 |
 | `SshSettingsDialog` | 서버별 사용자 이름·포트·SSH 키 등록 |
 | `HostKeyDialog` | 처음 보는 호스트 키 확인. `ssh.HostKeyPrompt`를 구현하며 어느 스레드에서든 호출 가능 |
+
+### `ui.settings` — 설정 화면
+
+메인 창 안의 화면이다(예전 모달 창을 바꿨다). 사이드바의 [설정]이나 모니터링 탭의 "설정에서 바꾸기"로 열고, "← 개요로 돌아가기"나 ESC로 나온다. 서버를 고르면(사이드바·트레이) 설정에서 나와 그 서버를 보여 준다. **바꾼 설정은 바로 저장된다**(저장 버튼이 없다). 아직 동작하지 않는 설정은 모두 만들어 두고 "준비 중" 배지와 비활성으로 보인다(`ComingSoon`).
+
+| 클래스 | 역할 |
+|---|---|
+| `SettingsScreen` | 왼쪽 메뉴(일반 / 알림 / 보안·안전 / 연결·조회 / 업데이트·정보, 에이전트는 뺀다)와 오른쪽 항목 전환. 항목마다 스크롤 창을 따로 둔다 |
+| `SettingsPage` | 항목 하나의 틀: 큰 제목, 부제, 카드들이 세로로 쌓인다(폭은 창을 따르되 최대 980) |
+| `SettingsCard`, `SettingsRow` | 카드(행들을 가는 선으로 구분)와 한 줄(굵은 제목 + 흐린 설명 + 오른쪽 컨트롤). `SettingsRow.comingSoon()`은 "준비 중" 배지를 붙이고 컨트롤을 비활성으로 만든다 |
+| `GeneralPage` | "로그인할 때 실행"(동작). 창을 닫으면 숨기기 끄기·시작 화면·서버 목록 묶기·단축키는 준비 중 |
+| `AlertsPage` | 디스코드 알림, 웹훅 URL(Enter나 칸을 떠날 때 형식을 확인해 저장), 테스트 메시지, 서버 멈춤·계정 오류·CPU 기준. 알림 기능 전체가 아직 열리지 않은 빌드(`AlertService.AVAILABLE`=false)에서는 전부 비활성. 앱 안 알림, 다시 보내기 간격, 디스크·컨테이너 규칙은 준비 중. 저장은 한 번에 하나씩, 저장 중에 또 바뀌면 끝난 뒤 최신 값으로 한 번 더 |
+| `SecurityPage` | 비밀값 저장 안내(실제 정보)와, 공인 IP 기본 가리기·읽기 전용·되돌릴 수 없는 작업 확인·활동 기록 보관·알고 있는 호스트 키(모두 준비 중) |
+| `ConnectionPage` | 서버 상태 새로고침(30초), 메트릭(1분), 실시간 자동 꺼짐(10분), SSH 연결 새로 맺기(12시간)를 **읽기 전용 글자**로. 값은 코드의 상수(`RefreshPolicy`, `LiveController.AUTO_OFF`)에서 가져온다. "지금 열린 SSH 연결" 표는 틀만(준비 중) |
+| `AboutPage` | 버전과 [업데이트 확인], 새 빌드 자동 확인, 업데이트 파일 확인 설명, 로그 폴더, 라이선스 |
 
 ### `ui.files` — 파일 탭
 

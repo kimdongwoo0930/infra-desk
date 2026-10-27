@@ -156,12 +156,13 @@ public final class UiSnapshot {
 
                 var updates = new com.infradesk.service.UpdateService(java.net.http.HttpClient.newHttpClient(),
                         java.net.URI.create("http://127.0.0.1:1"), "x", null);
-                JDialog settings = new SettingsDialog(frame, InfraDeskApp.demoAlertService(), false, updates,
-                        com.infradesk.app.LaunchAtLogin.forCurrentOs(), () -> { });
-                write(settings, settings.getContentPane(), settings.getWidth(),
-                        settings.getContentPane().getPreferredSize().height, "settings.png");
-                settings.dispose();
-
+                // 설정 화면(디자인 v2): 메인 창 안의 화면. 항목마다 한 장씩 찍는다.
+                var settingsScreen = new com.infradesk.ui.settings.SettingsScreen(InfraDeskApp.demoAlertService(), false,
+                        updates, com.infradesk.app.LaunchAtLogin.forCurrentOs(), () -> { }, () -> { });
+                for (String page : new String[] {"general", "alerts", "security", "connection", "about"}) {
+                    settingsScreen.show(page);
+                    write(frame, settingsScreen, 1280, 800, "settings-" + page + ".png");
+                }
                 // Windows 트레이 메뉴(Swing 팝업): 메인 목록과 첫 서버의 하위 메뉴를 나란히.
                 TrayController.Actions noop = (TrayController.Actions) java.lang.reflect.Proxy.newProxyInstance(
                         TrayController.Actions.class.getClassLoader(), new Class<?>[]{TrayController.Actions.class}, (o, m, a) -> null);
