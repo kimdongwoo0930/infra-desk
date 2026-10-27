@@ -111,6 +111,17 @@ final class LogTable extends JTable {
         repaint();
     }
 
+    /**
+     * 지금 맨 아래까지 보고 있는지. 표가 화면보다 짧아서 스크롤할 것이 없을 때도 true다.
+     * 자동 새로고침이 "맨 아래를 보고 있던 사람만" 새 줄을 따라 내려가게 하려고 쓴다.
+     */
+    boolean isScrolledToEnd() {
+        if (getParent() instanceof JViewport viewport) {
+            return viewport.getViewPosition().y + viewport.getExtentSize().height >= getHeight() - 2;
+        }
+        return true;
+    }
+
     /** 맨 아래 줄이 보이게 스크롤한다. 배치가 끝난 뒤에 해야 해서 한 박자 늦춘다. */
     void scrollToEnd() {
         SwingUtilities.invokeLater(() -> {

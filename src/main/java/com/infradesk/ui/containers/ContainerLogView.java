@@ -40,6 +40,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
+import javax.swing.Timer;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
@@ -48,7 +49,7 @@ import javax.swing.event.DocumentListener;
  *
  * <pre>
  *  로그  [● discord-bot] [● nginx] [○ watchtower]                    [별도 창]
- *  [전체 12 | 경고 2 | 오류 2] [로그에서 찾기]   [따라가기] [최근 200줄 ▾] [줄바꿈] [새로고침]
+ *  [전체 12 | 경고 2 | 오류 2] [로그에서 찾기]   [자동 새로고침] [최근 200줄 ▾] [줄바꿈] [새로고침]
  *  15:30:41  정보  "GET /health HTTP/1.1" 200 2 ...
  *  ...
  *  ● docker logs --tail 200 --timestamps nginx            보이는 줄 12 / 받은 줄 12 · 경고 2 · 오류 2
@@ -58,9 +59,16 @@ import javax.swing.event.DocumentListener;
  * 새로고침을 누르면) {@link #onReload}로 알리기만 하고, 받아 온 텍스트는 {@link #showLogs}로 건네받는다.
  * 그래서 화면 조각을 서버 없이 확인할 수 있고, 접속 규칙(SessionPool)은 이 클래스 밖에서 지켜진다.
  *
- * <p><b>"따라가기"</b>는 실시간 스트리밍({@code docker logs -f})이 아니다. 새로 읽어 올 때마다 맨 아래로
- * 스크롤하는 것이다. 멈춘 컨테이너는 따라갈 것이 없어서 꺼지고 눌리지 않는다. 실시간 스트리밍은 SSH 채널을
- * 계속 열어 두어야 해서 접속 규칙을 정한 뒤에 한다.
+ * <p><b>자동 새로고침</b>은 켜 두면 {@value #AUTO_REFRESH_SECONDS}초마다 로그를 다시 읽는다. 실시간 스트리밍
+ * ({@code docker logs -f})이 아니라 같은 조회를 반복하는 것이라 SSH 채널을 계속 열어 두지 않는다. 안전을 위해
+ * <ul>
+ *   <li>기본은 꺼짐이고, 실행 중인 컨테이너에서만 켤 수 있다(멈춘 컨테이너는 로그가 늘지 않는다).</li>
+ *   <li>이 패널이 화면에 보일 때만 읽는다(탭을 닫거나 창을 숨기면 멈춘다).</li>
+ *   <li>이미 읽는 중이면 건너뛴다(응답이 느려도 요청이 쌓이지 않는다).</li>
+ *   <li>읽기에 실패하면 스스로 꺼진다(틀린 키로 계속 접속을 시도하지 않는다).</li>
+ * </ul>
+ * 자동으로 읽을 때는 "불러오는 중" 화면으로 바꾸지 않고 줄만 갈아 끼우며, 맨 아래를 보고 있던 경우에만
+ * 새 줄을 따라 내려간다.
  */
 public class ContainerLogView extends JPanel {
 
@@ -68,13 +76,17 @@ public class ContainerLogView extends JPanel {
     private static final int CONTROL_HEIGHT = 28;
     private static final String CARD_TABLE = "table";
     private static final String CARD_MESSAGE = "message";
+    /** 자동 새로고침 주기(초). PRD의 "조회 주기"에 적혀 있다. 바꾸면 PRD도 같이 고친다. */
+    static final int AUTO_REFRESH_SECONDS = 10;
+    /** 이 시간이 지나도 응답이 없으면, 읽는 중이라는 표시를 믿지 않고 다음 자동 새로고침을 허용한다. */
+    private static final long STUCK_MILLIS = 30_000;
 
     private final ButtonGroup chipGroup = new ButtonGroup();
     private final JPanel chipRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
     private final Map<String, FilterChip> chips = new LinkedHashMap<>();
     private final SegmentedControl levels = new SegmentedControl(List.of("전체", "경고", "오류"));
     private final JTextField search = new JTextField();
-    private final JToggleButton follow = new JToggleButton("따라가기");
+    private final JToggleButton autoRefresh = new JToggleButton("자동 새로고침");
     private final JComboBox<Integer> tailBox = new JComboBox<>(TAIL_CHOICES);
     private final JToggleButton wrapButton = new JToggleButton("줄바꿈");
     private final JButton refresh = Buttons.icon("refresh", "로그 새로고침", CONTROL_HEIGHT);
@@ -91,6 +103,13 @@ public class ContainerLogView extends JPanel {
     private Container current;
     /** 칩으로 보여 주는 컨테이너 목록(받은 순서). */
     private List<Container> containers = List.of();
+    /** 읽기를 요청했고 아직 응답이 오지 않았다. 응답이 오면(showLogs/showError) 풀린다. */
+    private boolean loading;
+    private long loadingSince;
+    private String shownCard = CARD_MESSAGE;
+    /** 지금 요청이 자동 새로고침(조용히 갈아 끼움)인지, 사용자가 시킨 것(불러오는 중 화면)인지. */
+    private boolean silentRequest;
+    private final Timer autoRefreshTimer = new Timer(AUTO_REFRESH_SECONDS * 1000, e -> refreshIfShowing());
     private BiConsumer<Container, Integer> onReload = (c, tail) -> { };
     private Consumer<Container> onOpenWindow = c -> { };
 
@@ -156,9 +175,10 @@ public class ContainerLogView extends JPanel {
         search.setPreferredSize(new Dimension(240, CONTROL_HEIGHT));
 
         // 아이콘을 먼저 붙인다: 버튼 폭은 styleToggle에서 현재 크기로 정하므로, 나중에 붙이면 글자가 잘린다.
-        follow.setIcon(dot(Theme.RUNNING_DOT));   // 시안: 따라가기 앞의 초록 점
-        follow.setIconTextGap(6);
-        styleToggle(follow, true);
+        autoRefresh.setIcon(dot(Theme.RUNNING_DOT));   // 시안: 따라가기 앞의 초록 점
+        autoRefresh.setIconTextGap(6);
+        autoRefresh.setToolTipText(AUTO_REFRESH_SECONDS + "초마다 새로 읽어요 (실행 중인 컨테이너, 이 화면이 보일 때만)");
+        styleToggle(autoRefresh, true);
         styleToggle(wrapButton, false);
         tailBox.setPreferredSize(new Dimension(112, CONTROL_HEIGHT));
         // 맥 룩앤필의 기본 콤보는 파란 위아래 화살표 버튼이다. 시안은 단순한 아래 화살표라서 맞춘다.
@@ -181,7 +201,7 @@ public class ContainerLogView extends JPanel {
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         right.setOpaque(false);
-        right.add(follow);
+        right.add(autoRefresh);
         right.add(tailBox);
         right.add(wrapButton);
         right.add(refresh);
@@ -196,7 +216,7 @@ public class ContainerLogView extends JPanel {
         return row;
     }
 
-    /** 켜고 끄는 작은 버튼 모양. 켜지면 따라가기는 초록, 줄바꿈은 파랑 계열로 바뀐다. */
+    /** 켜고 끄는 작은 버튼 모양. 켜지면 자동 새로고침은 초록, 줄바꿈은 파랑 계열로 바뀐다. */
     private static void styleToggle(JToggleButton b, boolean green) {
         String on = green ? Theme.hex(Theme.RUNNING_BADGE_BG) : Theme.hex(Theme.ACCENT_SOFT_BG);
         String onText = green ? Theme.hex(Theme.RUNNING_BADGE_TEXT) : Theme.hex(Theme.TEXT);
@@ -279,11 +299,7 @@ public class ContainerLogView extends JPanel {
                 onOpenWindow.accept(current);
             }
         });
-        follow.addActionListener(e -> {
-            if (follow.isSelected()) {
-                table.scrollToEnd();
-            }
-        });
+        autoRefresh.addActionListener(e -> updateAutoRefresh());
     }
 
     // ── 쓰는 쪽(MainFrame 등)이 부르는 메서드 ───────────────────
@@ -340,7 +356,7 @@ public class ContainerLogView extends JPanel {
             showHint("컨테이너를 고르면 로그가 보여요");
             applyFilters();
         }
-        updateFollow();
+        updateAutoRefresh();
         chipRow.revalidate();
         chipRow.repaint();
     }
@@ -363,9 +379,8 @@ public class ContainerLogView extends JPanel {
         if (chip != null) {
             chip.setSelected(true);
         }
-        // 멈춘 컨테이너는 따라갈 것이 없다: 따라가기를 끄고 막는다. 실행 중이면 켠다.
-        follow.setSelected(container.isRunning());
-        updateFollow();
+        // 멈춘 컨테이너는 로그가 늘지 않는다: 자동 새로고침을 끄고 막는다. 실행 중이면 켜진 상태를 그대로 둔다.
+        updateAutoRefresh();
         reload();
     }
 
@@ -373,21 +388,28 @@ public class ContainerLogView extends JPanel {
     public void showLoading() {
         message.setForeground(Theme.TEXT_MUTED);
         message.setText("불러오는 중…");
-        cards.show(body, CARD_MESSAGE);
+        showCard(CARD_MESSAGE);
     }
 
     /** 가운데에 안내 문구를 보여 준다(로그가 없을 때 등). */
     public void showHint(String text) {
         message.setForeground(Theme.TEXT_MUTED);
         message.setText(text);
-        cards.show(body, CARD_MESSAGE);
+        showCard(CARD_MESSAGE);
     }
 
     /** 로그를 읽지 못했다는 오류를 붉은 글자로 보여 준다. */
     public void showError(String text) {
+        loading = false;
+        // 실패했는데 10초마다 계속 시도하면 틀린 키나 끊긴 서버에 접속을 반복하게 된다: 스스로 끈다.
+        if (autoRefresh.isSelected()) {
+            autoRefresh.setSelected(false);
+            updateAutoRefresh();
+            text = text + " (자동 새로고침을 껐어요)";
+        }
         message.setForeground(Theme.DANGER_TEXT);
         message.setText(text);
-        cards.show(body, CARD_MESSAGE);
+        showCard(CARD_MESSAGE);
     }
 
     /**
@@ -397,19 +419,33 @@ public class ContainerLogView extends JPanel {
         if (current == null || !current.id().equals(container.id())) {
             return;
         }
+        loading = false;
+        // 사용자가 시킨 읽기는 항상 맨 아래(최신 줄)로 간다. 자동 새로고침은 맨 아래를 보고 있던 경우에만
+        // 따라 내려가서, 위쪽 줄을 읽는 중에는 화면이 움직이지 않는다.
+        boolean toEnd = !silentRequest || table.isScrolledToEnd();
         all = LogLine.parseAll(output);
         if (all.isEmpty()) {
             showHint("(로그 없음)");
         } else {
-            cards.show(body, CARD_TABLE);
+            showCard(CARD_TABLE);
         }
         applyFilters();
-        if (follow.isSelected()) {
+        if (toEnd) {
             table.scrollToEnd();
         }
     }
 
+    private void showCard(String card) {
+        shownCard = card;
+        cards.show(body, card);
+    }
+
     // ── 테스트에서 화면의 상태를 읽는 데 쓴다 ───────────────────
+
+    /** 지금 보이는 본문: 로그 표인지, 안내·오류 문구인지. */
+    boolean showsTable() {
+        return CARD_TABLE.equals(shownCard);
+    }
 
     /** 지금 표에 보이는 줄 수(거르기 뒤). */
     int visibleLines() {
@@ -423,20 +459,56 @@ public class ContainerLogView extends JPanel {
 
     // ── 안쪽 동작 ───────────────────────────────────────────────
 
+    /** 사용자가 시킨 읽기(컨테이너 선택, 줄 수 변경, 새로고침): "불러오는 중" 화면을 보여 준다. */
     private void reload() {
         if (current == null) {
             return;
         }
+        silentRequest = false;
         showLoading();
         showSummary();
+        request();
+    }
+
+    private void request() {
+        loading = true;
+        loadingSince = System.currentTimeMillis();
         onReload.accept(current, tail());
     }
 
-    private void updateFollow() {
+    /** 자동 새로고침 타이머가 울렸다. 이 패널이 화면에 보일 때만 읽는다(탭이 닫히거나 창이 숨겨지면 건너뛴다). */
+    private void refreshIfShowing() {
+        if (isShowing()) {
+            autoRefreshTick();
+        }
+    }
+
+    /**
+     * 자동 새로고침 한 번. 켜져 있고, 실행 중인 컨테이너를 보고 있고, 읽는 중이 아닐 때만 조용히 다시 읽는다.
+     * (화면에 보이는지는 {@link #refreshIfShowing}가 먼저 확인한다. 테스트가 직접 부를 수 있게 나눴다.)
+     */
+    void autoRefreshTick() {
+        if (!autoRefresh.isSelected() || current == null || !current.isRunning()) {
+            return;
+        }
+        if (loading && System.currentTimeMillis() - loadingSince < STUCK_MILLIS) {
+            return;   // 아직 응답을 기다리는 중: 요청이 쌓이지 않게 건너뛴다
+        }
+        silentRequest = true;
+        request();
+    }
+
+    /** 자동 새로고침 버튼 상태와 타이머를 지금 보는 컨테이너에 맞춘다. */
+    private void updateAutoRefresh() {
         boolean running = current != null && current.isRunning();
-        follow.setEnabled(running);
+        autoRefresh.setEnabled(running);
         if (!running) {
-            follow.setSelected(false);
+            autoRefresh.setSelected(false);
+        }
+        if (autoRefresh.isSelected()) {
+            autoRefreshTimer.start();
+        } else {
+            autoRefreshTimer.stop();
         }
     }
 

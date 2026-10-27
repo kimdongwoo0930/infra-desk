@@ -54,8 +54,8 @@ class ContainerLogViewTest {
         return found;
     }
 
-    private static JToggleButton follow(ContainerLogView v) {
-        return all(v, JToggleButton.class).stream().filter(b -> "따라가기".equals(b.getText())).findFirst().orElseThrow();
+    private static JToggleButton autoRefresh(ContainerLogView v) {
+        return all(v, JToggleButton.class).stream().filter(b -> "자동 새로고침".equals(b.getText())).findFirst().orElseThrow();
     }
 
     /** 구간 선택(전체/경고/오류)의 버튼 중 글자가 접두어로 시작하는 것. */
@@ -122,16 +122,111 @@ class ContainerLogViewTest {
     }
 
     @Test
-    void 멈춘_컨테이너는_따라가기가_꺼지고_눌리지_않는다() {
+    void 자동_새로고침은_기본이_꺼짐이고_실행_중인_컨테이너에서만_켤_수_있다() {
         Fixture f = new Fixture();
 
         f.view.select(WEB);
-        assertTrue(follow(f.view).isSelected());
-        assertTrue(follow(f.view).isEnabled());
+        assertFalse(autoRefresh(f.view).isSelected(), "기본은 꺼짐");
+        assertTrue(autoRefresh(f.view).isEnabled());
 
+        autoRefresh(f.view).doClick();
+        assertTrue(autoRefresh(f.view).isSelected());
+
+        // 멈춘 컨테이너로 바꾸면 꺼지고 눌리지 않는다
         f.view.select(OLD);
-        assertFalse(follow(f.view).isSelected());
-        assertFalse(follow(f.view).isEnabled());
+        assertFalse(autoRefresh(f.view).isSelected());
+        assertFalse(autoRefresh(f.view).isEnabled());
+    }
+
+    @Test
+    void 자동_새로고침이_꺼져_있으면_타이머가_울려도_읽지_않는다() {
+        Fixture f = new Fixture();
+        f.view.select(WEB);
+        f.view.showLogs(WEB, DemoData.containerLog("nginx", true));
+        f.requests.clear();
+
+        f.view.autoRefreshTick();
+
+        assertEquals(List.of(), f.requests);
+    }
+
+    @Test
+    void 자동_새로고침은_표를_그대로_두고_조용히_다시_읽는다() {
+        Fixture f = new Fixture();
+        f.view.select(WEB);
+        f.view.showLogs(WEB, DemoData.containerLog("nginx", true));
+        autoRefresh(f.view).doClick();
+        f.requests.clear();
+
+        f.view.autoRefreshTick();
+
+        assertEquals(List.of("nginx:200"), f.requests);
+        assertTrue(f.view.showsTable(), "자동으로 읽을 때는 '불러오는 중' 화면으로 바꾸지 않는다(깜빡임 없음)");
+        assertEquals(12, f.view.visibleLines());
+    }
+
+    @Test
+    void 사용자가_시킨_읽기는_불러오는_중_화면을_보여_준다() {
+        Fixture f = new Fixture();
+        f.view.select(WEB);
+        f.view.showLogs(WEB, DemoData.containerLog("nginx", true));
+        assertTrue(f.view.showsTable());
+
+        // 새로고침 버튼
+        all(f.view, AbstractButton.class).stream().filter(b -> "로그 새로고침".equals(b.getToolTipText()))
+                .findFirst().orElseThrow().doClick();
+
+        assertFalse(f.view.showsTable());
+    }
+
+    @Test
+    void 읽는_중에는_자동_새로고침이_요청을_쌓지_않는다() {
+        Fixture f = new Fixture();
+        f.view.select(WEB);
+        f.view.showLogs(WEB, DemoData.containerLog("nginx", true));
+        autoRefresh(f.view).doClick();
+        f.requests.clear();
+
+        f.view.autoRefreshTick();   // 요청을 보냈다
+        f.view.autoRefreshTick();   // 아직 응답이 없다: 건너뛴다
+        f.view.autoRefreshTick();
+
+        assertEquals(List.of("nginx:200"), f.requests);
+
+        f.view.showLogs(WEB, DemoData.containerLog("nginx", true));   // 응답이 왔다
+        f.view.autoRefreshTick();
+
+        assertEquals(List.of("nginx:200", "nginx:200"), f.requests);
+    }
+
+    @Test
+    void 읽기에_실패하면_자동_새로고침이_스스로_꺼진다() {
+        Fixture f = new Fixture();
+        f.view.select(WEB);
+        f.view.showLogs(WEB, DemoData.containerLog("nginx", true));
+        autoRefresh(f.view).doClick();
+        f.requests.clear();
+        f.view.autoRefreshTick();
+
+        f.view.showError("SSH 연결에 실패했어요");
+
+        assertFalse(autoRefresh(f.view).isSelected(), "실패한 채로 10초마다 접속을 시도하면 안 된다");
+        f.requests.clear();
+        f.view.autoRefreshTick();
+        assertEquals(List.of(), f.requests);
+    }
+
+    @Test
+    void 멈춘_컨테이너를_보고_있으면_타이머가_울려도_읽지_않는다() {
+        Fixture f = new Fixture();
+        f.view.select(WEB);
+        autoRefresh(f.view).doClick();
+        f.view.select(OLD);
+        f.requests.clear();
+
+        f.view.autoRefreshTick();
+
+        assertEquals(List.of(), f.requests);
     }
 
     @Test
