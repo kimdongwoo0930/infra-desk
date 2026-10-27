@@ -7,6 +7,8 @@ import com.infradesk.ui.components.Meter;
 import com.infradesk.ui.components.SegmentedControl;
 import com.infradesk.ui.components.StatusBadge;
 import com.infradesk.ui.components.StatusBadge.Kind;
+import com.infradesk.ui.components.StatusBar;
+import com.infradesk.ui.components.TabBar;
 import com.infradesk.ui.components.ToggleSwitch;
 
 import java.awt.BorderLayout;
@@ -73,6 +75,28 @@ final class ComponentGallery {
         // 막대: 낮음, 중간, 경고 직전, 경고
         page.add(row("막대 (Meter)\n30 · 60 · 84 · 90%",
                 meter(30), meter(60), meter(84), meter(90)));
+
+        // 탭 줄: 개요가 선택, 컨테이너·터미널에 개수, 로그는 준비 중
+        TabBar tabs = new TabBar();
+        tabs.addTab("overview", "개요");
+        tabs.addTab("monitoring", "모니터링");
+        tabs.addTab("containers", "컨테이너");
+        tabs.addTab("files", "파일");
+        tabs.addTab("terminal", "터미널");
+        tabs.addTab("logs", "로그");
+        tabs.setCount("containers", 4);
+        tabs.setCount("terminal", 2);
+        tabs.setComingSoon("logs");
+        page.add(row("탭 줄 (TabBar)", tabs));
+
+        // 상태 막대: 왼쪽 현재 상태, 오른쪽 설정·버전 (SSH 연결 수는 읽을 방법이 없어 준비 중)
+        StatusBar status = new StatusBar();
+        ComingSoon.apply(status.addLeft("SSH 연결 —"));
+        status.addLeft("실시간 꺼짐");
+        status.addRight("상태 30초 · 메트릭 1분마다");
+        status.addRight("v1.1.9");
+        status.setPreferredSize(new Dimension(440, 26));
+        page.add(row("상태 막대 (StatusBar)", status));
 
         // 준비 중: 버튼, 배지
         // 화면이 실제로 쓰는 버튼 도우미(Buttons)로 만들어야 비활성 모양이 앱과 같다.
