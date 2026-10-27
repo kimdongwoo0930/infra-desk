@@ -110,6 +110,11 @@ public class TerminalService {
         connector.invalidate(serverId);
     }
 
+    /** 접속 풀이 지금 열어 두고 있는 연결들(읽기 전용). 상태 막대와 설정의 "지금 열린 SSH 연결" 표가 쓴다. */
+    public List<com.infradesk.ssh.OpenConnection> openConnections() {
+        return connector.openConnections();
+    }
+
     /**
      * 앱 창이 메뉴 막대로만 숨었는지 알린다. 숨은 동안은 조회 연결만 남기고 나머지는 쓰는 대로 닫는다.
      */

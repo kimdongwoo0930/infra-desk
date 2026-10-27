@@ -3,6 +3,8 @@ package com.infradesk.demo;
 import com.infradesk.ssh.DockerCommands;
 import com.infradesk.ssh.HostFacts;
 import com.infradesk.ssh.HostKeyPrompt;
+import com.infradesk.ssh.OpenConnection;
+import com.infradesk.ssh.Purpose;
 import com.infradesk.ssh.ProcStats;
 import com.infradesk.ssh.RemoteFiles;
 import com.infradesk.ssh.ShellConnector;
@@ -15,6 +17,10 @@ import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -25,6 +31,9 @@ public class DemoShellConnector implements ShellConnector {
 
     private final Duration latency;
     private final Duration statsInterval;
+    /** 데모가 "열어 둔" 연결: 서버와 용도마다 처음 쓴 시각과 마지막으로 쓴 시각. 실제 연결은 없다. */
+    private final Map<String, Instant[]> opened = new ConcurrentHashMap<>();
+    private final Map<String, Purpose> openedPurpose = new ConcurrentHashMap<>();
 
     public DemoShellConnector(Duration latency, Duration statsInterval) {
         this.latency = latency;
@@ -88,6 +97,36 @@ public class DemoShellConnector implements ShellConnector {
     }
 
     @Override
+    public ShellSession exec(Purpose purpose, SshTarget target, HostKeyPrompt prompt, String command) {
+        touch(purpose, target);
+        return exec(target, prompt, command);
+    }
+
+    @Override
+    public RemoteFiles sftp(Purpose purpose, SshTarget target, HostKeyPrompt prompt) {
+        touch(purpose, target);
+        return sftp(target, prompt);
+    }
+
+    private void touch(Purpose purpose, SshTarget target) {
+        String key = target.id() + "|" + purpose;
+        Instant now = Instant.now();
+        opened.compute(key, (k, v) -> v == null ? new Instant[] {now, now} : new Instant[] {v[0], now});
+        openedPurpose.put(key, purpose);
+    }
+
+    /** 데모에서는 지금까지 쓴 (서버, 용도)를 "열린 연결"로 보여 준다(상태 막대와 설정 표를 데모로 볼 수 있게). */
+    @Override
+    public List<OpenConnection> openConnections() {
+        return opened.entrySet().stream()
+                .map(e -> new OpenConnection(e.getKey().substring(0, e.getKey().lastIndexOf('|')),
+                        openedPurpose.get(e.getKey()), e.getValue()[0], e.getValue()[1], 0))
+                .sorted(java.util.Comparator.comparing(OpenConnection::serverId)
+                        .thenComparing(c -> c.purpose().ordinal()))
+                .toList();
+    }
+
+    @Override
     public RemoteFiles sftp(SshTarget target, HostKeyPrompt prompt) {
         try {
             Thread.sleep(latency);
@@ -138,6 +177,7 @@ public class DemoShellConnector implements ShellConnector {
         return "@uptime\n" + (86400L * (3 + seed) + 3600L * (seed % 24)) + ".42 1000.0\n"
                 + "@os\n" + ((host.contains("mac") || host.contains("맥")) ? "macOS 15.6" : "Ubuntu 22.04.4 LTS") + "\n"
                 + "@cpus\n" + ((host.contains("mac") || host.contains("맥")) ? 10 : 4) + "\n@memkb\n" + ((host.contains("mac") || host.contains("맥")) ? 16L : 24L) * 1024 * 1024 + "\n"
+                + "@memusedkb\n" + (((host.contains("mac") || host.contains("맥")) ? 16L : 24L) * 1024 * 1024 * (35 + seed * 2) / 100) + "\n"
                 + "@disk\n/dev/sda1 " + totalKb + " " + usedKb + " " + (totalKb - usedKb) + " 47% /\n"
                 + "@ports\n" + ss;
     }

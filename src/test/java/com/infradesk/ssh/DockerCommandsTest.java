@@ -15,6 +15,17 @@ class DockerCommandsTest {
     private static final String ID2 = "9a8b7c6d5e4f" + "1".repeat(52);
 
     @Test
+    void plainListHasNoStatsAndStillParses() {
+        assertFalse(DockerCommands.listPlain().contains("stats"), "개요용 목록은 사용량을 재지 않는다");
+        String out = "@@ps\n{\"ID\":\"" + ID1 + "\",\"Names\":\"web\",\"Image\":\"nginx\",\"State\":\"running\","
+                + "\"Status\":\"Up 3 days\",\"Ports\":\"\"}\n";
+        DockerCommands.Listing l = DockerCommands.parseList(out);
+        assertEquals(DockerCommands.Listing.Status.OK, l.status());
+        assertEquals(1, l.containers().size());
+        assertEquals(-1, l.containers().getFirst().cpuPercent(), 1e-9, "사용량을 모르면 -1");
+    }
+
+    @Test
     void parsesContainersAndStats() {
         String out = String.join("\n",
                 "@@ps",

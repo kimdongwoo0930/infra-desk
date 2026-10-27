@@ -212,6 +212,11 @@ public class MinaShellConnector implements ShellConnector, AutoCloseable {
         pool.maintain();
     }
 
+    @Override
+    public java.util.List<OpenConnection> openConnections() {
+        return pool.snapshot();
+    }
+
     /** 테스트용: 지금 열려 있는 풀 연결 수. */
     int pooledConnections() {
         return pool.openCount();

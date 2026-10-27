@@ -41,6 +41,7 @@ public class MainFrame extends JFrame {
 
     private static final String EMPTY = "empty";
     private static final String DETAIL = "detail";
+    private static final String OVERVIEW = "overview";
 
     private final InventoryService service;
     private final TerminalService terminalService;
@@ -49,6 +50,14 @@ public class MainFrame extends JFrame {
     /** 업데이트를 제자리에 설치한다. Gradle로 실행 중(패키징된 앱이 아님)이거나 데모 모드이면 null. */
     private com.infradesk.service.UpdateInstaller updateInstaller;
     private final com.infradesk.service.ContainerService containerService;
+    /** 개요가 서버 여러 대의 정보를 한 번에 2대씩 읽는다(조회용 연결, 값은 5분 재사용). */
+    private final com.infradesk.service.FleetService fleet;
+    private final com.infradesk.ui.fleet.FleetScreen fleetScreen = new com.infradesk.ui.fleet.FleetScreen();
+    /** 앱의 첫 화면(개요)이 보이는 중인지. */
+    private boolean overviewVisible;
+    /** 개요에서 읽는 중인 서버 수와, 그 읽기를 구별하는 번호(오래된 읽기의 끝은 세지 않는다). */
+    private int fleetPending;
+    private int fleetRun;
     private final java.util.Map<String, java.util.Map.Entry<java.time.Instant, com.infradesk.ssh.DockerCommands.Listing>> containerCache =
             new java.util.HashMap<>();
     private final com.infradesk.app.LaunchAtLogin launchAtLogin = com.infradesk.app.LaunchAtLogin.forCurrentOs();
@@ -79,6 +88,9 @@ public class MainFrame extends JFrame {
     /** 상태 막대의 "실시간 켜짐/꺼짐" 항목. 실시간이 켜지거나 꺼질 때 글자를 바꾼다. */
     private JLabel liveStatus;
     private JLabel transferStatus;
+    private JLabel sshStatus;
+    /** 접속 풀이 열어 둔 연결을 3초마다 읽어 상태 막대와 설정의 연결 표를 갱신한다(메모리만 읽고 접속하지 않는다). */
+    private final Timer connectionTimer = new Timer(3000, e -> updateConnectionStatus());
     private JLabel terminalStatus;
     /** 메트릭(차트)을 새로 읽는 주기. 타이머와 상태 막대 문구가 같은 값을 쓴다. */
     private static final java.time.Duration METRICS_INTERVAL = java.time.Duration.ofMinutes(1);
@@ -139,6 +151,7 @@ public class MainFrame extends JFrame {
         this.alerts = alerts;
         this.updates = updates;
         this.containerService = new com.infradesk.service.ContainerService(terminalService);
+        this.fleet = new com.infradesk.service.FleetService(terminalService, containerService);
         this.terminalView = new TerminalView(terminalService, this::editSshSettings);
         this.live = new com.infradesk.ui.metrics.LiveController(new LiveHooks(), new SwingTimeout());
         this.demoMode = demoMode;
@@ -206,6 +219,7 @@ public class MainFrame extends JFrame {
 
         content.setBackground(Theme.APP_BG);
         content.add(emptyState(), EMPTY);
+        content.add(com.infradesk.ui.fleet.FleetScreen.scrolling(fleetScreen), OVERVIEW);
         content.add(detail, DETAIL);   // 스크롤은 ServerScreen 안의 본문 영역이 가진다(머리와 탭 줄은 고정)
 
         // 사이드바와 본문 사이의 손잡이를 끌어 폭을 바꾼다. 폭에 따라 이름만 보이거나(SidebarWidth) 자동으로 닫힌다.
@@ -230,7 +244,9 @@ public class MainFrame extends JFrame {
         // 설정은 모달 창이 아니라 메인 창 안의 화면이다(디자인 v2): 사이드바 + 서버 화면과 번갈아 보인다.
         settingsScreen = new com.infradesk.ui.settings.SettingsScreen(alerts, demoMode, updates, launchAtLogin,
                 updates == null ? null : () -> checkForUpdate(true),
-                () -> detail.metrics().setAlert(alerts.settings()));   // 알림 기준이 바뀌면 모니터링 탭의 기준선도 바뀐다
+                () -> detail.metrics().setAlert(alerts.settings()),   // 알림 기준이 바뀌면 모니터링 탭의 기준선도 바뀐다
+                new com.infradesk.ui.settings.ConnectionPage.Source(terminalService::openConnections, this::serverNames,
+                        terminalView::sessionCount));
         settingsScreen.onBack(this::closeSettings);
         screenSwitch.add(sidebarSplit, MAIN_SCREEN);
         screenSwitch.add(settingsScreen, SETTINGS_SCREEN);
@@ -239,6 +255,7 @@ public class MainFrame extends JFrame {
         root.add(statusBar, BorderLayout.SOUTH);
         setContentPane(root);
         EditMenu.install(this);
+        connectionTimer.start();
 
         terminalView.onCountChange(this::updateTerminalCounts);
         // 터미널 탭이 비어 있을 때의 [접속]: SSH 설정이 없으면 설정 창을 먼저 띄우고, 접속해서 셸 세션을 연다.
@@ -292,6 +309,18 @@ public class MainFrame extends JFrame {
         sidebar.onRemoveAccount(this::removeAccount);
         sidebar.onEditAccount(this::editAccount);
         sidebar.onSelect(this::showServer);
+        sidebar.onOverview(this::showOverview);
+        // 개요의 카드: 누르면 그 서버, 버튼은 그 서버 화면의 탭으로(접속은 그 탭이 필요할 때 한다)
+        fleetScreen.onOpenServer(server -> {
+            showServer(server);
+            detail.showOverviewTab();
+        });
+        fleetScreen.onOpenTab(this::openServerTab);
+        fleetScreen.onStart(server -> {
+            showServer(server);
+            runAction(ServerAction.START);
+        });
+        fleetScreen.onRefresh(() -> readFleet(true));
         detail.onAction(this::runAction);
         showEmpty();
 
@@ -310,10 +339,22 @@ public class MainFrame extends JFrame {
         detail.metrics().onRangeChanged(() -> findServer(selectedServerId).ifPresent(s -> loadMetrics(s, true)));
     }
 
-    /**
-     * 아래 상태 막대의 항목을 채운다. 왼쪽은 "지금 상태", 오른쪽은 "설정과 버전"이다.
-     * 읽을 데이터가 있는 항목은 연결하고, 없는 것은 준비 중으로 자리만 둔다.
-     */
+    /** 서버 id → 이름(설정의 연결 표가 서버 이름을 보여 주려고 쓴다). */
+    private java.util.Map<String, String> serverNames() {
+        java.util.Map<String, String> names = new java.util.LinkedHashMap<>();
+        for (Server s : allServers()) {
+            names.put(s.id(), s.name());
+        }
+        return names;
+    }
+
+    private void updateConnectionStatus() {
+        sshStatus.setText(com.infradesk.ui.ConnectionSummary.statusBar(terminalService.openConnections()));
+        if (settingsVisible) {
+            settingsScreen.refreshConnections();
+        }
+    }
+
     /** 상태 막대의 "전송 N개 진행 중 · 63%". 진행 중인 전송이 없으면 숨긴다. */
     private void updateTransferStatus() {
         var progress = detail.files().transferProgress();
@@ -326,10 +367,14 @@ public class MainFrame extends JFrame {
         return "전송 " + active + "개 진행 중" + (percent >= 0 ? " · " + percent + "%" : "");
     }
 
+    /**
+     * 아래 상태 막대의 항목을 채운다. 왼쪽은 "지금 상태", 오른쪽은 "설정과 버전"이다.
+     * 읽을 데이터가 있는 항목은 연결하고, 없는 것은 준비 중으로 자리만 둔다.
+     */
     private void buildStatusBar() {
         // 준비 중(v2): SSH 연결 수·용도. SessionPool이 지금 열린 연결을 읽어 주는 방법이 아직 없다
         // (docs/design/v2/GAPS.md "먼저 상의해야 하는 것" 5번). 정해지면 이 항목에 연결한다.
-        com.infradesk.ui.components.ComingSoon.apply(statusBar.addLeft("SSH 연결 —"));
+        sshStatus = statusBar.addLeft("SSH 연결 없음");
         liveStatus = statusBar.addLeft("실시간 꺼짐");
         // 파일 탭의 전송이 있을 때만 보인다(서버를 바꿔도 이어지는 전송을 어디서든 알 수 있게).
         transferStatus = statusBar.addLeft(" ");
@@ -644,6 +689,7 @@ public class MainFrame extends JFrame {
         }
         LOG.info("Quitting");
         live.stop();
+        connectionTimer.stop();
         terminalView.closeAll();
         detail.files().closeAll();
         tray.ifPresent(TrayController::remove);
@@ -757,6 +803,7 @@ public class MainFrame extends JFrame {
             merged.putAll(sshMetrics.latestCpu());
             lastCpu = merged;
             sidebar.setCpu(merged);
+            updateFleetView();
             tray.ifPresent(t -> t.update(inventory, merged, lastRefreshAt));
             if (server.id().equals(metricsServerId) && !liveActive()) {
                 showDirectHistory(server.id());
@@ -786,6 +833,7 @@ public class MainFrame extends JFrame {
                 alerts.onCpu(cpu);
             }
             lastCpu = cpu;
+            updateFleetView();
             tray.ifPresent(t -> t.update(inventory, cpu, lastRefreshAt));
         }, err -> { });
     }
@@ -1400,14 +1448,15 @@ public class MainFrame extends JFrame {
         detail.files().retainOnly(allServers().stream().map(Server::id).collect(java.util.stream.Collectors.toSet()));
         sampleDirectServers(true);
 
+        // 주기적으로 목록이 갱신될 때는 설정 화면을 닫지 않는다(서버나 개요를 "고르는" 것이 아니다)
         Optional<Server> selected = findServer(selectedServerId);
         if (selected.isPresent()) {
-            showServer(selected.get());
-        } else if (selectedServerId == null) {
-            inventory.stream().flatMap(i -> i.servers().stream()).findFirst().ifPresentOrElse(this::showServer, this::showEmpty);
-        } else {
+            showServerView(selected.get());
+        } else if (inventory.isEmpty()) {
             selectedServerId = null;
             showEmpty();
+        } else {
+            showOverviewView();   // 처음이거나, 보던 서버가 목록에서 사라졌다
         }
         scheduleNext();
         if (!cpuLoadedOnce && !inventory.isEmpty()) {
@@ -1416,13 +1465,24 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /** 사용자가 서버를 골랐다(사이드바, 개요의 카드, 트레이). 설정 화면이 열려 있으면 닫고 그 서버를 보여 준다. */
     void showServer(Server server) {
         if (settingsVisible) {
-            closeSettings();   // 서버를 고르면(사이드바·트레이) 설정에서 나와 그 서버를 보여 준다
+            closeSettings();
         }
+        showServerView(server);
+    }
+
+    private void showServerView(Server server) {
         Optional<Account> account = accountOf(server);
         if (account.isEmpty()) {
             return;
+        }
+        if (overviewVisible) {
+            overviewVisible = false;
+            fleet.cancel();   // 개요를 떠나면 아직 시작하지 않은 서버 읽기는 그만둔다
+            fleetPending = 0;
+            fleetScreen.setReading(false);
         }
         boolean switched = !server.id().equals(metricsServerId);
         selectedServerId = server.id();
@@ -1442,9 +1502,79 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /** 개요(앱의 첫 화면)를 보여 준다. 설정 화면이 열려 있으면 닫는다. */
+    private void showOverview() {
+        if (settingsVisible) {
+            closeSettings();
+        }
+        showOverviewView();
+    }
+
+    private void showOverviewView() {
+        boolean already = overviewVisible;
+        live.stop();
+        metricsServerId = null;
+        selectedServerId = null;
+        overviewVisible = true;
+        sidebar.selectOverview();
+        cards.show(content, OVERVIEW);
+        updateFleetView();
+        if (!already) {
+            readFleet(false);
+        } else if (fleetPending == 0) {
+            readFleet(false);   // 목록이 갱신됐다: 새 서버나 오래된 값만 읽는다
+        }
+    }
+
+    /** 개요의 카드와 요약을 지금 가진 값으로 다시 그린다. */
+    private void updateFleetView() {
+        if (overviewVisible) {
+            fleetScreen.setData(inventory, lastCpu, fleet::latest, terminalService::isConfigured);
+        }
+    }
+
+    /**
+     * 개요에 보이는 서버들의 정보(메모리, 디스크, 업타임, 컨테이너)를 SSH로 읽는다. 한 번에 2대씩이고, 5분 안에 읽은
+     * 서버는 건너뛴다. {@code force}면(새로고침) 값이 있어도 다시 읽는다.
+     */
+    private void readFleet(boolean force) {
+        int run = ++fleetRun;
+        int started = fleet.read(allServers(), force, reading ->
+                javax.swing.SwingUtilities.invokeLater(() -> onFleetReading(reading, run)));
+        fleetPending = started;
+        fleetScreen.setReading(started > 0);
+    }
+
+    private void onFleetReading(com.infradesk.service.FleetService.Reading reading, int run) {
+        if (reading.facts() != null) {
+            factsCache.put(reading.serverId(), java.util.Map.entry(reading.at(), reading.facts()));   // 서버 화면도 이 값을 쓴다
+        }
+        updateFleetView();
+        if (run != fleetRun) {
+            return;   // 그 사이 새 읽기가 시작됐다: 이 읽기의 끝은 세지 않는다
+        }
+        fleetPending = Math.max(0, fleetPending - 1);
+        if (fleetPending == 0) {
+            fleetScreen.setReading(false);
+            fleetScreen.setReadAt(java.time.LocalTime.now());
+        }
+    }
+
+    /** 개요 카드의 [SSH] [파일] [모니터링]: 그 서버 화면을 열고 해당 탭으로 간다. 이 동작이 서버에 접속하지는 않는다. */
+    private void openServerTab(Server server, String tab) {
+        showServer(server);
+        switch (tab) {
+            case ServerScreen.TAB_TERMINAL -> detail.showTerminalTab();
+            case ServerScreen.TAB_FILES -> detail.showFilesTab();
+            case ServerScreen.TAB_MONITORING -> detail.showMonitoringTab();
+            default -> detail.showOverviewTab();
+        }
+    }
+
     private void showEmpty() {
         live.stop();
         metricsServerId = null;
+        overviewVisible = false;
         boolean noAccounts = inventory.isEmpty();
         emptyTitle.setText(noAccounts ? "계정을 추가하세요" : "서버를 선택하세요");
         emptyHint.setText(noAccounts

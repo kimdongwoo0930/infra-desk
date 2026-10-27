@@ -18,7 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SettingsPagesTest {
 
     private static SettingsScreen screen(Runnable onBack) {
-        SettingsScreen screen = new SettingsScreen(InfraDeskApp.demoAlertService(), true, null, null, null, () -> { });
+        SettingsScreen screen = new SettingsScreen(InfraDeskApp.demoAlertService(), true, null, null, null, () -> { },
+                ConnectionPage.Source.none());
         screen.onBack(onBack);
         return screen;
     }

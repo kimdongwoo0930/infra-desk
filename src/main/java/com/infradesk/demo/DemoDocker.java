@@ -120,7 +120,8 @@ final class DemoDocker {
                 }
                 i++;
             }
-            return ps.toString() + stats;
+            // 개요가 쓰는 가벼운 목록(DockerCommands.listPlain)에는 stats가 없다
+            return command.contains(DockerCommands.STATS) ? ps.toString() + stats : ps.toString();
         }
         Matcher logs = LOGS.matcher(command);
         if (logs.find()) {

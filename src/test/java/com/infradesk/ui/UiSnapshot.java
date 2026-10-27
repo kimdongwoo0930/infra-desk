@@ -30,6 +30,12 @@ public final class UiSnapshot {
     private UiSnapshot() {
     }
 
+    /** 앱의 첫 화면은 개요다. 서버 화면을 찍는 시나리오는 첫 서버를 직접 고른다. */
+    private static void setInventoryAndOpenFirst(MainFrame frame, List<AccountInventory> inventory) {
+        frame.setInventory(inventory);
+        inventory.stream().flatMap(i -> i.servers().stream()).findFirst().ifPresent(frame::showServer);
+    }
+
     public static void main(String[] args) throws Exception {
         DIR.mkdirs();
         InventoryService service = InfraDeskApp.demoService(new DemoProviderFactory(Clock.systemUTC(), Duration.ZERO));
@@ -45,7 +51,7 @@ public final class UiSnapshot {
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
             mainFrame[0] = new MainFrame(service, fastLiveTerminalService(), InfraDeskApp.demoAlertService(), true);
-            mainFrame[0].setInventory(inventory);
+            setInventoryAndOpenFirst(mainFrame[0], inventory);
         });
         // 디자인 v2 공통 부품 모음 (v2-components.png)
         SwingUtilities.invokeAndWait(() -> {
@@ -134,7 +140,7 @@ public final class UiSnapshot {
                 }
 
                 MainFrame stoppingFrame = new MainFrame(stoppingService, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
-                stoppingFrame.setInventory(stopping);
+                setInventoryAndOpenFirst(stoppingFrame, stopping);
                 write(stoppingFrame, stoppingFrame.getContentPane(), 1280, 800, "main-stopping.png");
                 stoppingFrame.dispose();
 
@@ -158,7 +164,16 @@ public final class UiSnapshot {
                         java.net.URI.create("http://127.0.0.1:1"), "x", null);
                 // 설정 화면(디자인 v2): 메인 창 안의 화면. 항목마다 한 장씩 찍는다.
                 var settingsScreen = new com.infradesk.ui.settings.SettingsScreen(InfraDeskApp.demoAlertService(), false,
-                        updates, com.infradesk.app.LaunchAtLogin.forCurrentOs(), () -> { }, () -> { });
+                        updates, com.infradesk.app.LaunchAtLogin.forCurrentOs(), () -> { }, () -> { },
+                        new com.infradesk.ui.settings.ConnectionPage.Source(() -> List.of(
+                                new com.infradesk.ssh.OpenConnection("a", com.infradesk.ssh.Purpose.QUERY,
+                                        java.time.Instant.now().minus(java.time.Duration.ofMinutes(192)), java.time.Instant.now(), 0),
+                                new com.infradesk.ssh.OpenConnection("a", com.infradesk.ssh.Purpose.FILES,
+                                        java.time.Instant.now().minus(java.time.Duration.ofMinutes(190)), java.time.Instant.now(), 0),
+                                new com.infradesk.ssh.OpenConnection("c", com.infradesk.ssh.Purpose.QUERY,
+                                        java.time.Instant.now().minus(java.time.Duration.ofMinutes(64)), java.time.Instant.now(), 0)),
+                                () -> java.util.Map.of("a", "discord-bot", "b", "api-gateway", "c", "mac-mini", "d", "web-server"),
+                                () -> 2));
                 for (String page : new String[] {"general", "alerts", "security", "connection", "about"}) {
                     settingsScreen.show(page);
                     write(frame, settingsScreen, 1280, 800, "settings-" + page + ".png");
@@ -219,6 +234,21 @@ public final class UiSnapshot {
                 empty.dispose();
             } catch (IOException e) {
                 throw new RuntimeException(e);
+            }
+        });
+        // 개요(앱의 첫 화면, 디자인 v2 9단계): 서버 정보를 한 번에 2대씩 SSH(데모)로 읽어 오므로 잠깐 기다린 뒤 찍는다.
+        MainFrame[] overviewFrame = new MainFrame[1];
+        SwingUtilities.invokeAndWait(() -> {
+            overviewFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
+            overviewFrame[0].setInventory(inventory);
+        });
+        Thread.sleep(3000);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(overviewFrame[0], overviewFrame[0].getContentPane(), 1280, 1100, "overview.png");
+                write(overviewFrame[0], overviewFrame[0].getContentPane(), 980, 1500, "overview-narrow.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
             }
         });
         // 직접 연결한 Mac mini: 상세 정보와 첫 SSH 샘플이 비동기로 도착한다.
@@ -356,7 +386,7 @@ public final class UiSnapshot {
         MainFrame[] terminalFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
             terminalFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
-            terminalFrame[0].setInventory(inventory);
+            setInventoryAndOpenFirst(terminalFrame[0], inventory);
             terminalFrame[0].addNotify();
             terminalFrame[0].getContentPane().setSize(1280, 800);
             layoutAll(terminalFrame[0].getContentPane());

@@ -194,6 +194,47 @@ class SessionPoolTest {
         assertEquals(2, created.get(), "조회는 터미널과 별개로 새 연결을 맺는다");
     }
 
+    // ---- 열린 연결 목록(읽기 전용) ----
+
+    @Test
+    void listsTheOpenPooledConnectionsWithoutOpeningAnyNewOne() throws Exception {
+        assertEquals(List.of(), connector.openConnections(), "아무것도 쓰기 전에는 비어 있다");
+
+        SshTarget t = target(pem);
+        query(t);
+        connector.sftp(Purpose.FILES, t, TRUST).close();
+        int sessionsBefore = created.get();
+
+        List<OpenConnection> open = connector.openConnections();
+
+        assertEquals(2, open.size());
+        assertEquals(List.of(Purpose.QUERY, Purpose.FILES), open.stream().map(OpenConnection::purpose).toList());
+        assertEquals("server-1", open.getFirst().serverId());
+        assertTrue(open.stream().allMatch(c -> c.active() == 0), "채널을 닫았으니 놀고 있다");
+        assertEquals(sessionsBefore, created.get(), "목록을 읽는다고 접속하지 않는다");
+    }
+
+    @Test
+    void aClosedConnectionDisappearsFromTheList() throws Exception {
+        SshTarget t = target(pem);
+        query(t);
+        assertEquals(1, connector.openConnections().size());
+
+        connector.invalidate("server-1");
+
+        eventually(() -> connector.openConnections().isEmpty(), "끊긴 연결은 목록에서 빠져야 한다");
+    }
+
+    @Test
+    void terminalsAreNotInTheList() throws Exception {
+        ShellSession shell = connector.open(target(pem), TRUST, 80, 24);
+        try {
+            assertEquals(List.of(), connector.openConnections(), "터미널은 풀 밖의 연결이다");
+        } finally {
+            shell.close();
+        }
+    }
+
     // ---- 실패 ----
 
     @Test

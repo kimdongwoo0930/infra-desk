@@ -35,6 +35,15 @@ public class ContainerService {
         return DockerCommands.parseList(r.output());
     }
 
+    /** {@link #list}에서 CPU·메모리 사용량을 뺀 목록. 여러 서버를 한꺼번에 읽는 개요가 쓴다(서버에 주는 부담이 훨씬 작다). */
+    public DockerCommands.Listing listPlain(Server server, HostKeyPrompt prompt) {
+        ExecResult r = terminal.run(Purpose.QUERY, server, DockerCommands.listPlain(), prompt, LIST_TIMEOUT);
+        if (r.error() != null) {
+            throw new IllegalStateException(r.error());
+        }
+        return DockerCommands.parseList(r.output());
+    }
+
     /** 컨테이너를 시작, 정지, 재시작한다. 실패하면 Docker의 메시지와 함께 예외를 던진다. */
     public void act(Server server, Container container, DockerCommands.Action action, HostKeyPrompt prompt) {
         LOG.info(() -> "docker " + action + " " + container.name() + " on " + server.name());

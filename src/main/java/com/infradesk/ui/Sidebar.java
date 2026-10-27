@@ -54,6 +54,10 @@ public class Sidebar extends JPanel {
     /** 이름만 보이는 좁은 모드인지. */
     private boolean compact;
     private final JPanel top = new JPanel(new BorderLayout());
+    private Runnable onOverview = () -> { };
+    /** 맨 위의 [개요] [활동 기록]. */
+    private final SidebarNavItem overviewItem = new SidebarNavItem("개요", "grid", () -> onOverview.run());
+    private final SidebarNavItem activityItem = new SidebarNavItem("활동 기록", "clock", () -> { });
     private final JPanel footer = new JPanel(new BorderLayout(8, 0));
 
     public Sidebar() {
@@ -113,7 +117,22 @@ public class Sidebar extends JPanel {
         addAccount.addActionListener(e -> showAddMenu());
         footer.add(settingsButton, BorderLayout.EAST);
 
-        add(top, BorderLayout.NORTH);
+        // 개요는 앱의 첫 화면이라 누르면 이쪽으로 돌아온다. 활동 기록은 저장소가 정해지면 만든다.
+        JPanel nav = new JPanel();
+        nav.setOpaque(false);
+        nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
+        nav.setBorder(BorderFactory.createEmptyBorder(10, 8, 0, 8));
+        nav.add(overviewItem);
+        nav.add(Box.createVerticalStrut(2));
+        // 준비 중(v2): 활동 기록
+        activityItem.comingSoon();
+        nav.add(activityItem);
+        JPanel topStack = new JPanel(new BorderLayout());
+        topStack.setOpaque(false);
+        topStack.add(nav, BorderLayout.NORTH);
+        topStack.add(top, BorderLayout.CENTER);
+
+        add(topStack, BorderLayout.NORTH);
         add(scroll, BorderLayout.CENTER);
         add(footer, BorderLayout.SOUTH);
         // 폭이 바뀌면(마우스로 끌 때) 이름만 모드로 바꿀지 다시 정한다. 닫혀서 폭이 0일 때는 건드리지 않는다.
@@ -143,6 +162,8 @@ public class Sidebar extends JPanel {
                 BorderFactory.createEmptyBorder(12, compact ? 8 : 12, 12, compact ? 8 : 12)));
         addAccount.setText(compact ? "" : "계정·서버 추가");
         addAccount.setToolTipText(compact ? "계정·서버 추가" : null);
+        overviewItem.setCompact(compact);
+        activityItem.setCompact(compact);
         rebuild();   // 서버 행과 계정 헤더를 새 모드로 다시 만든다
     }
 
@@ -209,7 +230,18 @@ public class Sidebar extends JPanel {
         rebuild();
     }
 
+    /** [개요]를 눌렀다. */
+    public void onOverview(Runnable listener) {
+        this.onOverview = listener;
+    }
+
+    /** 개요를 보고 있다: [개요]를 강조하고 서버 행의 선택은 푼다. */
+    public void selectOverview() {
+        select(null);
+    }
+
     public void select(String serverId) {
+        overviewItem.setSelected(serverId == null);
         selectedServerId = serverId;
         for (ServerListItem item : items) {
             item.setSelected(item.server().id().equals(serverId));

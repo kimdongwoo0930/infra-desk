@@ -61,6 +61,10 @@ SshTarget(호스트, 포트, 사용자, 개인키)
 - **재시도는 "재사용하던 연결이 죽어 있었을 때"만 한다.** 새로 맺은 연결에서 난 실패는 다시 시도하지 않는다(인증 실패가 서버 로그에 두 배로 쌓이지 않게).
 - **터미널 탭은 풀 밖이다.** 사용자가 열고 닫는 연결이라 탭마다 따로 맺고, 닫으면 연결째 닫힌다.
 
+### 열린 연결 읽기 (`OpenConnection`)
+
+`SessionPool.snapshot()`이 지금 풀이 들고 있는 연결을 `OpenConnection`(서버 id, 목적, 연 시각, 마지막 사용 시각, 지금 채널이 열려 있는지) 목록으로 돌려준다. 메모리만 읽고 접속하지 않으며, 풀이 일하는 중이면(잠금을 못 잡으면) 기다리지 않고 건너뛴다. 상태 막대의 "SSH 연결 3 · 조회 2 · 파일 1"과 설정 "연결·조회"의 표가 3초마다 읽는다(`ShellConnector.openConnections()` → `TerminalService.openConnections()`). 터미널 탭은 풀 밖이라 여기에 없고, 화면이 따로 센다.
+
 ### 채널과 연결의 `close()`
 `ShellSession.close()`와 `RemoteFiles.close()`는 **채널만 닫고 연결은 풀에 돌려준다.** 풀에서 빌린 연결(`SessionLease`)을 돌려주는 것이고, 풀 밖에서 맺은 터미널 연결은 돌려주면 닫는다. 같은 목적의 SFTP 두 개는 연결 하나 위의 채널 둘이다.
 
@@ -111,9 +115,9 @@ SshTarget(호스트, 포트, 사용자, 개인키)
 
 | 클래스 | 역할 |
 |---|---|
-| `HostFacts` | SSH 한 번으로 업타임·OS·루트 디스크·열린 포트 읽기 (서버 상세의 정보 칸) |
+| `HostFacts` | SSH 한 번으로 업타임·OS·루트 디스크·메모리(전체와 사용량)·열린 포트 읽기 (서버 상세의 정보 칸, 개요의 카드). 메모리 사용량은 Linux는 전체 − `MemAvailable`, macOS는 `vm_stat`의 active + wired + 압축분이다 |
 | `ProcStats` | 원격 `/proc` 스냅샷 명령, 파싱, 두 스냅샷 사이 사용률 계산 (실시간 모드) |
-| `DockerCommands`, `Container` | SSH로 실행할 Docker 명령(컨테이너 ID는 16진수만 허용)과 결과 파싱. `docker exec -it`로 컨테이너 셸·DB 콘솔도 연다 |
+| `DockerCommands`, `Container` | SSH로 실행할 Docker 명령(컨테이너 ID는 16진수만 허용)과 결과 파싱. `list()`는 `ps`와 `stats`를, `listPlain()`은 `ps`만 실행한다(여러 서버를 읽는 개요가 쓴다). `docker exec -it`로 컨테이너 셸·DB 콘솔도 연다 |
 | `RemoteFiles`, `RemoteFile`, `Transfers` | SFTP 작업: 목록·`stat`, 업로드·다운로드(오프셋을 주면 이어받기·이어올리기, 진행률 콜백이 예외를 던지면 취소), `mkdir`, `createFile`(빈 파일, 같은 이름이 있으면 덮어쓰지 않고 실패), `rename`, `chmod`, 삭제. `deleteRecursively`는 폴더를 통째로 지우되 **심볼릭 링크는 따라가지 않고 링크만 지운다**. `RemoteFile`은 권한(`rwxr-xr-x`)과 링크 여부를 가진다 |
 | `TransferQueue` | 파일·폴더 전송 대기열(아래) |
 | `ReconnectingFiles` | `RemoteFiles`를 감싸서 쓸 때 연결하고, 안 쓰면 풀에 돌려주고, 끊기면 다시 맺는다(위 "오래 열어 두는 화면과 풀"). 파일 탭의 탐색 연결이 쓴다 |

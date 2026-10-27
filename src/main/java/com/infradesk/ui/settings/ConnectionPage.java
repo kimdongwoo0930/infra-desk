@@ -1,6 +1,9 @@
 package com.infradesk.ui.settings;
 
 import com.infradesk.service.RefreshPolicy;
+import com.infradesk.ssh.OpenConnection;
+import com.infradesk.ssh.Purpose;
+import com.infradesk.ui.ConnectionSummary;
 import com.infradesk.ui.Theme;
 import com.infradesk.ui.components.Buttons;
 import com.infradesk.ui.components.ComingSoon;
@@ -8,8 +11,9 @@ import com.infradesk.ui.metrics.LiveController;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.GridLayout;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -31,7 +35,12 @@ public final class ConnectionPage extends SettingsPage {
     static final Duration CONNECTION_LIFETIME = Duration.ofHours(12);
 
     public ConnectionPage() {
+        this(Source.none());
+    }
+
+    public ConnectionPage(Source source) {
         super(ID, "연결·조회", "연결·조회", "얼마나 자주 묻고, SSH 연결을 어떻게 유지할지");
+        this.source = source;
 
         SettingsCard card = new SettingsCard();
         card.add(new SettingsRow("서버 상태 새로고침",
@@ -50,8 +59,25 @@ public final class ConnectionPage extends SettingsPage {
         addCard(openConnections());
     }
 
-    /** "지금 열린 SSH 연결" 표: 서버 × 용도. 연결 목록을 읽는 방법이 아직 없어서 틀과 안내만 둔다(준비 중). */
-    private static JPanel openConnections() {
+    /**
+     * 설정 화면이 이 항목에 알려 주는 것: 풀이 열어 둔 연결 목록, 서버 id → 이름, 열려 있는 터미널 탭 수.
+     * 모두 이미 메모리에 있는 값을 읽을 뿐이라 서버에 접속하지 않는다.
+     */
+    public record Source(java.util.function.Supplier<List<OpenConnection>> connections,
+                         java.util.function.Supplier<java.util.Map<String, String>> serverNames,
+                         java.util.function.IntSupplier terminalTabs) {
+        static Source none() {
+            return new Source(List::of, java.util.Map::of, () -> 0);
+        }
+    }
+
+    private final Source source;
+    private final JPanel table = new JPanel(new java.awt.GridBagLayout());
+    private final JLabel summary = new JLabel(" ");
+    private final JLabel note = new JLabel(" ");
+
+    /** "지금 열린 SSH 연결" 표: 서버 × 용도. 서버마다 어느 용도의 연결이 열려 있는지와 얼마나 되었는지를 보여 준다. */
+    private JPanel openConnections() {
         SettingsCard card = new SettingsCard();
 
         JPanel head = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
@@ -59,47 +85,129 @@ public final class ConnectionPage extends SettingsPage {
         head.setBorder(BorderFactory.createEmptyBorder(16, 24, 12, 24));
         JLabel title = new JLabel("지금 열린 SSH 연결");
         title.setFont(title.getFont().deriveFont(java.awt.Font.BOLD, 14f));
-        JLabel sub = new JLabel("서버마다 용도별로 하나씩");
-        sub.setForeground(Theme.TEXT_MUTED);
+        summary.setForeground(Theme.TEXT_MUTED);
         head.add(title);
         head.add(javax.swing.Box.createHorizontalStrut(10));
-        head.add(sub);
-        head.add(javax.swing.Box.createHorizontalStrut(10));
-        head.add(ComingSoon.badge());
+        head.add(summary);
         card.add(head);
 
-        JPanel columns = new JPanel(new GridLayout(1, 6));
-        columns.setOpaque(false);
-        columns.setBorder(BorderFactory.createEmptyBorder(10, 24, 10, 24));
-        for (String name : new String[] {"서버", "조회", "명령", "파일", "전송", "상태"}) {
-            JLabel l = new JLabel(name);
-            l.setForeground(Theme.TEXT_MUTED);
-            columns.add(l);
-        }
-        card.add(columns);
+        table.setOpaque(false);
+        table.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 24));
+        card.add(table);
 
-        JLabel empty = new JLabel("열린 연결을 보여 주는 기능은 준비 중이에요.");
-        empty.setForeground(Theme.TEXT_MUTED);
-        JPanel emptyBox = new JPanel(new BorderLayout());
-        emptyBox.setOpaque(false);
-        emptyBox.setBorder(BorderFactory.createEmptyBorder(18, 24, 18, 24));
-        emptyBox.add(empty);
-        card.add(emptyBox);
-
-        JLabel note = new JLabel("터미널 탭은 이 표와 따로 연결돼요. 서버를 바꾸는 명령(명령 연결)은 실패해도 저절로 다시 보내지 않아요.");
         note.setForeground(Theme.TEXT_MUTED);
+        note.setMinimumSize(new Dimension(0, note.getPreferredSize().height));
         JButton closeAll = Buttons.danger("모든 연결 끊기", null);
         JPanel foot = new JPanel(new BorderLayout(16, 0));
         foot.setOpaque(false);
         foot.setBorder(BorderFactory.createEmptyBorder(14, 24, 14, 24));
-        note.setMinimumSize(new Dimension(0, note.getPreferredSize().height));
         foot.add(note, BorderLayout.CENTER);
+        // 준비 중: 모든 연결 끊기. 목록을 읽는 것은 됐지만 끊는 동작(쓰는 중인 전송 등을 어떻게 할지)은 정해야 한다.
         foot.add(ComingSoon.apply(closeAll), BorderLayout.EAST);
         card.add(foot);
         JPanel wrap = new JPanel();
         wrap.setOpaque(false);
         wrap.setLayout(new BoxLayout(wrap, BoxLayout.Y_AXIS));
         wrap.add(card);
+        refresh();
         return wrap;
+    }
+
+    /** 열린 연결 표를 지금 상태로 다시 그린다. 이 항목이 보일 때 주기적으로 불린다. */
+    public void refresh() {
+        List<OpenConnection> connections = source.connections().get();
+        java.util.Map<String, String> names = source.serverNames().get();
+        summary.setText("서버마다 용도별로 하나씩 · 연결 " + connections.size() + "개");
+        int tabs = source.terminalTabs().getAsInt();
+        note.setText((tabs > 0 ? "터미널 탭 " + tabs + "개는 이 표와 따로 연결돼요. " : "터미널 탭은 이 표와 따로 연결돼요. ")
+                + "서버를 바꾸는 명령(명령 연결)은 실패해도 저절로 다시 보내지 않아요.");
+
+        table.removeAll();
+        addHeader();
+        // 연결이 있는 서버를 앞에, 없는 서버를 뒤에(각각 이름순).
+        List<String> ids = new java.util.ArrayList<>(names.keySet());
+        for (OpenConnection c : connections) {
+            if (!ids.contains(c.serverId())) {
+                ids.add(c.serverId());   // 목록에 없는 서버(지운 서버 등)의 연결도 숨기지 않는다
+            }
+        }
+        ids.sort(java.util.Comparator
+                .comparing((String id) -> connections.stream().noneMatch(c -> c.serverId().equals(id)))
+                .thenComparing(id -> names.getOrDefault(id, id)));
+        Instant now = Instant.now();
+        int row = 1;
+        for (String id : ids) {
+            List<OpenConnection> mine = connections.stream().filter(c -> c.serverId().equals(id)).toList();
+            addRow(row++, names.getOrDefault(id, id), mine, ConnectionSummary.rowStatus(mine, now));
+        }
+        if (ids.isEmpty()) {
+            JLabel empty = new JLabel("서버가 없어요.");
+            empty.setForeground(Theme.TEXT_MUTED);
+            java.awt.GridBagConstraints c = cell(0, 1, 6, 1);
+            c.insets = new java.awt.Insets(14, 0, 14, 0);
+            table.add(empty, c);
+        }
+        table.revalidate();
+        table.repaint();
+    }
+
+    private static java.awt.GridBagConstraints cell(int x, int y, int width, double weight) {
+        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
+        c.gridx = x;
+        c.gridy = y;
+        c.gridwidth = width;
+        c.weightx = weight;
+        c.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        c.anchor = java.awt.GridBagConstraints.WEST;
+        return c;
+    }
+
+    private void addHeader() {
+        String[] names = {"서버", "조회", "명령", "파일", "전송", "상태"};
+        double[] weights = {3, 1, 1, 1, 1, 4};
+        for (int i = 0; i < names.length; i++) {
+            JLabel l = new JLabel(names[i], i >= 1 && i <= 4 ? javax.swing.SwingConstants.CENTER : javax.swing.SwingConstants.LEFT);
+            l.setForeground(Theme.TEXT_MUTED);
+            l.putClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE, "font: -1");
+            java.awt.GridBagConstraints c = cell(i, 0, 1, weights[i]);
+            c.insets = new java.awt.Insets(8, 0, 8, 8);
+            table.add(l, c);
+        }
+    }
+
+    private void addRow(int y, String name, List<OpenConnection> mine, String status) {
+        double[] weights = {3, 1, 1, 1, 1, 4};
+        JLabel serverName = new JLabel(name);
+        serverName.setFont(serverName.getFont().deriveFont(java.awt.Font.BOLD));
+        java.awt.GridBagConstraints c0 = cell(0, y, 1, weights[0]);
+        c0.insets = new java.awt.Insets(10, 0, 10, 8);
+        table.add(serverName, c0);
+        Purpose[] order = {Purpose.QUERY, Purpose.COMMAND, Purpose.FILES, Purpose.TRANSFER};
+        for (int i = 0; i < order.length; i++) {
+            Purpose purpose = order[i];
+            boolean open = mine.stream().anyMatch(c -> c.purpose() == purpose);
+            JLabel mark = new JLabel(open ? "●" : "—", javax.swing.SwingConstants.CENTER);
+            mark.setForeground(open ? Theme.RUNNING_DOT : Theme.DIVIDER);
+            // 색만으로 구분하지 않는다: 열린 연결은 점, 없는 칸은 줄표.
+            mark.setToolTipText(ConnectionSummary.label(purpose) + (open ? " 연결이 열려 있어요" : " 연결 없음"));
+            java.awt.GridBagConstraints c = cell(i + 1, y, 1, weights[i + 1]);
+            c.insets = new java.awt.Insets(10, 0, 10, 8);
+            table.add(mark, c);
+        }
+        JLabel state = new JLabel(status);
+        state.setForeground(mine.isEmpty() ? Theme.TEXT_MUTED : Theme.TEXT);
+        java.awt.GridBagConstraints c5 = cell(5, y, 1, weights[5]);
+        c5.insets = new java.awt.Insets(10, 0, 10, 0);
+        table.add(state, c5);
+    }
+
+    // ── 테스트에서 화면의 상태를 읽는 데 쓴다 ───────────────────
+
+    String summaryText() {
+        return summary.getText();
+    }
+
+    int tableRows() {
+        return table.getComponentCount() / 6;
     }
 }

@@ -82,6 +82,17 @@ public class FilterChip extends JToggleButton {
         return new Dimension(width, HEIGHT);
     }
 
+    // 최소·최대 크기를 따로 알려 주지 않으면 개수와 점이 빠진 기본 버튼 크기가 나와서, BoxLayout 같은 곳에서 칩이 잘린다.
+    @Override
+    public Dimension getMinimumSize() {
+        return getPreferredSize();
+    }
+
+    @Override
+    public Dimension getMaximumSize() {
+        return getPreferredSize();
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();

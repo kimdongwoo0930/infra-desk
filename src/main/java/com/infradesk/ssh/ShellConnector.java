@@ -36,6 +36,11 @@ public interface ShellConnector {
     default void setBackground(boolean background) {
     }
 
+    /** 풀이 지금 열어 두고 있는 연결들(읽기 전용). 풀을 쓰지 않는 구현은 빈 목록이다. */
+    default java.util.List<OpenConnection> openConnections() {
+        return java.util.List.of();
+    }
+
     /** 이 서버의 설정이 바뀌었거나 서버가 지워졌다. 이 서버의 풀 연결을 모두 끊는다. */
     default void invalidate(String serverId) {
     }

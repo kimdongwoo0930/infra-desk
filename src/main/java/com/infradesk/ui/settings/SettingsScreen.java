@@ -44,18 +44,20 @@ public final class SettingsScreen extends JPanel {
     private final List<SettingsPage> pages = new ArrayList<>();
     private final List<MenuButton> menu = new ArrayList<>();
     private final AboutPage about;
+    private final ConnectionPage connectionPage;
     private String shownId;
     private Runnable onBack = () -> { };
 
     public SettingsScreen(AlertService alerts, boolean demoMode, UpdateService updates, LaunchAtLogin launchAtLogin,
-                          Runnable checkNow, Runnable onAlertsChanged) {
+                          Runnable checkNow, Runnable onAlertsChanged, ConnectionPage.Source connections) {
         super(new BorderLayout());
         setBackground(Theme.APP_BG);
         about = new AboutPage(updates, demoMode, checkNow);
         pages.add(new GeneralPage(launchAtLogin, demoMode));
         pages.add(new AlertsPage(alerts, demoMode, onAlertsChanged));
         pages.add(new SecurityPage());
-        pages.add(new ConnectionPage());
+        connectionPage = new ConnectionPage(connections);
+        pages.add(connectionPage);
         pages.add(about);
 
         add(menuPanel(), BorderLayout.WEST);
@@ -141,9 +143,19 @@ public final class SettingsScreen extends JPanel {
             if (pages.get(i).id().equals(id)) {
                 shownId = id;
                 cards.show(body, id);
+                if (ConnectionPage.ID.equals(id)) {
+                    connectionPage.refresh();
+                }
                 menu.get(i).setSelected(true);
                 return;
             }
+        }
+    }
+
+    /** "연결·조회" 항목이 보이는 동안 열린 연결 표를 다시 그린다(주기적으로 불린다). 다른 항목이 보이면 아무것도 안 한다. */
+    public void refreshConnections() {
+        if (ConnectionPage.ID.equals(shownId)) {
+            connectionPage.refresh();
         }
     }
 

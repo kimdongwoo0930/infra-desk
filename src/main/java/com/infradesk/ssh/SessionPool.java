@@ -8,7 +8,9 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -279,6 +281,29 @@ final class SessionPool implements AutoCloseable {
                 e.lock.unlock();
             }
         }
+    }
+
+    /**
+     * 지금 열려 있는 연결들의 상태(읽기 전용, 서버 이름순 → 용도순). 연결을 만들거나 닫지 않고 화면에 보여 주기만
+     * 한다. 연결하는 중이거나 닫는 중이라 잠겨 있는 것은 이번에는 건너뛴다(곧 다음에 나온다).
+     */
+    List<OpenConnection> snapshot() {
+        List<OpenConnection> result = new ArrayList<>();
+        for (Entry e : entries.values()) {
+            if (!e.lock.tryLock()) {
+                continue;
+            }
+            try {
+                if (e.session != null && e.session.isOpen()) {
+                    result.add(new OpenConnection(e.key.id(), e.key.purpose(), e.createdAt, e.lastUsed, e.active));
+                }
+            } finally {
+                e.lock.unlock();
+            }
+        }
+        result.sort(java.util.Comparator.comparing(OpenConnection::serverId)
+                .thenComparing(c -> c.purpose().ordinal()));
+        return result;
     }
 
     /** 지금 열려 있는 연결 수(테스트·점검용). */
