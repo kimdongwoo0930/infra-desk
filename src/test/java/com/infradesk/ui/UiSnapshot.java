@@ -58,6 +58,7 @@ public final class UiSnapshot {
         Thread.sleep(800);
         // 컨테이너 탭 (디자인 v2 3단계): 탭을 열면 첫 컨테이너의 로그를 SSH(데모)로 읽어 오므로 잠깐 기다린 뒤 찍는다.
         // 찍은 뒤에는 개요 탭으로 되돌려서 아래의 다른 스냅샷이 달라지지 않게 한다.
+        com.infradesk.ui.containers.ContainerLogWindow[] logWindow = new com.infradesk.ui.containers.ContainerLogWindow[1];
         SwingUtilities.invokeAndWait(() -> mainFrame[0].serverScreen().showContainersTab());
         Thread.sleep(1200);
         SwingUtilities.invokeAndWait(() -> {
@@ -66,7 +67,20 @@ public final class UiSnapshot {
             } catch (IOException e) {
                 throw new java.io.UncheckedIOException(e);
             }
+            // 로그 별도 창 (메인 화면의 로그 패널과 같은 모양이어야 한다). 열면 지금 보던 컨테이너 로그를 읽어 온다.
+            var logs = mainFrame[0].serverScreen().logs();
+            var window = mainFrame[0].openLogWindow(inventory.getFirst().servers().getFirst(), logs.selected());
+            logWindow[0] = window;
             mainFrame[0].serverScreen().showOverviewTab();
+        });
+        Thread.sleep(1200);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(logWindow[0], logWindow[0].getContentPane(), 1100, 680, "container-log-window.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            logWindow[0].dispose();
         });
         SwingUtilities.invokeAndWait(() -> {
             try {

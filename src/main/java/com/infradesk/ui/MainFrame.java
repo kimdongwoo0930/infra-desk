@@ -222,15 +222,13 @@ public class MainFrame extends JFrame {
         detail.containers().onRefresh(() -> findServer(selectedServerId).ifPresent(s -> loadContainers(s, true)));
         detail.containers().onAction(this::containerAction);
         detail.containers().onShell((c, console) -> findServer(selectedServerId).ifPresent(s -> openContainerTerminal(s, c, console)));
-        // 표의 [로그] 버튼: 별도 창 대신 컨테이너 탭 아래의 로그 패널에서 본다(이미 그 탭이면 그대로 둔다).
-        detail.containers().onLogs(c -> {
-            detail.showContainersTab();
-            detail.logs().select(c);
-        });
-        detail.logs().onReload(this::loadContainerLogs);
-        // 로그 패널의 [별도 창으로 열기]: 예전 로그 창을 그대로 연다.
-        detail.logs().onOpenWindow(c -> findServer(selectedServerId).ifPresent(s ->
-                new com.infradesk.ui.containers.ContainerLogsDialog(this, containerService, s, c).setVisible(true)));
+        // 표에서 행을 클릭하면 아래 로그가 그 컨테이너로 바뀐다(로그 아이콘은 없다). 반대로 로그의 칩을 고르면
+        // 표의 행이 따라서 강조된다.
+        detail.containers().onSelect(this::showLogsOf);
+        detail.logs().onSelected(c -> detail.containers().highlight(c));
+        detail.logs().onReload(this::reloadContainerLogs);
+        // 로그 패널의 [별도 창으로 열기]: 이 로그 화면 전체(칩, 거르기, 검색, 자동 새로고침)를 새 창에 하나 더 연다.
+        detail.logs().onOpenWindow(c -> findServer(selectedServerId).ifPresent(s -> openLogWindow(s, c)));
         sidebar.onSshSettings(this::editSshSettings);
         sidebar.settingsButton().addActionListener(e -> openSettings());
         alerts.onDeliveryFailure(message -> javax.swing.SwingUtilities.invokeLater(() ->
@@ -951,8 +949,9 @@ public class MainFrame extends JFrame {
             containersUnavailable(listing.problem());
             return;
         }
-        long running = listing.containers().stream().filter(com.infradesk.ssh.Container::isRunning).count();
-        panel.showContainers(listing.containers(), "실행 중 " + running + " / " + listing.containers().size() + " · "
+        // 실행 중/멈춤 개수는 표 위의 칩이 보여 준다. 여기에는 언제 읽은 값인지만 적는다.
+        // "30초마다"라고 적지 않는다: 목록은 주기적으로 읽지 않고, 서버를 고를 때(30초 캐시)와 새로고침·동작 뒤에 읽는다.
+        panel.showContainers(listing.containers(), "docker ps · "
                 + java.time.LocalTime.ofInstant(at, java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")) + " 기준");
         // 같은 목록으로 로그 패널의 컨테이너 칩과 탭 이름 옆 개수도 갱신한다.
         detail.setContainers(listing.containers());
@@ -971,22 +970,53 @@ public class MainFrame extends JFrame {
      * 컨테이너 탭의 로그 패널이 로그를 요청했다(컨테이너를 골랐거나, 줄 수를 바꿨거나, 새로고침을 눌렀다).
      * SSH 조회 연결로 마지막 {@code tail}줄을 읽어 패널에 돌려준다. 접속 방식은 예전 로그 창과 같다.
      */
-    private void loadContainerLogs(com.infradesk.ssh.Container container, int tail) {
+    /** 아래 로그 패널이 이 컨테이너를 보게 한다. 이미 보고 있으면 다시 읽지 않는다. */
+    private void showLogsOf(com.infradesk.ssh.Container container) {
+        var current = detail.logs().selected();
+        if (current == null || !current.id().equals(container.id())) {
+            detail.logs().select(container);
+        }
+    }
+
+    private void reloadContainerLogs(com.infradesk.ssh.Container container, int tail) {
         Optional<Server> server = findServer(selectedServerId);
         if (server.isEmpty()) {
+            detail.logs().showError("서버를 찾을 수 없어요");
             return;
         }
-        var view = detail.logs();
-        String serverId = server.get().id();
-        Async.run(() -> containerService.logs(server.get(), container, tail, new HostKeyDialog(this)),
-                out -> view.showLogs(container, out),   // 늦게 도착한 다른 컨테이너의 응답은 패널이 버린다
+        loadContainerLogs(detail.logs(), server.get(), container, tail);
+    }
+
+    /**
+     * {@code server}의 {@code container} 로그를 읽어 {@code view}에 돌려준다. 메인 화면의 로그 패널과 별도 창이
+     * 같은 코드를 쓴다(조회용 SSH 연결, 접속 규칙이 같다). 읽는 동안 다른 컨테이너로 바뀌면 늦게 도착한 응답과
+     * 오류는 패널이 버린다.
+     */
+    private void loadContainerLogs(com.infradesk.ui.containers.ContainerLogView view, Server server,
+                                   com.infradesk.ssh.Container container, int tail) {
+        Async.run(() -> containerService.logs(server, container, tail, new HostKeyDialog(this)),
+                out -> view.showLogs(container, out),
                 err -> {
-                    // 그 사이 다른 서버나 컨테이너로 바뀌었으면 늦게 온 오류는 보여 주지 않는다.
                     var shown = view.selected();
-                    if (serverId.equals(selectedServerId) && shown != null && shown.id().equals(container.id())) {
+                    if (shown != null && shown.id().equals(container.id())) {
                         view.showError(Async.message(err));
                     }
                 });
+    }
+
+    /**
+     * 로그를 별도 창으로 연다. 창은 {@code ContainerLogView}를 새로 하나 가져서 메인 화면과 선택·거르기가
+     * 독립이다. 창을 연 순간의 컨테이너 목록으로 시작하고(이후 목록 변화는 따라가지 않는다), 지금 보던 컨테이너가
+     * 선택된 채로 열린다.
+     */
+    com.infradesk.ui.containers.ContainerLogWindow openLogWindow(Server server, com.infradesk.ssh.Container current) {
+        var view = new com.infradesk.ui.containers.ContainerLogView();
+        view.onReload((c, tail) -> loadContainerLogs(view, server, c, tail));
+        view.setContainers(detail.logs().containers());
+        view.select(current);
+        var window = new com.infradesk.ui.containers.ContainerLogWindow(this, server.name(), view);
+        window.setVisible(true);
+        return window;
     }
 
     /** 스냅샷 도구가 서버 화면의 탭을 바꿔 보려고 쓴다. */

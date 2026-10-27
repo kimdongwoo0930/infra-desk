@@ -312,6 +312,96 @@ class ContainerLogViewTest {
     }
 
     @Test
+    void 컨테이너를_고를_때마다_선택을_알리고_목록_갱신만으로는_알리지_않는다() {
+        Fixture f = new Fixture();
+        List<String> selected = new ArrayList<>();
+        f.view.onSelected(c -> selected.add(c.name()));
+
+        f.view.select(WEB);
+        f.view.select(APP);
+        f.view.setContainers(List.of(WEB, APP, OLD));   // 주기적 갱신: 보던 컨테이너가 그대로
+
+        assertEquals(List.of("nginx", "discord-bot"), selected);
+    }
+
+    @Test
+    void 자동_선택도_선택으로_알린다() {
+        // 컨테이너 탭을 열면 첫 컨테이너가 자동으로 골라진다: 표도 그 행을 강조해야 한다.
+        Fixture f = new Fixture();
+        List<String> selected = new ArrayList<>();
+        f.view.onSelected(c -> selected.add(c.name()));
+
+        f.view.ensureSelection();
+
+        assertEquals(List.of("nginx"), selected);
+    }
+
+    @Test
+    void 별도_창이_같은_목록으로_시작하도록_컨테이너_목록을_알려_준다() {
+        Fixture f = new Fixture();
+
+        assertEquals(List.of(WEB, APP, OLD), f.view.containers());
+    }
+
+    @Test
+    void 별도_창_안에서는_별도_창_버튼을_숨길_수_있다() {
+        Fixture f = new Fixture();
+        AbstractButton open = all(f.view, AbstractButton.class).stream()
+                .filter(b -> "별도 창으로 열기".equals(b.getToolTipText())).findFirst().orElseThrow();
+        assertTrue(open.isVisible());
+
+        f.view.setOpenWindowVisible(false);
+
+        assertFalse(open.isVisible());
+    }
+
+    @Test
+    void 별도_창을_열면_창마다_선택이_독립이다() {
+        // 메인 화면과 별도 창이 각자 ContainerLogView를 가진다: 한쪽에서 고른 것이 다른 쪽에 영향을 주지 않는다.
+        Fixture main = new Fixture();
+        Fixture window = new Fixture();
+        main.view.select(WEB);
+
+        window.view.select(APP);
+
+        assertEquals(WEB, main.view.selected());
+        assertEquals(APP, window.view.selected());
+        assertEquals(List.of("nginx:200"), main.requests);
+        assertEquals(List.of("discord-bot:200"), window.requests);
+    }
+
+    @Test
+    void 자동_새로고침_타이머는_켤_때_돌고_끄거나_닫으면_멈춘다() {
+        Fixture f = new Fixture();
+        f.view.select(WEB);
+        assertFalse(f.view.autoRefreshRunning(), "기본은 꺼짐: 타이머도 돌지 않는다");
+
+        autoRefresh(f.view).doClick();
+        assertTrue(f.view.autoRefreshRunning());
+
+        autoRefresh(f.view).doClick();
+        assertFalse(f.view.autoRefreshRunning());
+
+        // 켠 채로 별도 창을 닫으면(close) 타이머가 멈춘다
+        autoRefresh(f.view).doClick();
+        assertTrue(f.view.autoRefreshRunning());
+        f.view.close();
+        assertFalse(f.view.autoRefreshRunning(), "닫힌 창의 타이머가 남으면 안 된다");
+    }
+
+    @Test
+    void 멈춘_컨테이너로_바꾸면_타이머가_멈춘다() {
+        Fixture f = new Fixture();
+        f.view.select(WEB);
+        autoRefresh(f.view).doClick();
+        assertTrue(f.view.autoRefreshRunning());
+
+        f.view.select(OLD);
+
+        assertFalse(f.view.autoRefreshRunning());
+    }
+
+    @Test
     void 아무것도_고르지_않았으면_새로고침을_눌러도_요청하지_않는다() {
         Fixture f = new Fixture();
         // 새로고침 버튼: 도구 막대 버튼 중 툴팁이 "로그 새로고침"인 것

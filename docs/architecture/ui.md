@@ -118,7 +118,7 @@ Async.run(
 
 | 패키지 | 내용 |
 |---|---|
-| `ui.containers` | `ContainersPanel`(서버 상세의 컨테이너 표와 동작 버튼), `ContainerLogsDialog`(로그 창) |
+| `ui.containers` | `ContainersPanel`(서버 상세의 컨테이너 표와 동작 버튼), `ContainersTab`(위 표 / 아래 로그를 나누는 탭 본문), `ContainerLogView`(로그 패널), `LogTable`(로그 줄 표), `ContainerLogWindow`(로그 화면 전체를 담는 별도 창), `ContainerFormat`·`ContainerRowActions`(표 글자와 행 작업 아이콘 계산) |
 | `ui.components` | 공용 부품: `Buttons`, `DashedButton`, `StatusDot`, `StatusBadge`(종류 5가지: 성공·경고·위험·정보·중립), `TabBar`(밑줄 탭 줄), `StatusBar`(아래 26px 상태 막대), `RoundedPanel`, `Toast`(오른쪽 아래 잠깐 뜨는 알림) 등. 디자인 v2 부품: `ToggleSwitch`(스위치), `FilterChip`(거르기 칩), `SegmentedControl`(구간 선택), `Meter`(사용률 막대), `ComingSoon`(기능이 아직 없는 요소를 비활성 + "준비 중이에요" 안내로 만드는 도구) |
 
 ## SFTP 창의 동작 규칙

@@ -112,6 +112,7 @@ public class ContainerLogView extends JPanel {
     private final Timer autoRefreshTimer = new Timer(AUTO_REFRESH_SECONDS * 1000, e -> refreshIfShowing());
     private BiConsumer<Container, Integer> onReload = (c, tail) -> { };
     private Consumer<Container> onOpenWindow = c -> { };
+    private Consumer<Container> onSelected = c -> { };
 
     public ContainerLogView() {
         super(new BorderLayout());
@@ -314,9 +315,35 @@ public class ContainerLogView extends JPanel {
         this.onOpenWindow = listener;
     }
 
+    /**
+     * 보는 컨테이너가 정해질 때마다 불린다(칩을 눌렀을 때, 코드가 골랐을 때). 위쪽 표가 같은 행을 강조하게 하려는 것이다.
+     * 목록이 바뀌어도 보던 컨테이너가 그대로면 불리지 않는다.
+     */
+    public void onSelected(Consumer<Container> listener) {
+        this.onSelected = listener;
+    }
+
     /** 지금 보고 있는 컨테이너. 없으면 null. */
     public Container selected() {
         return current;
+    }
+
+    /** 전환 칩으로 보여 주는 컨테이너 목록(받은 순서). 별도 창이 같은 목록으로 시작하려고 읽는다. */
+    public List<Container> containers() {
+        return containers;
+    }
+
+    /** [별도 창으로 열기] 버튼을 보이거나 숨긴다. 별도 창 안에서는 또 창을 열 필요가 없어서 숨긴다. */
+    public void setOpenWindowVisible(boolean visible) {
+        openWindow.setVisible(visible);
+    }
+
+    /**
+     * 이 패널을 더 쓰지 않을 때(별도 창을 닫을 때) 부른다. 자동 새로고침 타이머를 멈춘다. 멈추지 않으면
+     * 닫힌 창의 타이머가 앱이 끝날 때까지 남는다(화면에 보이지 않아 조회하지는 않지만 낭비다).
+     */
+    public void close() {
+        autoRefreshTimer.stop();
     }
 
     /** 최근 몇 줄을 받을지(콤보 상자에서 고른 값). */
@@ -381,6 +408,7 @@ public class ContainerLogView extends JPanel {
         }
         // 멈춘 컨테이너는 로그가 늘지 않는다: 자동 새로고침을 끄고 막는다. 실행 중이면 켜진 상태를 그대로 둔다.
         updateAutoRefresh();
+        onSelected.accept(container);
         reload();
     }
 
@@ -450,6 +478,11 @@ public class ContainerLogView extends JPanel {
     /** 지금 표에 보이는 줄 수(거르기 뒤). */
     int visibleLines() {
         return table.lineCount();
+    }
+
+    /** 자동 새로고침 타이머가 돌고 있는지. */
+    boolean autoRefreshRunning() {
+        return autoRefreshTimer.isRunning();
     }
 
     /** 하단 막대 오른쪽의 집계 글자. */
