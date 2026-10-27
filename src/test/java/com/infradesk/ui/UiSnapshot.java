@@ -82,6 +82,29 @@ public final class UiSnapshot {
             }
             logWindow[0].dispose();
         });
+
+        // 사이드바: 이름만 보이는 폭(150), 닫힘, 다시 펼침. 폭이 바뀌면 이름만 모드로 바뀌는 것은 크기 변경 이벤트로
+        // 일어나므로(비동기) 바꾼 뒤 잠깐 기다렸다가 찍는다. 마지막에 원래대로 돌려 아래 스냅샷이 달라지지 않게 한다.
+        SwingUtilities.invokeAndWait(() -> mainFrame[0].setSidebarWidth(150));
+        Thread.sleep(400);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "sidebar-compact.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            mainFrame[0].collapseSidebar();
+        });
+        Thread.sleep(400);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "sidebar-collapsed.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            mainFrame[0].expandSidebar();
+        });
+        Thread.sleep(400);
         SwingUtilities.invokeAndWait(() -> {
             try {
                 MainFrame empty = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);

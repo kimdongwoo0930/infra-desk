@@ -64,6 +64,14 @@ public class MainFrame extends JFrame {
     private final TitleBar titleBar;
     private final Sidebar sidebar = new Sidebar();
     private final ServerScreen detail = new ServerScreen();
+    /** 사이드바와 본문을 나누는 가로 분할. 손잡이를 끌어 사이드바 폭을 바꾼다. */
+    private javax.swing.JSplitPane sidebarSplit;
+    private static final int SIDEBAR_DIVIDER = 5;
+    private boolean sidebarCollapsed;
+    /** 닫았다 다시 펼 때 돌아갈 폭(쓸 만한 폭일 때만 갱신한다). */
+    private int rememberedSidebarWidth = SidebarWidth.DEFAULT;
+    /** 코드가 폭을 바꾸는 중이면 true. 사용자가 끈 것과 구별하려는 것이다. */
+    private boolean sidebarAdjusting;
     /** 창 맨 아래 상태 막대 (디자인 v2). 서버 화면과 터미널 화면에 모두 보인다. */
     private final com.infradesk.ui.components.StatusBar statusBar = new com.infradesk.ui.components.StatusBar();
     /** 상태 막대의 "실시간 켜짐/꺼짐" 항목. 실시간이 켜지거나 꺼질 때 글자를 바꾼다. */
@@ -199,10 +207,22 @@ public class MainFrame extends JFrame {
         content.add(emptyState(), EMPTY);
         content.add(detail, DETAIL);   // 스크롤은 ServerScreen 안의 본문 영역이 가진다(머리와 탭 줄은 고정)
 
+        // 사이드바와 본문 사이의 손잡이를 끌어 폭을 바꾼다. 폭에 따라 이름만 보이거나(SidebarWidth) 자동으로 닫힌다.
+        content.setMinimumSize(new Dimension(360, 0));
+        sidebarSplit = new javax.swing.JSplitPane(javax.swing.JSplitPane.HORIZONTAL_SPLIT, sidebar, content);
+        sidebarSplit.setBorder(null);
+        sidebarSplit.setBackground(Theme.APP_BG);
+        sidebarSplit.setDividerSize(SIDEBAR_DIVIDER);
+        sidebarSplit.setContinuousLayout(true);
+        sidebarSplit.setResizeWeight(0.0);   // 창 크기가 바뀌면 남는 폭은 본문이 가진다(사이드바 폭은 그대로)
+        sidebarSplit.addPropertyChangeListener(javax.swing.JSplitPane.DIVIDER_LOCATION_PROPERTY,
+                e -> onSidebarDivider((Integer) e.getNewValue()));
+        titleBar.sidebarButton().addActionListener(e -> toggleSidebar());
+        titleBar.setSidebarCollapsed(false);
+
         JPanel dashboard = new JPanel(new BorderLayout());
         dashboard.setBackground(Theme.APP_BG);
-        dashboard.add(sidebar, BorderLayout.WEST);
-        dashboard.add(content, BorderLayout.CENTER);
+        dashboard.add(sidebarSplit, BorderLayout.CENTER);
         screenPanel.add(dashboard, DASHBOARD);
         screenPanel.add(terminalView, TERMINAL);
 
@@ -267,6 +287,91 @@ public class MainFrame extends JFrame {
         statusBar.addRight("상태 " + RefreshPolicy.NORMAL_INTERVAL.toSeconds() + "초 · 메트릭 "
                 + METRICS_INTERVAL.toMinutes() + "분마다");
         statusBar.addRight("v" + com.infradesk.app.BuildInfo.current().version());
+    }
+
+    // ── 사이드바 폭 ─────────────────────────────────────────────
+
+    /** 손잡이 위치가 바뀌었다(마우스로 끌었다). 너무 좁으면 닫고, 너무 넓으면 최대 폭으로 맞춘다. */
+    private void onSidebarDivider(int location) {
+        // 이름만 보일지는 손잡이 위치가 바뀌는 그 자리에서 바로 정한다(크기 변경 이벤트를 기다리지 않는다).
+        // 코드가 폭을 바꾼 경우(다시 펼칠 때 등)도 같다. 0은 닫힌 상태라서 건드리지 않는다.
+        if (location > 0) {
+            sidebar.setCompact(SidebarWidth.isCompact(location));
+        }
+        if (sidebarAdjusting || location < 0) {
+            return;
+        }
+        if (sidebarCollapsed) {
+            // 끌다가 닫힌 뒤에도 눌린 마우스의 끌기 이벤트가 이어서 들어올 수 있다. 닫힌 동안에는 손잡이를 0에 붙여
+            // 두어서, 본문이 밀려 나지 않게 한다.
+            if (location != 0) {
+                setSidebarLocation(0);
+            }
+            return;
+        }
+        if (SidebarWidth.shouldCollapse(location)) {
+            collapseSidebar();
+        } else if (location > SidebarWidth.MAX) {
+            setSidebarLocation(SidebarWidth.MAX);
+        } else if (location >= SidebarWidth.REMEMBER_MIN) {
+            rememberedSidebarWidth = location;
+        }
+    }
+
+    private void setSidebarLocation(int width) {
+        sidebarAdjusting = true;
+        try {
+            sidebarSplit.setDividerLocation(width);
+        } finally {
+            sidebarAdjusting = false;
+        }
+    }
+
+    /** 사이드바를 닫는다: 사이드바와 손잡이가 사라지고 본문이 전체 폭을 쓴다. */
+    void collapseSidebar() {
+        if (sidebarCollapsed) {
+            return;
+        }
+        sidebarAdjusting = true;
+        try {
+            sidebarCollapsed = true;
+            sidebar.setVisible(false);
+            sidebarSplit.setDividerSize(0);
+            sidebarSplit.setDividerLocation(0);
+        } finally {
+            sidebarAdjusting = false;
+        }
+        titleBar.setSidebarCollapsed(true);
+    }
+
+    /** 사이드바를 다시 펼친다: 닫기 전에 쓰던 폭으로 돌아간다(기억한 폭이 없거나 너무 좁았으면 기본 폭). */
+    void expandSidebar() {
+        if (!sidebarCollapsed) {
+            return;
+        }
+        sidebarAdjusting = true;
+        try {
+            sidebarCollapsed = false;
+            sidebar.setVisible(true);
+            sidebarSplit.setDividerSize(SIDEBAR_DIVIDER);
+            sidebarSplit.setDividerLocation(SidebarWidth.restoreWidth(rememberedSidebarWidth));
+        } finally {
+            sidebarAdjusting = false;
+        }
+        titleBar.setSidebarCollapsed(false);
+    }
+
+    private void toggleSidebar() {
+        if (sidebarCollapsed) {
+            expandSidebar();
+        } else {
+            collapseSidebar();
+        }
+    }
+
+    /** 스냅샷 도구가 폭을 바꿔 보려고 쓴다. */
+    void setSidebarWidth(int width) {
+        setSidebarLocation(width);
     }
 
     /** 메뉴 막대 아이콘. 이게 있으면 창을 닫을 때 종료하지 않고 메뉴 막대로 숨는다. */

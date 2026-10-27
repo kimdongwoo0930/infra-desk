@@ -29,7 +29,10 @@ import javax.swing.SwingConstants;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
-/** 너비 260px의 왼쪽 열: 서버 검색, 계정 그룹, 계정 추가 / 설정 하단. */
+/**
+ * 왼쪽 열: 서버 검색, 계정 그룹, 계정 추가 / 설정 하단. 처음 폭은 {@link SidebarWidth#DEFAULT}이고 마우스로 바꿀 수 있다.
+ * 폭이 {@link SidebarWidth#COMPACT_BELOW}보다 좁아지면 이름만 보이는 모드로 바뀐다.
+ */
 public class Sidebar extends JPanel {
 
     private final JTextField search = new JTextField();
@@ -48,10 +51,16 @@ public class Sidebar extends JPanel {
     private Consumer<Server> onSshSettings = s -> { };
     private Consumer<Account> onEditAccount = a -> { };
     private boolean loading;
+    /** 이름만 보이는 좁은 모드인지. */
+    private boolean compact;
+    private final JPanel top = new JPanel(new BorderLayout());
+    private final JPanel footer = new JPanel(new BorderLayout(8, 0));
 
     public Sidebar() {
         super(new BorderLayout());
-        setPreferredSize(new Dimension(260, 0));
+        setPreferredSize(new Dimension(SidebarWidth.DEFAULT, 0));
+        // 마우스로 0까지 줄일 수 있어야 "너무 좁으면 닫기"가 동작한다. 최소 폭을 두면 그 아래로는 끌리지 않는다.
+        setMinimumSize(new Dimension(0, 0));
         setBackground(Theme.PANEL_BG);
         setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Theme.DIVIDER));
 
@@ -76,7 +85,6 @@ public class Sidebar extends JPanel {
                 rebuild();
             }
         });
-        JPanel top = new JPanel(new BorderLayout());
         top.setOpaque(false);
         top.setBorder(BorderFactory.createEmptyBorder(12, 12, 8, 12));
         top.add(search);
@@ -97,7 +105,6 @@ public class Sidebar extends JPanel {
         settingsButton.putClientProperty(FlatClientProperties.BUTTON_TYPE, null);
         settingsButton.putClientProperty(FlatClientProperties.STYLE, "background: #00000000; borderWidth: 1; borderColor: #43454A; hoverBackground: #FFFFFF10");
 
-        JPanel footer = new JPanel(new BorderLayout(8, 0));
         footer.setOpaque(false);
         footer.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.DIVIDER),
@@ -109,7 +116,38 @@ public class Sidebar extends JPanel {
         add(top, BorderLayout.NORTH);
         add(scroll, BorderLayout.CENTER);
         add(footer, BorderLayout.SOUTH);
+        // 폭이 바뀌면(마우스로 끌 때) 이름만 모드로 바꿀지 다시 정한다. 닫혀서 폭이 0일 때는 건드리지 않는다.
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                if (getWidth() > 0) {
+                    setCompact(SidebarWidth.isCompact(getWidth()));
+                }
+            }
+        });
         rebuild();
+    }
+
+    /**
+     * 이름만 보이는 좁은 모드를 켜고 끈다. 켜면 서버 행의 CPU%·상태 글자와 계정 헤더의 리전을 숨기고, 하단
+     * "계정·서버 추가"는 글자 없이 아이콘만 남긴다(여백도 줄인다).
+     */
+    void setCompact(boolean compact) {
+        if (this.compact == compact) {
+            return;
+        }
+        this.compact = compact;
+        top.setBorder(BorderFactory.createEmptyBorder(12, compact ? 8 : 12, 8, compact ? 8 : 12));
+        footer.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.DIVIDER),
+                BorderFactory.createEmptyBorder(12, compact ? 8 : 12, 12, compact ? 8 : 12)));
+        addAccount.setText(compact ? "" : "계정·서버 추가");
+        addAccount.setToolTipText(compact ? "계정·서버 추가" : null);
+        rebuild();   // 서버 행과 계정 헤더를 새 모드로 다시 만든다
+    }
+
+    boolean isCompact() {
+        return compact;
     }
 
     /** 클라우드 계정(Oracle Cloud). */
@@ -208,6 +246,7 @@ public class Sidebar extends JPanel {
                     onSelect.accept(s);
                 }, () -> onSshSettings.accept(s), () -> onEditAccount.accept(inv.account()));
                 item.setSelected(s.id().equals(selectedServerId));
+                item.setCompact(compact);
                 item.setAlignmentX(Component.LEFT_ALIGNMENT);
                 items.add(item);
                 groups.add(item);
@@ -233,8 +272,12 @@ public class Sidebar extends JPanel {
         JLabel left = small(a.provider().displayName().replace(" Cloud", "") + " · " + a.displayName());
         JLabel right = small(Regions.shortName(a.region()));
         right.setToolTipText(a.region());
-        header.add(left, BorderLayout.WEST);
-        header.add(right, BorderLayout.EAST);
+        // 이름이 길거나 폭이 좁으면 왼쪽 글자가 "…"로 줄어든다(가운데에 두어야 줄어든다). 좁은 모드에서는 리전을 숨긴다.
+        header.add(left, BorderLayout.CENTER);
+        if (!compact) {
+            header.add(right, BorderLayout.EAST);
+        }
+        left.setToolTipText(a.provider().displayName() + " · " + a.displayName());
 
         JPopupMenu menu = new JPopupMenu();
         JMenuItem edit = new JMenuItem("계정 설정…");
@@ -264,6 +307,8 @@ public class Sidebar extends JPanel {
         l.setAlignmentX(Component.LEFT_ALIGNMENT);
         l.setMaximumSize(new Dimension(240, 80));
         l.setPreferredSize(new Dimension(236, l.getPreferredSize().height * 3));
+        // 사이드바를 좁힐 수 있으므로, 고정 폭(236)보다 좁아져도 줄어들 수 있게 한다(안 그러면 잘려서 넘친다).
+        l.setMinimumSize(new Dimension(0, 0));
         return l;
     }
 
