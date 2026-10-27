@@ -63,7 +63,13 @@ public class MainFrame extends JFrame {
     private final boolean demoMode;
     private final TitleBar titleBar;
     private final Sidebar sidebar = new Sidebar();
-    private final ServerDetailPanel detail = new ServerDetailPanel();
+    private final ServerScreen detail = new ServerScreen();
+    /** 창 맨 아래 상태 막대 (디자인 v2). 서버 화면과 터미널 화면에 모두 보인다. */
+    private final com.infradesk.ui.components.StatusBar statusBar = new com.infradesk.ui.components.StatusBar();
+    /** 상태 막대의 "실시간 켜짐/꺼짐" 항목. 실시간이 켜지거나 꺼질 때 글자를 바꾼다. */
+    private JLabel liveStatus;
+    /** 메트릭(차트)을 새로 읽는 주기. 타이머와 상태 막대 문구가 같은 값을 쓴다. */
+    private static final java.time.Duration METRICS_INTERVAL = java.time.Duration.ofMinutes(1);
     private final CardLayout cards = new CardLayout();
     private final JPanel content = new JPanel(cards);
     private final JLabel emptyTitle = new JLabel();
@@ -191,11 +197,7 @@ public class MainFrame extends JFrame {
 
         content.setBackground(Theme.APP_BG);
         content.add(emptyState(), EMPTY);
-        javax.swing.JScrollPane detailScroll = new javax.swing.JScrollPane(detail);
-        detailScroll.setBorder(null);
-        detailScroll.getViewport().setBackground(Theme.APP_BG);
-        detailScroll.getVerticalScrollBar().setUnitIncrement(24);
-        content.add(detailScroll, DETAIL);
+        content.add(detail, DETAIL);   // 스크롤은 ServerScreen 안의 본문 영역이 가진다(머리와 탭 줄은 고정)
 
         JPanel dashboard = new JPanel(new BorderLayout());
         dashboard.setBackground(Theme.APP_BG);
@@ -208,6 +210,8 @@ public class MainFrame extends JFrame {
         root.setBackground(Theme.APP_BG);
         root.add(titleBar, BorderLayout.NORTH);
         root.add(screenPanel, BorderLayout.CENTER);
+        buildStatusBar();
+        root.add(statusBar, BorderLayout.SOUTH);
         setContentPane(root);
         EditMenu.install(this);
 
@@ -239,10 +243,25 @@ public class MainFrame extends JFrame {
 
         pollTimer = new Timer((int) RefreshPolicy.NORMAL_INTERVAL.toMillis(), e -> poll());
         pollTimer.setRepeats(false);
-        metricsTimer = new Timer(60_000, e -> metricsTick());
+        metricsTimer = new Timer((int) METRICS_INTERVAL.toMillis(), e -> metricsTick());
         metricsTimer.start();
         detail.metrics().onLiveToggle(this::toggleLive);
         detail.metrics().onExpand(this::openMetricChart);
+    }
+
+    /**
+     * 아래 상태 막대의 항목을 채운다. 왼쪽은 "지금 상태", 오른쪽은 "설정과 버전"이다.
+     * 읽을 데이터가 있는 항목은 연결하고, 없는 것은 준비 중으로 자리만 둔다.
+     */
+    private void buildStatusBar() {
+        // 준비 중(v2): SSH 연결 수·용도. SessionPool이 지금 열린 연결을 읽어 주는 방법이 아직 없다
+        // (docs/design/v2/GAPS.md "먼저 상의해야 하는 것" 5번). 정해지면 이 항목에 연결한다.
+        com.infradesk.ui.components.ComingSoon.apply(statusBar.addLeft("SSH 연결 —"));
+        liveStatus = statusBar.addLeft("실시간 꺼짐");
+        // 조회 주기는 상수에서 만든다. 주기를 바꾸면 이 문구도 따라 바뀐다.
+        statusBar.addRight("상태 " + RefreshPolicy.NORMAL_INTERVAL.toSeconds() + "초 · 메트릭 "
+                + METRICS_INTERVAL.toMinutes() + "분마다");
+        statusBar.addRight("v" + com.infradesk.app.BuildInfo.current().version());
     }
 
     /** 메뉴 막대 아이콘. 이게 있으면 창을 닫을 때 종료하지 않고 메뉴 막대로 숨는다. */
@@ -725,6 +744,10 @@ public class MainFrame extends JFrame {
         @Override
         public void showToggle(boolean on) {
             metrics().setLiveSelected(on);
+            if (liveStatus != null) {
+                liveStatus.setText(on ? "실시간 켜짐" + findServer(selectedServerId).map(s -> " · " + s.name()).orElse("")
+                        : "실시간 꺼짐");
+            }
         }
 
         @Override

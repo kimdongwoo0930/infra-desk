@@ -16,14 +16,18 @@
 ┌─ TitleBar ──────────────────────────────────────────────────┐  앱 이름, 서버·계정 수, 마지막 새로고침, (터미널일 때) 뒤로가기
 ├─────────────────────────────────────────────────────────────┤
 │  [대시보드 화면]                                              │
-│  ┌ Sidebar ─┐ ┌ 서버 상세 ──────────────────────────────┐   │
-│  │ 검색      │ │ ServerDetailPanel                       │   │
-│  │ 계정별    │ │   헤더 · 시작/정지/재부팅 · 정보 그리드   │   │
-│  │ 서버 목록 │ │   MetricsPanel   (CPU·메모리·네트워크)   │   │
-│  │ (CPU%)    │ │   ContainersPanel (Docker 컨테이너)     │   │
-│  └──────────┘ └─────────────────────────────────────────┘   │
+│  ┌ Sidebar ─┐ ┌ 서버 화면 (ServerScreen) ────────────────┐   │
+│  │ 검색      │ │ ServerHeader  이름 · 배지 · 버튼         │   │
+│  │ 계정별    │ │ TabBar        개요 / 모니터링 / …        │   │
+│  │ 서버 목록 │ │ ───────────── (여기부터 스크롤) ──────── │   │
+│  │ (CPU%)    │ │ ServerDetailPanel = 개요 탭 본문         │   │
+│  │           │ │   정보 그리드 · MetricsPanel ·          │   │
+│  └──────────┘ │   ContainersPanel                        │   │
+│               └─────────────────────────────────────────┘   │
 │                         ── 또는 ──                           │
 │  [터미널 화면]  TerminalView: 서버·컨테이너별 SSH 탭들         │
+├─────────────────────────────────────────────────────────────┤
+│ StatusBar  SSH 연결 · 실시간 상태 ·········· 조회 주기 · 버전 │  (두 화면 모두에 보인다)
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -73,7 +77,9 @@ Async.run(
 | `Theme`, `Icons` | DESIGN-v2.md 색상 토큰(색마다 이름을 붙여 화면은 이름만 씀), FlatLaf 설치, SVG 아이콘 |
 | `TitleBar` | 앱 이름, 서버·계정 수, 마지막 새로고침 |
 | `Sidebar`, `ServerListItem` | 검색, 계정별 그룹, 서버 행 |
-| `ServerDetailPanel` | 서버 헤더, 시작/정지/재부팅 버튼(상태별 활성화), 요청 결과 한 줄, 정보 그리드 |
+| `ServerScreen` | 서버를 골랐을 때의 화면 전체: 머리(`ServerHeader`) + 탭 줄(`TabBar`) + 스크롤되는 본문. `MainFrame`이 부르던 `ServerDetailPanel`의 메서드 이름을 그대로 머리와 본문에 나눠 넘긴다. 탭은 개요만 동작하고 나머지는 `ComingSoon`(디자인 v2 3~7단계에서 하나씩 연다) |
+| `ServerHeader` | 즐겨찾기 별(준비 중), 서버 이름, 상태 배지, 계정·리전 한 줄, [SSH 열기] [재부팅] [정지/시작] [⋯(준비 중)], 시작/정지/재부팅 버튼의 상태별 활성화 규칙, 요청 결과 한 줄. IP 가림을 켜고 끌 때 부제의 IP도 같이 바뀐다 |
+| `ServerDetailPanel` | 개요 탭 본문: 4×2 정보 그리드, 메트릭 차트, 컨테이너 표 |
 | `AddAccountDialog`, `AddSshServerDialog` | 계정 추가, 연결 테스트 / 직접 연결 기기 추가 |
 | `SettingsDialog` | 설정 (디스코드 알림은 "준비 중") |
 | `TrayController`, `SwingTrayMenu` | 메뉴 막대(macOS)·알림 영역(Windows) 아이콘과 서버 상태 메뉴. macOS는 네이티브 AWT 메뉴, Windows는 `SwingTrayMenu`가 그림 |
@@ -113,7 +119,7 @@ Async.run(
 | 패키지 | 내용 |
 |---|---|
 | `ui.containers` | `ContainersPanel`(서버 상세의 컨테이너 표와 동작 버튼), `ContainerLogsDialog`(로그 창) |
-| `ui.components` | 공용 부품: `Buttons`, `DashedButton`, `StatusDot`, `StatusBadge`(종류 5가지: 성공·경고·위험·정보·중립), `RoundedPanel`, `Toast`(오른쪽 아래 잠깐 뜨는 알림) 등. 디자인 v2 부품: `ToggleSwitch`(스위치), `FilterChip`(거르기 칩), `SegmentedControl`(구간 선택), `Meter`(사용률 막대), `ComingSoon`(기능이 아직 없는 요소를 비활성 + "준비 중이에요" 안내로 만드는 도구) |
+| `ui.components` | 공용 부품: `Buttons`, `DashedButton`, `StatusDot`, `StatusBadge`(종류 5가지: 성공·경고·위험·정보·중립), `TabBar`(밑줄 탭 줄), `StatusBar`(아래 26px 상태 막대), `RoundedPanel`, `Toast`(오른쪽 아래 잠깐 뜨는 알림) 등. 디자인 v2 부품: `ToggleSwitch`(스위치), `FilterChip`(거르기 칩), `SegmentedControl`(구간 선택), `Meter`(사용률 막대), `ComingSoon`(기능이 아직 없는 요소를 비활성 + "준비 중이에요" 안내로 만드는 도구) |
 
 ## SFTP 창의 동작 규칙
 
