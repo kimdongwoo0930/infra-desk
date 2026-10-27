@@ -97,6 +97,10 @@ public class ServerScreen extends JPanel {
         body.add(terminalHost, TAB_TERMINAL);
         add(body, BorderLayout.CENTER);
 
+        // 개요의 "지금 상태"는 모니터링 탭이 읽은 값을 그대로 받아 보여 준다(서버에 따로 묻지 않는다).
+        metrics.setObserver(overview.statusSection());
+        overview.statusSection().onOpenMonitoring(this::showMonitoringTab);
+
         tabs.onSelect(id -> {
             cards.show(body, id);
             if (TAB_CONTAINERS.equals(id)) {

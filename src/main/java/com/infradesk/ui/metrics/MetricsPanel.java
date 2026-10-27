@@ -68,6 +68,20 @@ public class MetricsPanel extends JPanel {
     private final MetricChartCard network = new MetricChartCard(MetricKind.NETWORK);
     private final MetricsSidePanel side = new MetricsSidePanel();
     private final List<ProcStats.Sample> liveSamples = new ArrayList<>();
+    /** 같은 값을 보여 줄 다른 화면. 정하지 않으면 아무 일도 하지 않는다. */
+    private MetricsObserver observer = new MetricsObserver() {
+        @Override
+        public void onData(Metrics metrics) {
+        }
+
+        @Override
+        public void onEmpty(String message) {
+        }
+
+        @Override
+        public void onStatus(String text, boolean error) {
+        }
+    };
     /** 실시간이 스스로 꺼지기까지 남은 시간을 알려 주는 쪽(MainFrame의 LiveController). 없으면 문구에서 뺀다. */
     private java.util.function.Supplier<java.util.Optional<Duration>> liveRemaining = java.util.Optional::empty;
 
@@ -247,18 +261,26 @@ public class MetricsPanel extends JPanel {
     public void setStatus(String text, boolean error) {
         status.setText(text == null || text.isEmpty() ? " " : com.infradesk.ui.IpPrivacy.mask(text));
         status.setForeground(error ? Theme.WARNING : Theme.TEXT_MUTED);
+        observer.onStatus(status.getText().strip(), error);
+    }
+
+    /** 개요 탭의 "지금 상태"처럼 같은 값을 보여 줄 쪽을 정한다. */
+    public void setObserver(MetricsObserver observer) {
+        this.observer = observer;
     }
 
     public void showLoading() {
         liveSamples.clear();
         cards().forEach(c -> c.showEmpty("불러오는 중…"));
         side.showSummary("—", "—", "—");
+        observer.onEmpty("불러오는 중…");
     }
 
     public void showMessage(String message) {
         liveSamples.clear();
         cards().forEach(c -> c.showEmpty(message));
         side.showSummary("—", "—", "—");
+        observer.onEmpty(message);
     }
 
     /** 디스크 사용량(서버 정보에서 읽은 값). {@code readAt}은 읽은 시각이다. */
@@ -292,6 +314,7 @@ public class MetricsPanel extends JPanel {
                 MetricSummary.percentLine(m.memoryPercent(), false),
                 MetricSummary.rateLine(m.networkInBps(), m.networkOutBps(), false));
         setStatus("OCI 모니터링 · " + INTERVALS.get(rangeIndex) + " 간격 · " + LocalTime.now().format(MINUTE) + " 갱신", false);
+        observer.onData(m);
     }
 
     /** 실시간 샘플 하나를 추가하고 다시 그린다. */
@@ -316,6 +339,7 @@ public class MetricsPanel extends JPanel {
         side.showSummary(MetricSummary.percentLine(c, true), MetricSummary.percentLine(m, true),
                 MetricSummary.rateLine(in, out, true));
         setStatus(liveNote(ProcStats.INTERVAL_SECONDS, liveRemaining.get()), false);
+        observer.onData(new Metrics(c, m, in, out));
     }
 
     public void clearLive() {

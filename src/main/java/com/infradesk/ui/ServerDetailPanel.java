@@ -32,6 +32,8 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private static final String NONE = "—";
 
     private Server server;
+    /** 맨 위 "지금 상태" 네 칸. 값은 모니터링 탭과 서버 정보에서 받아 온다. */
+    private final com.infradesk.ui.overview.StatusSection status = new com.infradesk.ui.overview.StatusSection();
 
     private final JLabel cpuMem = value(false);
     private final JLabel publicIp = value(true);
@@ -45,11 +47,18 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private final JLabel ports = value(false);
     private final JLabel created = value(false);
 
+    /** "지금 상태"의 값을 받는 쪽과, 칸을 눌렀을 때 할 일을 걸 곳. */
+    public com.infradesk.ui.overview.StatusSection statusSection() {
+        return status;
+    }
+
     public ServerDetailPanel() {
         setOpaque(false);
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBorder(BorderFactory.createEmptyBorder(20, 28, 24, 28));
 
+        add(status);
+        add(Box.createVerticalStrut(16));
         add(infoGrid());
         add(Box.createVerticalGlue());
     }
@@ -87,6 +96,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
             ipLabel.setText(account.provider().isCloud() ? "공인 IP" : "주소");
         }
         cloud = account.provider().isCloud();
+        status.setServer(server, cloud);
         if (cpuMemLabel != null) {
             cpuMemLabel.setText(cloud ? "OCPU / 메모리" : "CPU / 메모리");
         }
@@ -108,6 +118,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
 
     /** SSH로 읽은 정보로 업타임, OS, 부팅 볼륨, 포트를 채운다. */
     public void setFacts(com.infradesk.ssh.HostFacts f) {
+        status.setFacts(f);
         if (!cloud && f.cpuCount() > 0) {
             // 직접 연결 기기에는 클라우드 사양이 없다: 서버가 자신의 크기를 알려준다.
             cpuMem.setText(f.cpuCount() + "코어 · " + trim(f.memoryKb() / 1024.0 / 1024.0) + " GB");
@@ -130,6 +141,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
 
     /** SSH 전용 칸 네 개에 같은 짧은 텍스트(예: "SSH 설정 후 표시")를 보여준다. */
     public void setFactsMessage(String message) {
+        status.setFactsMessage(message);
         for (JLabel l : new JLabel[] {uptime, os, bootVolume, ports}) {
             l.setText(message);
             l.setToolTipText(message.equals(NONE) ? null : message);
