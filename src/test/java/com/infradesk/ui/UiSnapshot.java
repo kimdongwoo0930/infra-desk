@@ -238,6 +238,24 @@ public final class UiSnapshot {
             }
             sshFrame[0].dispose();
         });
+        // 열린 포트가 많으면 칩이 다음 줄로 넘어가고 정보 카드가 그만큼 길어진다(잘리지 않는다). 값을 넣은 뒤 화면이
+        // 한 번 다시 계산할 시간을 주고 찍는다(실제 앱과 같은 순서).
+        SwingUtilities.invokeAndWait(() -> {
+            mainFrame[0].addNotify();
+            mainFrame[0].getContentPane().setSize(1280, 1000);
+            layoutAll(mainFrame[0].getContentPane());
+            mainFrame[0].serverScreen().setFacts(new com.infradesk.ssh.HostFacts(java.time.Duration.ofDays(6), "macOS 26.6.2",
+                    42L << 30, 99L << 30, List.of(22, 80, 443, 5000, 7000, 49154, 59869, 61000)), java.time.Instant.now());
+        });
+        Thread.sleep(400);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 1000, "main-ports.png");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            mainFrame[0].getContentPane().setSize(1280, 800);
+        });
         // 모니터링 탭 (디자인 v2 4단계): 기본 1시간, 24시간, 실시간 순서로 찍는다. 기간 칸을 누르면 그 기간을 비동기로
         // 읽어 오므로 잠깐 기다린다. 실시간은 데모 /proc 스트림이 샘플을 쌓을 시간을 준다. 마지막에 1시간으로 돌려
         // 실시간을 끄고 개요 탭으로 돌아가서 아래 스냅샷에 영향이 없게 한다.

@@ -5,6 +5,7 @@ import com.infradesk.core.Account;
 import com.infradesk.core.Server;
 import com.infradesk.ui.components.Buttons;
 import com.infradesk.ui.components.RoundedPanel;
+import com.infradesk.ui.components.WrapLayout;
 import com.infradesk.ui.overview.AttentionCard;
 import com.infradesk.ui.overview.ContainerSummaryCard;
 import com.infradesk.ui.overview.RecentActivityCard;
@@ -67,7 +68,8 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private final JLabel privateIp = value(true);
     private final JLabel os = value(false);
     private final JLabel uptime = value(false);
-    private final JPanel portsBox = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+    /** 열린 포트 칩들. 포트가 많으면 다음 줄로 넘어가고 칸 높이가 따라 늘어난다. */
+    private final JPanel portsBox = new JPanel(new WrapLayout(FlowLayout.LEFT, 6, 6, true));
     private final JLabel sshUser = value(true);
     private final JLabel created = value(false);
     private Runnable onSshSettings = () -> { };
@@ -313,6 +315,10 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private static JPanel infoRow(JLabel label, Component value) {
         label.setForeground(Theme.TEXT_MUTED);
         label.setPreferredSize(new Dimension(64, 28));
+        // 값이 여러 줄이 되어도 이름은 첫 줄 높이에 붙어 있게 한다.
+        JPanel name = new JPanel(new BorderLayout());
+        name.setOpaque(false);
+        name.add(label, BorderLayout.NORTH);
         JPanel row = new JPanel(new BorderLayout(10, 0)) {
             @Override
             public Dimension getMaximumSize() {
@@ -325,7 +331,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         if (value instanceof JLabel v) {
             v.setMinimumSize(new Dimension(0, 24));
         }
-        row.add(label, BorderLayout.WEST);
+        row.add(name, BorderLayout.WEST);
         row.add(value, BorderLayout.CENTER);
         return row;
     }
