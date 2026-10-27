@@ -70,7 +70,7 @@ Async.run(
 |---|---|
 | `MainFrame` | 위에서 설명한 지휘자 |
 | `Async` | 가상 스레드에서 작업 → 결과는 EDT로 |
-| `Theme`, `Icons` | DESIGN.md 색상, FlatLaf 설치, SVG 아이콘 |
+| `Theme`, `Icons` | DESIGN-v2.md 색상 토큰(색마다 이름을 붙여 화면은 이름만 씀), FlatLaf 설치, SVG 아이콘 |
 | `TitleBar` | 앱 이름, 서버·계정 수, 마지막 새로고침 |
 | `Sidebar`, `ServerListItem` | 검색, 계정별 그룹, 서버 행 |
 | `ServerDetailPanel` | 서버 헤더, 시작/정지/재부팅 버튼(상태별 활성화), 요청 결과 한 줄, 정보 그리드 |

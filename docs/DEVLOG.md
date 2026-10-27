@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-10-27 · 디자인 v2 1-a: `Theme` 색 토큰을 v2로
+
+디자인 v2 작업의 첫 조각. 순서는 `docs/design/v2/DESIGN-v2.md`의 "구현 순서" 1번(토큰·공통 부품)이고, 그중 색 값만 먼저 했다. 기능과 배치는 바꾸지 않았다.
+
+- **바뀐 값 2개:** `ACCENT` `#3B73E0 → #3469D4`(기본 버튼의 흰 글자 대비 4.5:1), `TEXT_MUTED` `#8C8F94 → #9A9DA3`(패널 배경 위 대비 4.5:1). 이름은 그대로라 이 이름을 쓰는 모든 화면이 따라 바뀐다.
+- **새로 만든 이름:** `PANEL_LOW_BG`, `HOVER_BG`, `ACCENT_LINE`, `ACCENT_TEXT`, `ACCENT_SOFT_BG`, `INFO_BG`/`INFO_BORDER`, 상태색 `RUNNING_BORDER`, `WARNING_BAR`/`WARNING_BADGE_*`/`WARNING_BORDER`, `DANGER_BADGE_BG`, `DANGER_FILL`. 값은 DESIGN-v2.md 표와 같다. 중립(정지) 색은 기존 값을 그대로 쓰므로 새 상수를 만들지 않았다.
+- **FlatLaf:** `Component.focusedBorderColor`를 `ACCENT_LINE`으로 지정했다(기본은 `@accentColor`). 포커스 선은 면보다 밝은 파랑을 쓰는 것이 v2 규칙이다.
+- **`Theme.hex()`를 package-private으로** 열었다. 화면 코드가 FlatLaf 스타일 문자열에 색을 넣을 때 숫자를 직접 적지 않고 이름으로 쓰게 하려는 것이다. 그래서 `AddAccountDialog`의 포커스 테두리(`#3B73E0` 직접 입력)를 `Theme.ACCENT_LINE`으로 바꿨다. `DiscordNotifier`(디스코드 임베드 색)와 아이콘 생성기(테스트 도구)의 같은 숫자는 앱 화면이 아니어서 그대로 뒀다.
+- **차트 색은 일부러 뺐다.** 모니터링 탭을 만들 때, 처음 쓰는 곳에서 이름을 붙인다.
+- 확인: 스냅샷 픽셀로 "SSH 열기" 버튼 배경 `#3B73E0 → #3469D4`, 흐린 글자 `#8C8F94 → #9A9DA3` 변경을 확인했다. 화면 배치는 이전 스냅샷과 같다. 버튼 색은 `@accentColor`에서 자동으로 따라온다.
+- **남은 일:** 1-b `StatusBadge`가 아직 경고·중립 색을 코드에 직접 쓴다(`0x3A3220`, `0x34363B`). 종류(성공·경고·위험·정보·중립)를 받게 해서 이번에 만든 이름을 쓰게 한다. 그다음 1-c 새 부품(`ComingSoon`, 칩, 구간 선택, 스위치, 막대).
+
+---
+
 ## 2026-10-27 · 데모용 코드를 `demo/` 패키지 하나로 모음
 
 사용자 요청: 데모 관련 파일을 따로 한 폴더로 묶자. `provider/demo/`를 `demo/`로 키우는 안(A)을 골랐다.
