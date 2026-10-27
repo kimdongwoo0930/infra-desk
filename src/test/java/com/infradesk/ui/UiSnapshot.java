@@ -1,7 +1,7 @@
 package com.infradesk.ui;
 
 import com.infradesk.app.InfraDeskApp;
-import com.infradesk.provider.demo.DemoProviderFactory;
+import com.infradesk.demo.DemoProviderFactory;
 import com.infradesk.service.AccountInventory;
 import com.infradesk.service.InventoryService;
 
@@ -576,8 +576,8 @@ public final class UiSnapshot {
     private static com.infradesk.service.TerminalService fastLiveTerminalService() {
         return new com.infradesk.service.TerminalService(new com.infradesk.storage.InMemorySshSettingsStore(),
                 new com.infradesk.storage.InMemorySecretStore(),
-                new com.infradesk.ssh.DemoShellConnector(Duration.ZERO, Duration.ofMillis(150)),
-                new com.infradesk.storage.InMemorySavedCommandStore(com.infradesk.provider.demo.DemoData.savedCommands()), true);
+                new com.infradesk.demo.DemoShellConnector(Duration.ZERO, Duration.ofMillis(150)),
+                new com.infradesk.storage.InMemorySavedCommandStore(com.infradesk.demo.DemoData.savedCommands()), true);
     }
 
     private static void collect(Container c, String simpleName, List<java.awt.Component> out) {

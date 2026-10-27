@@ -1,4 +1,4 @@
-package com.infradesk.ssh;
+package com.infradesk.demo;
 
 import java.util.Set;
 import java.util.regex.Matcher;

@@ -1,5 +1,6 @@
 package com.infradesk.ssh;
 
+import com.infradesk.demo.DemoShellConnector;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

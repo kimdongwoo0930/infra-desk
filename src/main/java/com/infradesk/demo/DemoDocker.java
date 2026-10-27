@@ -1,5 +1,6 @@
-package com.infradesk.ssh;
+package com.infradesk.demo;
 
+import com.infradesk.ssh.DockerCommands;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

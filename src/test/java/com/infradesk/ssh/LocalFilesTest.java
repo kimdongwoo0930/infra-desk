@@ -1,5 +1,6 @@
 package com.infradesk.ssh;
 
+import com.infradesk.demo.DemoLocalFiles;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

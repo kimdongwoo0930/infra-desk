@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-10-27 · 데모용 코드를 `demo/` 패키지 하나로 모음
+
+사용자 요청: 데모 관련 파일을 따로 한 폴더로 묶자. `provider/demo/`를 `demo/`로 키우는 안(A)을 골랐다.
+
+- **옮긴 것:** `provider/demo/`의 5개(`DemoData`, `DemoMetrics`, `DemoProvider`, `DemoProviderFactory`, `DemoRegions`)와 `ssh/`에 흩어져 있던 5개(`DemoShellConnector`, `DemoRemoteFiles`, `DemoLocalFiles`, `DemoDocker`, `DemoContainerShell`)를 `com.infradesk.demo`로 모았다. 테스트 4개도 같이 옮겼다. 동작은 바꾸지 않았다.
+- **`ssh`의 접근 범위를 넓힌 곳(최소한):** 패키지가 갈라져서 `Transfers`(클래스와 `copy` 2개)와 `DockerCommands.PS`/`STATS`를 `public`으로 바꿨다. 데모 코드가 이것들을 쓰기 때문이다. 이 값들이 `public`이 되어도 실제 모드에는 영향이 없다.
+- **의존 방향:** `demo`는 `core`와 `ssh`의 인터페이스만 쓰고, `demo`를 쓰는 곳은 `app`과 `service/TerminalService`(데모일 때 가짜 로컬 파일을 고르는 한 줄)다. `docs/architecture/README.md`의 의존 표에 적었다.
+- 확인: 전체 테스트 273개 중 실패 0. `./gradlew snapshot`으로 데모 화면이 그대로 그려지는 것을 확인했다.
+- **남은 일:** `service/TerminalService`가 `demo`를 직접 아는 부분은 `app`에서 `LocalFiles`를 넘겨 주는 방식으로 바꾸면 없앨 수 있다. 이번에는 범위 밖이라 그대로 뒀다.
+
+---
+
 ## 2026-10-23 · 창이 안 보이면 CPU만, 다시 보이면 바로 갱신
 
 사용자 제안: 창이 숨어 있을 때 사이드바·트레이에 필요한 건 CPU뿐이니 CPU만 읽자. 창이 다시 올라오면 5분 캐시를 기다리지 말고 바로 조회하자.

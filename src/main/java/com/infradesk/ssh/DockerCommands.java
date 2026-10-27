@@ -23,8 +23,8 @@ public final class DockerCommands {
     /** 합친 출력 안의 구분자. */
     static final String NO_DOCKER = "@@nodocker";
     static final String NO_ACCESS = "@@noaccess";
-    static final String PS = "@@ps";
-    static final String STATS = "@@stats";
+    public static final String PS = "@@ps";
+    public static final String STATS = "@@stats";
 
     // macOS의 비대화형 SSH는 PATH가 최소한이다. Docker Desktop과 Homebrew는 다른 곳에 설치된다.
     public static final String PRELUDE = "PATH=\"$PATH:/usr/local/bin:/opt/homebrew/bin\"; command -v docker >/dev/null 2>&1 || { echo " + NO_DOCKER + "; exit 0; }; "

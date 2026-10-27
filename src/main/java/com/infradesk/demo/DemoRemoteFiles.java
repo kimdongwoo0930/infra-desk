@@ -1,5 +1,8 @@
-package com.infradesk.ssh;
+package com.infradesk.demo;
 
+import com.infradesk.ssh.RemoteFile;
+import com.infradesk.ssh.RemoteFiles;
+import com.infradesk.ssh.Transfers;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;

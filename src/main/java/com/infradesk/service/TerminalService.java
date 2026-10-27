@@ -1,7 +1,7 @@
 package com.infradesk.service;
 
 import com.infradesk.core.Server;
-import com.infradesk.ssh.DemoLocalFiles;
+import com.infradesk.demo.DemoLocalFiles;
 import com.infradesk.ssh.HostFacts;
 import com.infradesk.ssh.LocalFiles;
 import com.infradesk.ssh.HostKeyPrompt;
