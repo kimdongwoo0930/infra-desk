@@ -176,8 +176,8 @@ public final class Theme {
         return new Font(family, Font.PLAIN, 1).deriveFont(size);
     }
 
-    /** 색을 FlatLaf 스타일 문자열({@code "#RRGGBB"})로 바꾼다. 같은 패키지의 화면 코드도 쓴다. */
-    static String hex(Color c) {
+    /** 색을 FlatLaf 스타일 문자열({@code "#RRGGBB"})로 바꾼다. 화면 코드가 스타일에 색을 이름으로 넣을 때 쓴다. */
+    public static String hex(Color c) {
         return String.format("#%06X", c.getRGB() & 0xFFFFFF);
     }
 }

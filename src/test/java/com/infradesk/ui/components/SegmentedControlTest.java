@@ -53,6 +53,17 @@ class SegmentedControlTest {
     }
 
     @Test
+    void 버튼_글자를_나중에_바꿀_수_있고_폭이_따라_바뀐다() {
+        SegmentedControl c = control();
+        int before = c.getComponent(1).getPreferredSize().width;
+
+        c.setLabel(1, "1시간 (최근 60개)");
+
+        assertEquals("1시간 (최근 60개)", segment(c, 1).getText());
+        assertEquals(true, c.getComponent(1).getPreferredSize().width > before);
+    }
+
+    @Test
     void 코드로_선택을_바꿀_수_있다() {
         SegmentedControl c = control();
         c.setSelectedIndex(3);

@@ -1,7 +1,10 @@
 package com.infradesk.ui;
 
+import com.infradesk.demo.DemoData;
+import com.infradesk.ssh.Container;
 import com.infradesk.ui.components.Buttons;
 import com.infradesk.ui.components.ComingSoon;
+import com.infradesk.ui.containers.ContainerLogView;
 import com.infradesk.ui.components.FilterChip;
 import com.infradesk.ui.components.Meter;
 import com.infradesk.ui.components.SegmentedControl;
@@ -103,22 +106,59 @@ final class ComponentGallery {
         JButton logs = Buttons.secondary("로그", null);
         page.add(row("준비 중 (ComingSoon)\n비활성 버튼 · 배지", ComingSoon.apply(logs), ComingSoon.badge()));
 
+        write(page, WIDTH, new File(dir, "v2-components.png"));
+        renderLogView(dir);
+    }
+
+    /**
+     * 컨테이너 탭의 로그 패널을 데모 로그로 채워서 그린다 → build/snapshots/v2-container-logs.png.
+     * 시안(docs/design/v2/images/server-containers.png)의 아래쪽 로그 부분과 비교한다.
+     */
+    private static void renderLogView(File dir) throws IOException {
+        ContainerLogView view = new ContainerLogView();
+        // 서버 없이: 로그를 요청하면 데모 로그를 바로 돌려준다.
+        view.onReload((c, tail) -> view.showLogs(c, DemoData.containerLog(c.name(), c.isRunning())));
+        Container nginx = container("nginx", true);
+        view.setContainers(List.of(container("discord-bot", true), nginx, container("redis", true),
+                container("watchtower", false)));
+        view.select(nginx);
+
+        JPanel page = new JPanel(new BorderLayout());
+        page.setBackground(Theme.APP_BG);
+        page.setBorder(BorderFactory.createEmptyBorder(24, 28, 24, 28));
+        page.add(view, BorderLayout.CENTER);
+        write(page, 1100, new File(dir, "v2-container-logs.png"), 420);
+    }
+
+    private static Container container(String name, boolean running) {
+        // 컨테이너 id는 16진수 64자다: 8자리(%08x)로 고정한 해시를 8번 이어 붙인다.
+        String id = String.format("%08x", name.hashCode()).repeat(8);
+        return new Container(id, name, name + ":latest", running ? "running" : "exited",
+                running ? "Up 14 days" : "Exited (0) 3 days ago", "", running ? 1.0 : -1, "", -1, "");
+    }
+
+    /** 높이를 부품의 권장 높이로 정하는 {@link #write(JComponent, int, File, int)}. */
+    private static void write(JComponent page, int width, File out) throws IOException {
+        write(page, width, out, page.getPreferredSize().height);
+    }
+
+    /** 창을 띄우지 않고 부품을 이미지로 그린다. 화면 배율 2배(레티나)로 그려서 시안 이미지와 같은 선명도로 본다. */
+    private static void write(JComponent page, int width, File out, int height) throws IOException {
         JFrame frame = new JFrame();
         frame.setContentPane(page);
-        int height = page.getPreferredSize().height;
-        frame.setSize(WIDTH, height);
+        frame.setSize(width, height);
         frame.addNotify();
-        page.setSize(WIDTH, height);
+        page.setSize(width, height);
         layoutAll(page);
 
-        BufferedImage img = new BufferedImage(WIDTH * 2, height * 2, BufferedImage.TYPE_INT_RGB);
+        BufferedImage img = new BufferedImage(width * 2, height * 2, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = img.createGraphics();
-        g.scale(2, 2);   // 화면 배율 2배(레티나)로 그려서 시안 이미지와 같은 선명도로 본다
+        g.scale(2, 2);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         page.paint(g);
         g.dispose();
-        dir.mkdirs();
-        ImageIO.write(img, "png", new File(dir, "v2-components.png"));
+        out.getParentFile().mkdirs();
+        ImageIO.write(img, "png", out);
         frame.dispose();
     }
 

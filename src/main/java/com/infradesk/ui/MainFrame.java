@@ -222,7 +222,14 @@ public class MainFrame extends JFrame {
         detail.containers().onRefresh(() -> findServer(selectedServerId).ifPresent(s -> loadContainers(s, true)));
         detail.containers().onAction(this::containerAction);
         detail.containers().onShell((c, console) -> findServer(selectedServerId).ifPresent(s -> openContainerTerminal(s, c, console)));
-        detail.containers().onLogs(c -> findServer(selectedServerId).ifPresent(s ->
+        // 표의 [로그] 버튼: 별도 창 대신 컨테이너 탭 아래의 로그 패널에서 본다(이미 그 탭이면 그대로 둔다).
+        detail.containers().onLogs(c -> {
+            detail.showContainersTab();
+            detail.logs().select(c);
+        });
+        detail.logs().onReload(this::loadContainerLogs);
+        // 로그 패널의 [별도 창으로 열기]: 예전 로그 창을 그대로 연다.
+        detail.logs().onOpenWindow(c -> findServer(selectedServerId).ifPresent(s ->
                 new com.infradesk.ui.containers.ContainerLogsDialog(this, containerService, s, c).setVisible(true)));
         sidebar.onSshSettings(this::editSshSettings);
         sidebar.settingsButton().addActionListener(e -> openSettings());
@@ -910,11 +917,11 @@ public class MainFrame extends JFrame {
     private void loadContainers(Server server, boolean force) {
         var panel = detail.containers();
         if (server.status() != com.infradesk.core.ServerStatus.RUNNING) {
-            panel.showMessage("서버가 실행 중일 때 표시돼요", null);
+            containersUnavailable("서버가 실행 중일 때 표시돼요");
             return;
         }
         if (!terminalService.isConfigured(server.id())) {
-            panel.showMessage("SSH 설정 후 표시돼요", null);
+            containersUnavailable("SSH 설정 후 표시돼요");
             return;
         }
         var cached = containerCache.get(server.id());
@@ -932,7 +939,7 @@ public class MainFrame extends JFrame {
             }
         }, err -> {
             if (id.equals(selectedServerId)) {
-                panel.showMessage("컨테이너 정보를 읽지 못했어요", null);
+                containersUnavailable("컨테이너 정보를 읽지 못했어요");
                 panel.showError(Async.message(err));
             }
         });
@@ -941,12 +948,50 @@ public class MainFrame extends JFrame {
     private void showListing(com.infradesk.ssh.DockerCommands.Listing listing, java.time.Instant at) {
         var panel = detail.containers();
         if (listing.status() != com.infradesk.ssh.DockerCommands.Listing.Status.OK) {
-            panel.showMessage(listing.problem(), null);
+            containersUnavailable(listing.problem());
             return;
         }
         long running = listing.containers().stream().filter(com.infradesk.ssh.Container::isRunning).count();
         panel.showContainers(listing.containers(), "실행 중 " + running + " / " + listing.containers().size() + " · "
                 + java.time.LocalTime.ofInstant(at, java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")) + " 기준");
+        // 같은 목록으로 로그 패널의 컨테이너 칩과 탭 이름 옆 개수도 갱신한다.
+        detail.setContainers(listing.containers());
+    }
+
+    /**
+     * 컨테이너를 보여 줄 수 없을 때(서버가 꺼져 있음, SSH 미설정, Docker 없음, 읽기 실패):
+     * 표에는 이유를 적고, 로그 패널의 칩과 탭 개수는 비운다.
+     */
+    private void containersUnavailable(String reason) {
+        detail.containers().showMessage(reason, null);
+        detail.clearContainers();
+    }
+
+    /**
+     * 컨테이너 탭의 로그 패널이 로그를 요청했다(컨테이너를 골랐거나, 줄 수를 바꿨거나, 새로고침을 눌렀다).
+     * SSH 조회 연결로 마지막 {@code tail}줄을 읽어 패널에 돌려준다. 접속 방식은 예전 로그 창과 같다.
+     */
+    private void loadContainerLogs(com.infradesk.ssh.Container container, int tail) {
+        Optional<Server> server = findServer(selectedServerId);
+        if (server.isEmpty()) {
+            return;
+        }
+        var view = detail.logs();
+        String serverId = server.get().id();
+        Async.run(() -> containerService.logs(server.get(), container, tail, new HostKeyDialog(this)),
+                out -> view.showLogs(container, out),   // 늦게 도착한 다른 컨테이너의 응답은 패널이 버린다
+                err -> {
+                    // 그 사이 다른 서버나 컨테이너로 바뀌었으면 늦게 온 오류는 보여 주지 않는다.
+                    var shown = view.selected();
+                    if (serverId.equals(selectedServerId) && shown != null && shown.id().equals(container.id())) {
+                        view.showError(Async.message(err));
+                    }
+                });
+    }
+
+    /** 스냅샷 도구가 서버 화면의 탭을 바꿔 보려고 쓴다. */
+    ServerScreen serverScreen() {
+        return detail;
     }
 
     private void containerAction(com.infradesk.ssh.Container c, com.infradesk.ssh.DockerCommands.Action action) {

@@ -56,9 +56,21 @@ public final class UiSnapshot {
             }
         });
         Thread.sleep(800);
+        // 컨테이너 탭 (디자인 v2 3단계): 탭을 열면 첫 컨테이너의 로그를 SSH(데모)로 읽어 오므로 잠깐 기다린 뒤 찍는다.
+        // 찍은 뒤에는 개요 탭으로 되돌려서 아래의 다른 스냅샷이 달라지지 않게 한다.
+        SwingUtilities.invokeAndWait(() -> mainFrame[0].serverScreen().showContainersTab());
+        Thread.sleep(1200);
         SwingUtilities.invokeAndWait(() -> {
             try {
-                MainFrame empty =new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "server-containers.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            mainFrame[0].serverScreen().showOverviewTab();
+        });
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                MainFrame empty = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), true);
                 empty.setInventory(List.of());
                 write(empty, empty.getContentPane(), 1280, 800, "main-empty.png");
 

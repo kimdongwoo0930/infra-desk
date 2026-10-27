@@ -67,4 +67,12 @@ public final class DemoData {
         return new Server("ocid1.instance.oc1.demo." + account.id() + "." + name, account.id(), name, status,
                 account.region(), shape, cpus, memGb, publicIp, privateIp, Instant.parse(created));
     }
+
+    /**
+     * 데모 컨테이너 하나의 {@code docker logs --timestamps} 출력. 화면 확인용 스냅샷과 테스트가 같은 로그를 쓰려고
+     * 공개한다. 이름이 nginx, redis, mysql, watchtower가 아니면 앱 컨테이너의 로그다.
+     */
+    public static String containerLog(String containerName, boolean running) {
+        return DemoDocker.logs(containerName, running);
+    }
 }

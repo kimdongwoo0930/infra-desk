@@ -81,6 +81,16 @@ public class SegmentedControl extends JPanel {
         segments.get(index).setSelected(true);
     }
 
+    /**
+     * 버튼 글자를 바꾼다. 개수가 붙는 구간 선택("전체 12", "경고 2")처럼 글자가 나중에 정해질 때 쓴다.
+     * 폭이 바뀌므로 배치를 다시 한다.
+     */
+    public void setLabel(int index, String text) {
+        segments.get(index).setText(text);
+        revalidate();
+        repaint();
+    }
+
     /** 선택이 바뀌면 새 번호와 함께 불린다. */
     public void addSelectionListener(IntConsumer listener) {
         listeners.add(listener);

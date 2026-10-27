@@ -4,6 +4,7 @@ import com.infradesk.core.Account;
 import com.infradesk.core.Server;
 import com.infradesk.service.ServerAction;
 import com.infradesk.ui.components.TabBar;
+import com.infradesk.ui.containers.ContainersTab;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -40,6 +41,9 @@ public class ServerScreen extends JPanel {
     private final ServerHeader header = new ServerHeader();
     private final TabBar tabs = new TabBar();
     private final ServerDetailPanel overview = new ServerDetailPanel();
+    private final ContainersTab containersTab = new ContainersTab();
+    /** 지금 화면에 보여 주는 서버. 서버가 바뀌었는지 알아서 이전 서버의 컨테이너 로그 칩을 비우는 데 쓴다. */
+    private String shownServerId;
     private final CardLayout cards = new CardLayout();
     private final JPanel body = new JPanel(cards);
 
@@ -53,10 +57,9 @@ public class ServerScreen extends JPanel {
         tabs.addTab(TAB_FILES, "파일");
         tabs.addTab(TAB_TERMINAL, "터미널");
         tabs.addTab(TAB_LOGS, "로그");
-        // 개요만 지금 동작한다. 나머지 탭은 화면을 하나씩 만들 때(디자인 v2 3~7단계) 아래 줄을 지워 연다.
-        // 준비 중(v2): 모니터링, 컨테이너, 파일, 터미널 탭 — 해당 화면이 만들어지면 setComingSoon을 지운다
+        // 개요와 컨테이너가 지금 동작한다. 나머지 탭은 화면을 하나씩 만들 때(디자인 v2 4~7단계) 아래 줄을 지워 연다.
+        // 준비 중(v2): 모니터링, 파일, 터미널 탭 — 해당 화면이 만들어지면 setComingSoon을 지운다
         tabs.setComingSoon(TAB_MONITORING);
-        tabs.setComingSoon(TAB_CONTAINERS);
         tabs.setComingSoon(TAB_FILES);
         tabs.setComingSoon(TAB_TERMINAL);
         // 준비 중(v2): 로그 탭 — 시안에서도 준비 중이다. 로그를 볼 기능이 생기면 연다
@@ -79,9 +82,18 @@ public class ServerScreen extends JPanel {
         overviewScroll.getViewport().setBackground(Theme.APP_BG);
         overviewScroll.getVerticalScrollBar().setUnitIncrement(24);
         body.add(overviewScroll, TAB_OVERVIEW);
+        // 컨테이너 탭은 스크롤 창에 넣지 않는다: 안의 표와 로그가 각자 스크롤하고 위아래 나눔을 가진다.
+        body.add(containersTab, TAB_CONTAINERS);
         add(body, BorderLayout.CENTER);
 
-        tabs.onSelect(id -> cards.show(body, id));
+        tabs.onSelect(id -> {
+            cards.show(body, id);
+            if (TAB_CONTAINERS.equals(id)) {
+                // 컨테이너 탭을 열면 빈 화면 대신 로그가 바로 보이게 한다(이미 고른 것이 있으면 그대로).
+                containersTab.logs().ensureSelection();
+                containersTab.fitTable();
+            }
+        });
     }
 
     // ── MainFrame이 부르는 메서드: 머리 ─────────────────────────
@@ -108,8 +120,44 @@ public class ServerScreen extends JPanel {
         return overview.metrics();
     }
 
+    // ── 컨테이너 탭 ─────────────────────────────────────────────
+
     public com.infradesk.ui.containers.ContainersPanel containers() {
-        return overview.containers();
+        return containersTab.containers();
+    }
+
+    public com.infradesk.ui.containers.ContainerLogView logs() {
+        return containersTab.logs();
+    }
+
+    /** 컨테이너 탭을 연다(예: 표의 [로그] 버튼을 눌렀을 때). */
+    public void showContainersTab() {
+        tabs.select(TAB_CONTAINERS);
+    }
+
+    /** 개요 탭을 연다. */
+    public void showOverviewTab() {
+        tabs.select(TAB_OVERVIEW);
+    }
+
+    /**
+     * 컨테이너 목록이 새로 왔다: 로그 패널의 칩과 탭 이름 옆 개수를 갱신한다. 컨테이너 탭이 열려 있고
+     * 아직 고른 컨테이너가 없으면 첫 컨테이너의 로그를 바로 보여 준다. 탭이 닫혀 있을 때는 로그를 읽지
+     * 않는다(서버를 고를 때마다 불필요한 SSH 조회가 생기지 않게).
+     */
+    public void setContainers(java.util.List<com.infradesk.ssh.Container> list) {
+        containersTab.logs().setContainers(list);
+        tabs.setCount(TAB_CONTAINERS, list.size());
+        containersTab.fitTable();
+        if (TAB_CONTAINERS.equals(tabs.selectedId())) {
+            containersTab.logs().ensureSelection();
+        }
+    }
+
+    /** 컨테이너를 보여 줄 수 없다(서버 꺼짐, SSH 미설정, 읽기 실패): 로그 패널의 칩과 탭 개수를 비운다. */
+    public void clearContainers() {
+        containersTab.logs().setContainers(java.util.List.of());
+        tabs.setCount(TAB_CONTAINERS, null);
     }
 
     public void setFacts(com.infradesk.ssh.HostFacts facts) {
@@ -127,6 +175,11 @@ public class ServerScreen extends JPanel {
      * 머리에 있고, 개요 본문이 그 뒤에 주소를 표시하기 때문이다.
      */
     public void show(Server server, Account account) {
+        if (!server.id().equals(shownServerId)) {
+            // 다른 서버로 바뀌었다: 새 목록이 올 때까지 이전 서버의 컨테이너 칩과 개수가 남아 있지 않게 비운다.
+            shownServerId = server.id();
+            clearContainers();
+        }
         header.show(server, account);
         overview.show(server, account);
     }

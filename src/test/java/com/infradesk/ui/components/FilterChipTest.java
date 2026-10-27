@@ -30,6 +30,27 @@ class FilterChipTest {
     }
 
     @Test
+    void 상태_점은_실행_중이면_초록으로_채우고_정지면_속이_빈다() {
+        FilterChip running = new FilterChip("web");
+        running.setStatusDot(true);
+        // 점은 왼쪽 여백(10) 안쪽에서 시작한다: x=10~18, 세로 가운데(14).
+        assertEquals(Theme.RUNNING_DOT.getRGB(), Pixels.paint(running).getRGB(14, 14));
+
+        FilterChip stopped = new FilterChip("web");
+        stopped.setStatusDot(false);
+        // 정지 점은 가운데가 비어 있다(칩 배경이 투명이라 알파 0).
+        assertEquals(0, Pixels.alpha(Pixels.paint(stopped).getRGB(14, 14)));
+    }
+
+    @Test
+    void 상태_점이_있으면_칩이_점만큼_넓어진다() {
+        FilterChip chip = new FilterChip("web");
+        int without = chip.getPreferredSize().width;
+        chip.setStatusDot(true);
+        assertEquals(without + 8 + 6, chip.getPreferredSize().width);
+    }
+
+    @Test
     void 개수를_붙이면_칩이_넓어진다() {
         FilterChip chip = new FilterChip("실행 중");
         int without = chip.getPreferredSize().width;

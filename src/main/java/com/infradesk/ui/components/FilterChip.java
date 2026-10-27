@@ -27,7 +27,13 @@ public class FilterChip extends JToggleButton {
     /** 글자와 개수 사이 간격. */
     private static final int COUNT_GAP = 4;
 
+    /** 글자 앞의 상태 점 지름과, 점과 글자 사이 간격. */
+    private static final int DOT = 8;
+    private static final int DOT_GAP = 6;
+
     private Integer count;
+    /** null이면 점 없음, TRUE면 채운 초록 점(실행 중), FALSE면 테두리만 있는 점(정지). */
+    private Boolean dot;
 
     public FilterChip(String label) {
         super(label);
@@ -52,10 +58,24 @@ public class FilterChip extends JToggleButton {
         return count;
     }
 
+    /** 글자 앞에 상태 점을 붙인다: 실행 중(true)은 채운 초록 점, 정지(false)는 테두리만 있는 점, null은 없음. */
+    public void setStatusDot(Boolean running) {
+        this.dot = running;
+        revalidate();
+        repaint();
+    }
+
+    public Boolean getStatusDot() {
+        return dot;
+    }
+
     @Override
     public Dimension getPreferredSize() {
         FontMetrics fm = getFontMetrics(getFont());
         int width = PAD_X * 2 + fm.stringWidth(getText());
+        if (dot != null) {
+            width += DOT + DOT_GAP;
+        }
         if (count != null) {
             width += COUNT_GAP + fm.stringWidth(String.valueOf(count));
         }
@@ -92,11 +112,25 @@ public class FilterChip extends JToggleButton {
             g2.setFont(getFont());
             FontMetrics fm = g2.getFontMetrics();
             int baseline = (h - fm.getHeight()) / 2 + fm.getAscent();
+            int x = PAD_X;
+            if (dot != null) {
+                int dotY = (h - DOT) / 2;
+                if (dot) {
+                    g2.setColor(Theme.RUNNING_DOT);
+                    g2.fillOval(x, dotY, DOT, DOT);
+                } else {
+                    // 정지: 속이 빈 점. 선 두께 1.2의 절반만큼 안쪽으로 그려서 지름이 8을 넘지 않게 한다.
+                    g2.setColor(Theme.TEXT_MUTED);
+                    g2.setStroke(new BasicStroke(1.2f));
+                    g2.drawOval(x, dotY, DOT - 1, DOT - 1);
+                }
+                x += DOT + DOT_GAP;
+            }
             g2.setColor(selected ? Theme.TEXT : Theme.TEXT_SECONDARY);
-            g2.drawString(getText(), PAD_X, baseline);
+            g2.drawString(getText(), x, baseline);
             if (count != null) {
                 g2.setColor(Theme.TEXT_MUTED);
-                g2.drawString(String.valueOf(count), PAD_X + fm.stringWidth(getText()) + COUNT_GAP, baseline);
+                g2.drawString(String.valueOf(count), x + fm.stringWidth(getText()) + COUNT_GAP, baseline);
             }
         } finally {
             g2.dispose();
