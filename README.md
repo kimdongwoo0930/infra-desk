@@ -12,30 +12,28 @@
 <p align="center">
   <a href="https://github.com/kimdongwoo0930/infra-desk/releases/latest"><b>⬇ 다운로드</b></a> ·
   <a href="#처음-설정">처음 설정</a> ·
+  <a href="docs/FEATURES.md">기능</a> ·
   <a href="#데모-모드">데모 모드</a> ·
   <a href="docs/ARCHITECTURE.md">구조</a>
 </p>
 
-![대시보드](docs/images/main.png)
+![개요](docs/images/overview.png)
 
 ## 주요 기능
 
-- **계정 여러 개를 한 화면에** — OCI 계정(테넌시)마다 API 키를 등록하면 서버를 자동으로 불러와 계정별로 보여줘요.
-- **직접 연결 서버** — 맥미니, 집 서버처럼 클라우드가 아닌 컴퓨터도 주소와 SSH 키만으로 추가해요. 응답 여부로 상태를 보여 주고, CPU·메모리·네트워크는 SSH로 1분마다 읽어 그래프로 보여 줘요. 터미널·SFTP·Docker·실시간 모드도 똑같이 써요(켜고 끄기는 없음). Linux·macOS 지원.
-- **상태와 제어** — 실행 중 / 정지 / 변경 중 상태를 자동 새로고침(평소 45초, 시작·정지 직후 5초)으로 보여주고, 시작·정지·재부팅은 확인 후 실행해요.
-- **모니터링** — CPU·메모리·네트워크 최근 1시간 그래프(OCI Monitoring), SSH로 2초마다 읽는 실시간 모드.
-- **SSH 터미널** — 서버별 탭, 저장된 명령어, SFTP 파일 탐색기. `~/.ssh/config`에서 사용자·키를 자동으로 가져와요.
-- **서버 정보** — 업타임, OS, 디스크 사용량, 열린 포트(SSH로 확인).
-- **Docker 컨테이너** — 컨테이너 목록·상태·CPU·메모리·포트, 로그 보기(경고·오류 거르기, 검색, 10초마다 자동 새로고침), 시작·정지·재시작, 컨테이너 안 셸과 DB 콘솔(MySQL·PostgreSQL·Redis·MongoDB). SSH로만 접근하고 Docker 포트는 열지 않아요.
-- **메뉴 막대 아이콘** — 창을 닫아도 메뉴 막대에서 서버 상태를 보고 바로 제어할 수 있어요. 로그인할 때 자동 실행도 가능.
-- **디스코드 알림** (준비 중) — 서버가 예상치 않게 멈추거나, 계정 연결이 끊기거나, CPU가 높게 유지될 때.
-- **안전하게** — 키·비밀번호는 암호화해서 이 PC에만 저장, 공인 IP는 기본으로 가려서 표시, 로그에서도 비밀값을 가려요.
+- **계정 여러 개를 한 화면에** — OCI 계정마다 API 키를 등록하면 서버를 자동으로 불러와 계정별로 보여줘요. 맥미니·집 서버 같은 직접 연결 서버도 주소와 SSH 키만으로 함께 관리해요.
+- **상태와 제어** — 실행 중 / 정지 상태를 자동으로 새로고침하고, 시작·정지·재부팅은 확인 후 실행해요.
+- **모니터링** — CPU·메모리·네트워크 그래프와, SSH로 2초마다 읽는 실시간 모드.
+- **SSH 터미널 · SFTP 파일** — 서버별 터미널 탭, 저장된 명령어, 끌어다 놓는 파일 전송과 편집.
+- **Docker 컨테이너** — 목록·로그·시작/정지, 컨테이너 안 셸과 DB 콘솔. SSH로만 접근하고 Docker 포트는 열지 않아요.
+- **메뉴 막대 아이콘** — 창을 닫아도 서버 상태를 보고 바로 제어할 수 있어요.
+- **안전하게** — 키·비밀번호는 암호화해서 이 PC에만 저장하고, 로그에서도 비밀값을 가려요.
 
-| 모니터링 · 실시간 | SSH 터미널 |
+| 모니터링 · 실시간 | 컨테이너 |
 |---|---|
-| ![실시간 모니터링](docs/images/main-live.png) | ![SSH 터미널](docs/images/terminal.png) |
-| **SFTP 파일** | **설정 — 자동 실행 · 앱 정보 · 디스코드 알림** |
-| ![SFTP](docs/images/sftp.png) | ![설정](docs/images/settings.png) |
+| ![실시간 모니터링](docs/images/monitoring-live.png) | ![컨테이너](docs/images/containers.png) |
+
+화면별 설명은 **[기능 안내](docs/FEATURES.md)**에 있어요: [개요](docs/FEATURES.md#개요) · [모니터링](docs/FEATURES.md#모니터링) · [컨테이너](docs/FEATURES.md#컨테이너) · [파일](docs/FEATURES.md#파일) · [터미널](docs/FEATURES.md#터미널) · [설정](docs/FEATURES.md#설정)
 
 > 스크린샷은 모두 [데모 모드](#데모-모드)의 가짜 데이터예요.
 
@@ -152,7 +150,7 @@ Java 25가 필요해요 (Gradle은 Wrapper 포함).
 ```
 
 스택: Swing + FlatLaf, Apache MINA SSHD, JediTerm, OCI Java SDK, XChart, jpackage.
-문서: [구조](docs/ARCHITECTURE.md) · [개발 기록](docs/DEVLOG.md) · [디자인](docs/design/DESIGN.md)
+문서: [기능](docs/FEATURES.md) · [구조](docs/ARCHITECTURE.md) · [개발 기록](docs/DEVLOG.md) · [디자인](docs/design/DESIGN.md)
 
 ## 라이선스
 
