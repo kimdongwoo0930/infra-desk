@@ -47,6 +47,7 @@
 | `account.<accountId>.privateKey` | OCI API 개인키 |
 | `server.<serverId>.sshKey` | SSH 개인키 |
 | `server.<serverId>.sshPassphrase` | SSH 키 암호 (있을 때만) |
+| `app.adminPassword` | 관리 비밀번호의 **해시**(비밀번호 자체가 아니다). 금고가 이 값을 한 번 더 암호화한다 |
 | `alerts.discordWebhook` | 디스코드 웹훅 URL |
 
 키 이름은 `SecretStore.accountKey(...)`나 `TerminalService`의 `serverKey(...)` 같은 곳에서 만든다.
@@ -68,7 +69,7 @@
 | `secrets.vault` | 모든 비밀값 (암호화) |
 | `commands.json` | 저장된 명령어 (이름, 명령) |
 | `alerts.json` | 알림 켜기/끄기, 종류, CPU 기준 |
-| `app-settings.json` | 업데이트 자동 확인 여부 |
+| `app-settings.json` | 업데이트 자동 확인 여부(`autoUpdateCheck`), 시작 서버(`startServerId`), 서버 묶기(`grouping`), 개요의 카드 | 목록(`overviewView`), 공인 IP 기본 가리기(`hidePublicIp`, 값이 없거나 이상하면 가림). 파일을 쓰는 쪽(`UpdateService`, `JsonAppSettingsStore`)은 자기 칸만 바꾸고 나머지는 그대로 둔다 |
 | `known_hosts` | 신뢰한 SSH 호스트 키 (OpenSSH 형식) |
 
 로그는 설정 디렉터리가 아니라 별도 위치에 쌓인다.

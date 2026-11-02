@@ -99,6 +99,11 @@ SSH 접속은 서버의 인증 로그에 남고, 인증이 계속 실패하면 �
 
 | 클래스 | 역할 |
 |---|---|
+| `AdminPasswordService` | 관리 비밀번호. **해시만** 저장한다(소금 + PBKDF2-HMAC-SHA256 60만 번, `pbkdf2-sha256$반복$소금$해시`를 금고의 `app.adminPassword`에). 확인은 같은 소금·반복으로 해시해 시간이 일정한 비교(`MessageDigest.isEqual`)로 한다. 연달아 5번 틀리면 30초 동안 확인 자체를 하지 않는다(그동안은 맞는 값도 받지 않는다. 메모리에만 있어 앱을 다시 켜면 풀린다). 저장된 값이 깨졌으면 "없음"으로 본다(영영 못 들어가는 일이 없게). 받은 비밀번호 배열은 쓰고 0으로 지운다. `reset()`은 `--reset-admin-password`가 쓴다 |
+| `AccessModeService` | 지금 읽기 / 관리 모드. 앱을 켤 때는 항상 읽기이고 저장하지 않는다. 관리로 바꿀 때만 `AdminPasswordService.verify`를 거친다. 바뀌면 듣는 쪽에 알린다(비밀번호를 확인하는 작업 스레드에서 알리므로 화면은 EDT로 넘겨서 고친다) |
+| `AccessControl` | 위 둘을 묶은 것. `MainFrame`이 이것 하나를 받는다. `unlocked()`는 시험·스냅샷용(비밀번호 없이 관리 모드로 시작) |
+| `AppSettingsService` | 설정 "일반"의 값(시작 서버, 묶기)을 읽고 바꾸는 창구. 저장에 성공해야 값이 바뀌고 듣는 쪽에 알린다 |
+| `ServerGroups` | 서버를 계정별 / 상태별 / 묶지 않음으로 묶는 규칙. 사이드바와 개요가 같은 결과를 그린다 |
 | `UpdateService` | GitHub 최신 정식 릴리스(`releases/latest`)에서 버전·다운로드·`SHA256SUMS.txt` 주소 확인, **버전 번호로** 새 버전 비교(`isNewer`: 1.0.10 > 1.0.9), 자동 확인 설정 저장. 태그가 `v1.0.0` 모양이 아니거나 프리릴리스·초안이면(옛 베타 릴리스) 정식 릴리스가 아니라고 본다 |
 | `UpdateInstaller` | 앱 안 업데이트: 받기(리디렉트 따라감) → SHA-256 대조 → 앱 옆 `.infradesk-update`에 풀기(macOS `ditto`) → 새 앱 `--self-test` → `update-swap.sh`/`.ps1`가 앱 종료를 기다려 교체하고 다시 실행(실패하면 원래 앱 복원) |
 

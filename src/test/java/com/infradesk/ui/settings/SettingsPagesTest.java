@@ -2,11 +2,22 @@ package com.infradesk.ui.settings;
 
 import com.infradesk.alert.AlertService;
 import com.infradesk.app.InfraDeskApp;
+import com.infradesk.core.Account;
+import com.infradesk.core.AppSettings;
+import com.infradesk.core.ProviderType;
+import com.infradesk.core.Server;
+import com.infradesk.core.ServerGrouping;
+import com.infradesk.core.ServerStatus;
+import com.infradesk.service.AccountInventory;
+import com.infradesk.service.AppSettingsService;
+import com.infradesk.storage.InMemoryAppSettingsStore;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,7 +30,7 @@ class SettingsPagesTest {
 
     private static SettingsScreen screen(Runnable onBack) {
         SettingsScreen screen = new SettingsScreen(InfraDeskApp.demoAlertService(), true, null, null, null, () -> { },
-                ConnectionPage.Source.none());
+                ConnectionPage.Source.none(), new AppSettingsService(new InMemoryAppSettingsStore()), List::of, () -> { });
         screen.onBack(onBack);
         return screen;
     }
@@ -64,10 +75,226 @@ class SettingsPagesTest {
 
     @Test
     void loginSwitchIsDisabledWhenThereIsNoLauncherOrInDemo() {
-        GeneralPage page = new GeneralPage(null, false);
+        GeneralPage page = new GeneralPage(null, false, new AppSettingsService(new InMemoryAppSettingsStore()), List::of);
 
         assertFalse(page.loginSwitch().isEnabled());
         assertFalse(page.loginSwitch().isSelected());
+    }
+
+    private static final Account ACCOUNT = new Account("a1", "계정 A", ProviderType.ORACLE, "ap-chuncheon-1", Map.of());
+
+    private static List<AccountInventory> twoServers() {
+        return List.of(new AccountInventory(ACCOUNT, List.of(
+                new Server("s1", "a1", "web", ServerStatus.RUNNING, "r", "shape", 1, 1, null, null, null),
+                new Server("s2", "a1", "db", ServerStatus.STOPPED, "r", "shape", 1, 1, null, null, null)), null));
+    }
+
+    /** 설정이 바뀔 때 예약된 화면 갱신(invokeLater)이 모두 끝나기를 기다린다. 앱에서는 모두 EDT에서 일어나 겹치지 않는다. */
+    private static void settle() throws Exception {
+        javax.swing.SwingUtilities.invokeAndWait(() -> { });
+    }
+
+    /** 화면 조작은 앱처럼 EDT에서 한다(여러 스레드가 같은 선택 목록을 동시에 고치지 않게). */
+    private static void onEdt(Runnable action) throws Exception {
+        javax.swing.SwingUtilities.invokeAndWait(action);
+    }
+
+    private static GeneralPage generalPage(AppSettingsService settings, List<AccountInventory> inventory) {
+        return new GeneralPage(null, true, settings, () -> inventory);
+    }
+
+    private static void collectLabels(java.awt.Component c, List<String> out) {
+        if (c instanceof javax.swing.JLabel l && l.getText() != null) {
+            out.add(l.getText());
+        }
+        if (c instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                collectLabels(child, out);
+            }
+        }
+    }
+
+    @Test
+    void closingTheWindowToTheMenuBarIsNoLongerASetting() {
+        List<String> labels = new ArrayList<>();
+        collectLabels(generalPage(new AppSettingsService(new InMemoryAppSettingsStore()), List.of()), labels);
+
+        assertTrue(labels.contains("시작 화면"));
+        assertTrue(labels.contains("서버 목록 묶기"));
+        assertFalse(labels.contains("창을 닫으면 메뉴 막대로 숨기기"));
+    }
+
+    @Test
+    void startScreenBeginsOnTheOverviewWithoutAServerList() {
+        GeneralPage page = generalPage(new AppSettingsService(new InMemoryAppSettingsStore()), twoServers());
+
+        assertEquals("개요", page.startKindBox().getSelectedItem());
+        assertFalse(page.startServerBox().isVisible());
+        assertEquals("계정별", page.groupingBox().getSelectedItem());
+    }
+
+    @Test
+    void choosingAServerStartSavesTheFirstServerAndShowsTheList() throws Exception {
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore());
+        GeneralPage page = generalPage(settings, twoServers());
+
+        onEdt(() -> page.startKindBox().setSelectedItem("서버 지정"));
+        settle();
+
+        assertEquals("s1", settings.current().startServerId());
+        assertTrue(page.startServerBox().isVisible());
+        assertEquals(2, page.startServerBox().getItemCount());
+        assertEquals("web · 계정 A", page.startServerBox().getSelectedItem().toString());
+    }
+
+    @Test
+    void pickingAnotherServerSavesIt() throws Exception {
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore());
+        GeneralPage page = generalPage(settings, twoServers());
+        onEdt(() -> page.startKindBox().setSelectedItem("서버 지정"));
+        settle();
+
+        onEdt(() -> page.startServerBox().setSelectedIndex(1));
+        settle();
+
+        assertEquals("s2", settings.current().startServerId());
+    }
+
+    @Test
+    void goingBackToTheOverviewClearsTheStartServer() throws Exception {
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore(
+                new AppSettings("s2", ServerGrouping.ACCOUNT)));
+        GeneralPage page = generalPage(settings, twoServers());
+        assertEquals("서버 지정", page.startKindBox().getSelectedItem());
+        assertTrue(page.startServerBox().isVisible());
+
+        onEdt(() -> page.startKindBox().setSelectedItem("개요"));
+        settle();
+
+        assertNull(settings.current().startServerId());
+        assertFalse(page.startServerBox().isVisible());
+    }
+
+    @Test
+    void withoutServersTheStartCannotBeSetToOne() throws Exception {
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore());
+        GeneralPage page = generalPage(settings, List.of());
+
+        onEdt(() -> page.startKindBox().setSelectedItem("서버 지정"));
+
+        assertNull(settings.current().startServerId());
+        assertEquals("개요", page.startKindBox().getSelectedItem());
+        assertTrue(page.startDescriptionText().contains("서버가 있어야"));
+    }
+
+    @Test
+    void aSavedServerThatIsGoneStaysVisibleAndIsExplained() {
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore(
+                new AppSettings("deleted", ServerGrouping.ACCOUNT)));
+        GeneralPage page = generalPage(settings, twoServers());
+
+        assertEquals("찾을 수 없는 서버", page.startServerBox().getSelectedItem().toString());
+        assertTrue(page.startDescriptionText().contains("개요로"));
+        assertEquals("deleted", settings.current().startServerId(), "보기만 했을 뿐 저장된 값을 지우면 안 된다");
+    }
+
+    @Test
+    void aSavedServerShowsUpOnceTheServerListArrivesAfterTheAppStarted() {
+        // 앱을 켠 직후에는 서버 목록이 아직 비어 있고, 목록은 나중에 도착한다.
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore(
+                new AppSettings("s2", ServerGrouping.ACCOUNT)));
+        List<AccountInventory> loaded = new ArrayList<>();
+        GeneralPage page = new GeneralPage(null, true, settings, () -> loaded);
+        assertEquals("찾을 수 없는 서버", page.startServerBox().getSelectedItem().toString());
+
+        loaded.addAll(twoServers());
+        page.refresh();
+
+        assertEquals("db · 계정 A", page.startServerBox().getSelectedItem().toString());
+        assertFalse(page.startDescriptionText().contains("찾을 수 없어서"));
+        assertEquals("s2", settings.current().startServerId());
+    }
+
+    @Test
+    void theGroupingChoiceIsSavedAndFollowsChangesMadeElsewhere() throws Exception {
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore());
+        GeneralPage page = generalPage(settings, twoServers());
+
+        onEdt(() -> page.groupingBox().setSelectedItem("상태별"));
+        settle();
+        assertEquals(ServerGrouping.STATUS, settings.current().grouping());
+
+        settings.update(s -> s.withGrouping(ServerGrouping.NONE));   // 개요의 "묶기" 목록에서 바꾼 것처럼
+        settle();   // 듣는 쪽의 invokeLater가 끝나기를 기다린다
+        assertEquals("묶지 않음", page.groupingBox().getSelectedItem());
+    }
+
+    // ── 보안·안전 ───────────────────────────────────────────────
+
+    @Test
+    void theIpHidingSwitchStartsOnAndSavesWhenChanged() {
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore());
+        SecurityPage page = new SecurityPage(settings, () -> { });
+        assertTrue(page.hideIpSwitch().isSelected());
+        assertTrue(page.hideIpSwitch().isEnabled(), "더 이상 준비 중이 아니다");
+
+        page.hideIpSwitch().doClick(0);   // 눌러서 끈다(doClick은 선택을 뒤집고 동작을 실행한다)
+
+        assertFalse(settings.current().hidePublicIp());
+        assertTrue(page.hideIpDescription().contains("앱을 열 때부터"));
+    }
+
+    @Test
+    void theIpHidingSwitchShowsTheSavedValue() {
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore(
+                AppSettings.DEFAULT.withHidePublicIp(false)));
+
+        assertFalse(new SecurityPage(settings, () -> { }).hideIpSwitch().isSelected());
+    }
+
+    @Test
+    void theAdminPasswordRowHasAChangeButtonThatOpensTheChangeFlow() {
+        java.util.concurrent.atomic.AtomicInteger opened = new java.util.concurrent.atomic.AtomicInteger();
+        SecurityPage page = new SecurityPage(new AppSettingsService(new InMemoryAppSettingsStore()), opened::incrementAndGet);
+
+        assertTrue(com.infradesk.ui.SwingTree.labels(page).contains("관리 비밀번호"));
+        assertTrue(com.infradesk.ui.SwingTree.buttons(page).contains("변경"));
+        javax.swing.AbstractButton change = findButton(page, "변경");
+        change.doClick(0);
+
+        assertEquals(1, opened.get());
+    }
+
+    @Test
+    void startingInReadOnlyModeIsNotASettingBecauseTheAppAlwaysStartsThatWay() {
+        List<String> labels = new ArrayList<>();
+        collectLabels(new SecurityPage(new AppSettingsService(new InMemoryAppSettingsStore()), () -> { }), labels);
+
+        assertFalse(labels.contains("앱을 시작할 때 읽기 전용으로"));
+    }
+
+    private static javax.swing.AbstractButton findButton(java.awt.Component root, String text) {
+        if (root instanceof javax.swing.AbstractButton b && text.equals(b.getText())) {
+            return b;
+        }
+        if (root instanceof java.awt.Container c) {
+            for (java.awt.Component child : c.getComponents()) {
+                javax.swing.AbstractButton found = findButton(child, text);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Test
+    void theIrreversibleActionConfirmationIsNoLongerASetting() {
+        List<String> labels = new ArrayList<>();
+        collectLabels(new SecurityPage(new AppSettingsService(new InMemoryAppSettingsStore()), () -> { }), labels);
+
+        assertFalse(labels.contains("되돌릴 수 없는 작업 확인"));
+        assertTrue(labels.contains("공인 IP 기본으로 가리기"));
     }
 
     // ── 알림 ────────────────────────────────────────────────────

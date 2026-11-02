@@ -33,6 +33,12 @@ class ServerListItem extends JPanel {
     private boolean hover;
 
     ServerListItem(Server server, Double cpuPercent, Runnable onSelect, Runnable onSshSettings, Runnable onEditAccount) {
+        this(server, cpuPercent, onSelect, onSshSettings, onEditAccount, false);
+    }
+
+    /** @param readOnly 읽기 모드: 설정을 바꾸는 우클릭 메뉴(SSH 설정, 계정 설정)를 달지 않는다 */
+    ServerListItem(Server server, Double cpuPercent, Runnable onSelect, Runnable onSshSettings, Runnable onEditAccount,
+                   boolean readOnly) {
         super(new BorderLayout(10, 0));
         this.server = server;
         setOpaque(false);
@@ -56,14 +62,16 @@ class ServerListItem extends JPanel {
         add(detail, BorderLayout.EAST);
         applyColors();
 
-        javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
-        javax.swing.JMenuItem ssh = new javax.swing.JMenuItem("SSH 설정…");
-        ssh.addActionListener(e -> onSshSettings.run());
-        menu.add(ssh);
-        javax.swing.JMenuItem account = new javax.swing.JMenuItem("계정 설정…");
-        account.addActionListener(e -> onEditAccount.run());
-        menu.add(account);
-        setComponentPopupMenu(menu);
+        if (!readOnly) {
+            javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+            javax.swing.JMenuItem ssh = new javax.swing.JMenuItem("SSH 설정…");
+            ssh.addActionListener(e -> onSshSettings.run());
+            menu.add(ssh);
+            javax.swing.JMenuItem account = new javax.swing.JMenuItem("계정 설정…");
+            account.addActionListener(e -> onEditAccount.run());
+            menu.add(account);
+            setComponentPopupMenu(menu);
+        }
 
         addMouseListener(new MouseAdapter() {
             @Override

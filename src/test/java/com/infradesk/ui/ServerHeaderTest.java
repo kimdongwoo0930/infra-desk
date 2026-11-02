@@ -64,6 +64,30 @@ class ServerHeaderTest {
     }
 
     @Test
+    void 읽기_모드에서는_서버를_켜고_끄는_버튼이_모두_숨는다() {
+        ServerHeader running = header(CLOUD, ServerStatus.RUNNING);
+        running.setReadOnly(true);
+        assertFalse(SwingTree.buttons(running).contains("재부팅"));
+        assertFalse(SwingTree.buttons(running).contains("정지"));
+        assertFalse(SwingTree.buttons(running).contains("시작"));
+
+        ServerHeader stopped = header(CLOUD, ServerStatus.STOPPED);
+        stopped.setReadOnly(true);
+        assertFalse(SwingTree.buttons(stopped).contains("시작"));
+    }
+
+    @Test
+    void 관리_모드로_돌아오면_서버_상태에_맞는_버튼이_다시_보인다() {
+        ServerHeader h = header(CLOUD, ServerStatus.RUNNING);
+        h.setReadOnly(true);
+
+        h.setReadOnly(false);
+
+        assertTrue(SwingTree.buttons(h).contains("재부팅"));
+        assertTrue(SwingTree.buttons(h).contains("정지"));
+    }
+
+    @Test
     void 실행_중인_클라우드_서버는_재부팅_정지가_눌리고_시작은_숨는다() {
         ServerHeader h = header(CLOUD, ServerStatus.RUNNING);
 

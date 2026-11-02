@@ -46,6 +46,8 @@ final class ServerCard extends RoundedPanel {
     private static final int NOTE_INSET = 32 + 28;
 
     private final CardData data;
+    /** 읽기 모드면 서버에 접속하거나 서버를 켜는 버튼([SSH] [파일] [시작])을 숨기고 [모니터링]만 남긴다. */
+    private final boolean readOnly;
     private WrappingLabel note;
 
     /**
@@ -55,9 +57,10 @@ final class ServerCard extends RoundedPanel {
      */
     ServerCard(CardData data, java.util.function.Consumer<com.infradesk.core.Server> openServer,
                BiConsumer<com.infradesk.core.Server, String> openTab,
-               java.util.function.Consumer<com.infradesk.core.Server> start) {
+               java.util.function.Consumer<com.infradesk.core.Server> start, boolean readOnly) {
         super(new BorderLayout(), NORMAL, Theme.DIVIDER, Theme.ARC_CARD);
         this.data = data;
+        this.readOnly = readOnly;
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         getAccessibleContext().setAccessibleName(data.server().name() + ", " + data.server().status().label());
@@ -93,7 +96,7 @@ final class ServerCard extends RoundedPanel {
     }
 
     /** 버튼을 뺀 나머지 부분에 누름·올림 감시를 단다(버튼은 자기 동작이 있다). */
-    private static void listenOnChildren(java.awt.Container parent, MouseAdapter click) {
+    static void listenOnChildren(java.awt.Container parent, MouseAdapter click) {
         parent.addMouseListener(click);
         for (java.awt.Component c : parent.getComponents()) {
             if (c instanceof JButton) {
@@ -242,17 +245,19 @@ final class ServerCard extends RoundedPanel {
         JPanel row = new JPanel(new WrapLayout(FlowLayout.LEFT, 6, 6, true));
         row.setOpaque(false);
         if (data.running()) {
-            row.add(small("SSH", "terminal", e -> openTab.accept(data.server(), ServerScreen.TAB_TERMINAL)));
-            row.add(small("파일", "folder", e -> openTab.accept(data.server(), ServerScreen.TAB_FILES)));
+            if (!readOnly) {
+                row.add(small("SSH", "terminal", e -> openTab.accept(data.server(), ServerScreen.TAB_TERMINAL)));
+                row.add(small("파일", "folder", e -> openTab.accept(data.server(), ServerScreen.TAB_FILES)));
+            }
             row.add(small("모니터링", "chart", e -> openTab.accept(data.server(), ServerScreen.TAB_MONITORING)));
-        } else if (data.canStart()) {
+        } else if (data.canStart() && !readOnly) {
             row.add(small("시작", "play", e -> start.accept(data.server())));
         }
         return row;
     }
 
-    /** 시안의 카드 버튼: 높이 28, 글자 12, 좌우 여백 10. */
-    private static JButton small(String text, String icon, java.awt.event.ActionListener action) {
+    /** 시안의 카드 버튼: 높이 28, 글자 12, 좌우 여백 10. 목록의 줄({@link ServerTable})도 같은 버튼을 쓴다. */
+    static JButton small(String text, String icon, java.awt.event.ActionListener action) {
         JButton b = Buttons.secondary(text, icon);
         b.putClientProperty(FlatClientProperties.STYLE,
                 "background: #00000000; borderWidth: 1; borderColor: #4E5157; hoverBackground: #FFFFFF10;"

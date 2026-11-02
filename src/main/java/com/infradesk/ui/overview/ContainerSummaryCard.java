@@ -51,6 +51,10 @@ public final class ContainerSummaryCard extends RoundedPanel {
     private final JLabel message = new JLabel(" ");
     private Consumer<Container> onLogs = c -> { };
     private Consumer<Container> onShell = c -> { };
+    private boolean readOnly;
+    /** 마지막으로 보여 준 목록(읽기 모드가 바뀔 때 다시 그리려고 기억한다). */
+    private List<Container> lastContainers;
+    private Instant lastAt;
     private BiConsumer<Container, DockerCommands.Action> onAction = (c, a) -> { };
     private Runnable onViewAll = () -> { };
 
@@ -110,8 +114,18 @@ public final class ContainerSummaryCard extends RoundedPanel {
         repaint();
     }
 
+    /** 읽기 모드: 줄마다 [로그 보기]만 남기고 셸·재시작·시작 버튼을 숨긴다. 지금 목록을 다시 그린다. */
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+        if (lastContainers != null) {
+            setContainers(lastContainers, lastAt);
+        }
+    }
+
     /** 컨테이너 목록을 보여 준다. {@code at}은 목록을 읽은 시각이다. */
     public void setContainers(List<Container> containers, Instant at) {
+        lastContainers = containers;
+        lastAt = at;
         subtitle.setText(headerText(containers, at));
         rows.removeAll();
         if (containers.isEmpty()) {
@@ -212,9 +226,11 @@ public final class ContainerSummaryCard extends RoundedPanel {
             buttons.setOpaque(false);
             if (running) {
                 buttons.add(iconButton("file", "로그 보기", () -> onLogs.accept(c)));
-                buttons.add(iconButton("terminal", "셸 열기", () -> onShell.accept(c)));
-                buttons.add(iconButton("refresh", "재시작", () -> onAction.accept(c, DockerCommands.Action.RESTART)));
-            } else {
+                if (!readOnly) {
+                    buttons.add(iconButton("terminal", "셸 열기", () -> onShell.accept(c)));
+                    buttons.add(iconButton("refresh", "재시작", () -> onAction.accept(c, DockerCommands.Action.RESTART)));
+                }
+            } else if (!readOnly) {
                 JButton start = Buttons.secondary("시작", null);
                 start.addActionListener(e -> onAction.accept(c, DockerCommands.Action.START));
                 buttons.add(start);

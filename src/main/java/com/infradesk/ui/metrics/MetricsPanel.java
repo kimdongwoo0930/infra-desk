@@ -300,6 +300,11 @@ public class MetricsPanel extends JPanel {
         cpu.chart().setAlertThreshold(MetricsSidePanel.cpuThreshold(settings));
     }
 
+    /** 읽기 모드: "알림 기준" 카드의 [설정에서 바꾸기]를 숨긴다. */
+    public void setReadOnly(boolean readOnly) {
+        side.setReadOnly(readOnly);
+    }
+
     /** "알림 기준" 카드의 [설정에서 바꾸기]를 눌렀다. */
     public void onOpenAlertSettings(Runnable listener) {
         side.onOpenSettings(listener);

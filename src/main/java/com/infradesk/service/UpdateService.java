@@ -11,7 +11,6 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Map;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -155,7 +154,14 @@ public class UpdateService {
         }
         try {
             Files.createDirectories(settingsFile.getParent());
-            mapper.writerWithDefaultPrettyPrinter().writeValue(settingsFile.toFile(), Map.of("autoUpdateCheck", enabled));
+            // 같은 파일에 설정 "일반"의 값(시작 화면, 묶기)도 있으므로, 읽어 온 내용에서 이 칸만 바꿔서 쓴다.
+            com.fasterxml.jackson.databind.node.ObjectNode root = mapper.createObjectNode();
+            if (Files.exists(settingsFile) && mapper.readTree(settingsFile.toFile()) instanceof
+                    com.fasterxml.jackson.databind.node.ObjectNode existing) {
+                root = existing;
+            }
+            root.put("autoUpdateCheck", enabled);
+            mapper.writerWithDefaultPrettyPrinter().writeValue(settingsFile.toFile(), root);
         } catch (IOException e) {
             throw new IllegalStateException("설정을 저장하지 못했어요: " + e.getMessage(), e);
         }

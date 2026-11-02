@@ -84,6 +84,17 @@ public class TabBar extends JPanel {
         tab.repaint();
     }
 
+    /** 탭을 보이거나 숨긴다(읽기 모드에서 파일·터미널 탭을 숨긴다). 선택된 탭을 숨기면 부른 쪽이 다른 탭을 골라야 한다. */
+    public void setTabVisible(String id, boolean visible) {
+        tab(id).setVisible(visible);
+        revalidate();
+        repaint();
+    }
+
+    public boolean isTabVisible(String id) {
+        return tab(id).isVisible();
+    }
+
     /** 선택된 탭의 id. 탭이 없으면 null. */
     public String selectedId() {
         for (Map.Entry<String, Tab> e : tabs.entrySet()) {

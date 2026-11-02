@@ -2,10 +2,13 @@ package com.infradesk.ui.fleet;
 
 import com.formdev.flatlaf.FlatClientProperties;
 import com.infradesk.core.Account;
+import com.infradesk.core.OverviewView;
 import com.infradesk.core.Server;
+import com.infradesk.core.ServerGrouping;
 import com.infradesk.core.ServerStatus;
 import com.infradesk.service.AccountInventory;
 import com.infradesk.service.FleetService;
+import com.infradesk.service.ServerGroups;
 import com.infradesk.ui.IpPrivacy;
 import com.infradesk.ui.Theme;
 import com.infradesk.ui.components.Buttons;
@@ -35,6 +38,7 @@ import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -45,7 +49,8 @@ import javax.swing.JScrollPane;
  * <p>이 화면은 값을 직접 읽지 않는다. 서버 목록, CPU, SSH로 읽은 값은 {@link #setData}로 받고, 읽기는 {@code
  * FleetService}가 한다(한 번에 2대씩, 값은 5분 재사용). 카드의 버튼은 그 서버 화면의 탭으로 이동만 한다.
  *
- * <p>아직 정해지지 않은 것은 준비 중으로 둔다: "확인 필요"를 판단하는 규칙(요약 칸, 목록, 거르기), 묶는 방법, 목록 보기.
+ * <p>아직 정해지지 않은 것은 준비 중으로 둔다: "확인 필요"를 판단하는 규칙(요약 칸, 목록, 거르기).
+ * 서버는 카드 또는 목록({@link ServerTable})으로 보이고, 둘 다 같은 {@link CardData}를 그린다.
  */
 public final class FleetScreen extends JPanel implements javax.swing.Scrollable {
 
@@ -58,7 +63,24 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
     private final JLabel readAt = new JLabel(" ");
     private final JButton refresh = Buttons.secondary("새로고침", "refresh");
     private final JPanel summary = new JPanel(new CardGridLayout(170, 12, true));
-    private final JPanel grid = new JPanel(new CardGridLayout(280, 12));
+    /** 서버 카드가 들어가는 곳. 묶음마다 머리글과 카드 격자를 위에서 아래로 쌓는다(묶지 않으면 격자 하나). */
+    private final JPanel grid = new JPanel();
+    private final JComboBox<String> groupBy = new JComboBox<>();
+    /** 지금 그려진 묶음 머리글의 글자(시험용). */
+    private final List<String> sectionTitles = new ArrayList<>();
+    /** 묶는 방법을 코드로 바꾸는 중이면 true: 선택 목록의 알림을 사용자가 고른 것으로 오해하지 않기 위해. */
+    private boolean settingGrouping;
+    private ServerGrouping grouping = ServerGrouping.ACCOUNT;
+    private Consumer<ServerGrouping> onGroupingPicked = g -> { };
+    /** "카드 | 목록" 전환. 번호는 {@link OverviewView#values()}의 순서와 같다. */
+    private final SegmentedControl view = new SegmentedControl(
+            java.util.Arrays.stream(OverviewView.values()).map(OverviewView::label).toList());
+    private OverviewView overviewView = OverviewView.CARDS;
+    /** 읽기 모드면 카드와 목록에서 서버에 접속하거나 서버를 켜는 버튼을 숨긴다. */
+    private boolean readOnly;
+    /** 보기 방식을 코드로 바꾸는 중이면 true(사용자가 누른 것으로 오해하지 않기 위해). */
+    private boolean settingView;
+    private Consumer<OverviewView> onViewPicked = v -> { };
     private final FilterChip all = new FilterChip("전체");
     private final FilterChip running = new FilterChip("실행 중");
     private final FilterChip stopped = new FilterChip("정지");
@@ -94,6 +116,7 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
         column.add(serversHeader());
         column.add(Box.createVerticalStrut(12));
         grid.setOpaque(false);
+        grid.setLayout(new BoxLayout(grid, BoxLayout.Y_AXIS));
         grid.setAlignmentX(LEFT_ALIGNMENT);
         column.add(grid);
         column.add(Box.createVerticalStrut(8));
@@ -120,6 +143,57 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
 
     public void onRefresh(Runnable listener) {
         this.onRefresh = listener;
+    }
+
+    /** 사용자가 위쪽의 "묶기" 목록에서 방법을 골랐다. */
+    public void onGroupingPicked(Consumer<ServerGrouping> listener) {
+        this.onGroupingPicked = listener;
+    }
+
+    /** 읽기 / 관리 모드를 바꾼다. 읽기 모드에서는 [SSH] [파일] [시작]이 빠지고 [모니터링]만 남는다. */
+    public void setReadOnly(boolean readOnly) {
+        if (this.readOnly != readOnly) {
+            this.readOnly = readOnly;
+            invalidateTree(this);
+            rebuildGrid();
+        }
+    }
+
+    /** 사용자가 위쪽의 "카드 | 목록"에서 보기 방식을 골랐다. */
+    public void onViewPicked(Consumer<OverviewView> listener) {
+        this.onViewPicked = listener;
+    }
+
+    /** 보기 방식(카드 / 목록)을 바꾸고 다시 그린다(앱 설정이 바뀌었을 때도 불린다). */
+    public void setView(OverviewView value) {
+        boolean changed = this.overviewView != value;
+        this.overviewView = value;
+        settingView = true;
+        try {
+            view.setSelectedIndex(value.ordinal());
+        } finally {
+            settingView = false;
+        }
+        if (changed) {
+            invalidateTree(this);
+            rebuildGrid();
+        }
+    }
+
+    /** 묶는 방법을 바꾸고 카드를 다시 그린다(설정 "일반"에서 바뀌었을 때도 불린다). */
+    public void setGrouping(ServerGrouping grouping) {
+        boolean changed = this.grouping != grouping;
+        this.grouping = grouping;
+        settingGrouping = true;
+        try {
+            groupBy.setSelectedItem(grouping.label());   // 저장하지 못해 되돌릴 때는 목록만 맞추면 된다
+        } finally {
+            settingGrouping = false;
+        }
+        if (changed) {
+            invalidateTree(this);
+            rebuildGrid();
+        }
     }
 
     /** 서버 정보를 읽는 중이면 [새로고침]을 잠근다. */
@@ -238,14 +312,25 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
         stopped.addActionListener(e -> pick(Filter.STOPPED));
         // 준비 중(v2): "확인 필요" 칩은 규칙이 정해진 뒤에 붙인다
 
-        JComboBox<String> groupBy = new JComboBox<>(new String[] {"계정별"});
-        // 준비 중(v2): 상태별·묶지 않음
-        ComingSoon.apply(groupBy);
+        for (ServerGrouping g : ServerGrouping.values()) {
+            groupBy.addItem(g.label());
+        }
+        // macOS 기본 모양(위아래 화살표) 대신 시안처럼 아래 화살표 하나로(설정의 선택 목록과 같다).
+        groupBy.putClientProperty(FlatClientProperties.STYLE, "buttonStyle: button");
+        groupBy.addActionListener(e -> {
+            if (!settingGrouping) {
+                // 고른 값은 앱 설정에 저장된다. 돌아오는 setGrouping()이 화면을 다시 그린다.
+                onGroupingPicked.accept(ServerGrouping.fromLabel((String) groupBy.getSelectedItem(), grouping));
+            }
+        });
         JLabel groupLabel = new JLabel("묶기");
         groupLabel.setForeground(Theme.TEXT_SECONDARY);
-        SegmentedControl view = new SegmentedControl(List.of("카드", "목록"));
-        // 준비 중(v2): 목록 보기
-        view.setSegmentEnabled(1, false, "목록 보기는 준비 중이에요");
+        view.addSelectionListener(index -> {
+            if (!settingView) {
+                // 고른 값은 앱 설정에 저장된다. 돌아오는 setView()가 화면을 다시 그린다.
+                onViewPicked.accept(OverviewView.values()[index]);
+            }
+        });
 
         JPanel p = new JPanel(new BorderLayout());
         p.setOpaque(false);
@@ -302,19 +387,40 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
 
     private void rebuildGrid() {
         grid.removeAll();
+        sectionTitles.clear();
         int shown = 0;
-        for (AccountInventory inv : inventory) {
-            Account account = inv.account();
-            for (Server server : inv.servers()) {
-                boolean isRunning = server.status() == ServerStatus.RUNNING;
-                if (filter == Filter.RUNNING && !isRunning || filter == Filter.STOPPED && isRunning) {
-                    continue;
-                }
-                CardData data = CardData.of(server, account, cpu.get(server.id()), readings.apply(server.id()),
-                        configured.test(server.id()));
-                grid.add(new ServerCard(data, onOpenServer, onOpenTab, onStart));
-                shown++;
+        // 위의 칩(전체 / 실행 중 / 정지)으로 거른 서버를, 고른 방법으로 묶는다(규칙은 ServerGroups, 사이드바와 같다).
+        Predicate<Server> keep = server -> {
+            boolean isRunning = server.status() == ServerStatus.RUNNING;
+            return !(filter == Filter.RUNNING && !isRunning || filter == Filter.STOPPED && isRunning);
+        };
+        for (ServerGroups.Group group : ServerGroups.of(inventory, grouping, keep, false)) {
+            // 카드와 목록은 같은 값(CardData)을 그린다: 보기 방식을 바꿔도 서버를 새로 읽지 않는다.
+            List<CardData> values = new ArrayList<>();
+            for (ServerGroups.Member member : group.members()) {
+                Server server = member.server();
+                values.add(CardData.of(server, member.inventory().account(), cpu.get(server.id()),
+                        readings.apply(server.id()), configured.test(server.id())));
             }
+            shown += values.size();
+            JComponent body;
+            if (overviewView == OverviewView.LIST) {
+                body = new ServerTable(values, onOpenServer, onOpenTab, onStart, readOnly);
+            } else {
+                JPanel cards = new JPanel(new CardGridLayout(280, 12));
+                cards.setOpaque(false);
+                values.forEach(data -> cards.add(new ServerCard(data, onOpenServer, onOpenTab, onStart, readOnly)));
+                body = cards;
+            }
+            body.setAlignmentX(LEFT_ALIGNMENT);
+            String title = group.account() != null ? ServerGroups.accountTitle(group.account().account()) : group.title();
+            if (title != null) {
+                sectionTitles.add(title);
+                grid.add(sectionHeader(title, group.members().size()));
+                grid.add(Box.createVerticalStrut(8));
+            }
+            grid.add(body);
+            grid.add(Box.createVerticalStrut(20));
         }
         emptyNote.removeAll();
         if (shown == 0) {
@@ -327,15 +433,48 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
         emptyNote.revalidate();
     }
 
-    /** 시험용: 지금 보이는 카드의 값. */
+    /** 묶음의 머리글: 이름과 서버 수. */
+    private static JPanel sectionHeader(String title, int count) {
+        JLabel name = new JLabel(title);
+        name.setFont(name.getFont().deriveFont(Font.BOLD, 13f));
+        name.setForeground(Theme.TEXT_SECONDARY);
+        JLabel n = new JLabel(String.valueOf(count));
+        n.setForeground(Theme.TEXT_MUTED);
+        JPanel p = row(8, name, n);
+        p.setAlignmentX(LEFT_ALIGNMENT);
+        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, p.getPreferredSize().height));
+        return p;
+    }
+
+    /** 시험용: 지금 보이는 카드의 값(묶음 순서대로). */
     List<CardData> cards() {
         List<CardData> out = new ArrayList<>();
-        for (Component c : grid.getComponents()) {
-            if (c instanceof ServerCard card) {
-                out.add(card.data());
+        for (Component section : grid.getComponents()) {
+            if (section instanceof java.awt.Container container) {
+                for (Component c : container.getComponents()) {
+                    if (c instanceof ServerCard card) {
+                        out.add(card.data());
+                    }
+                }
             }
         }
         return out;
+    }
+
+    /** 시험용: 목록 보기에서 지금 보이는 줄의 값(묶음 순서대로). 카드 보기면 비어 있다. */
+    List<CardData> rows() {
+        List<CardData> out = new ArrayList<>();
+        for (Component c : grid.getComponents()) {
+            if (c instanceof ServerTable table) {
+                out.addAll(table.data());
+            }
+        }
+        return out;
+    }
+
+    /** 시험용: 지금 보이는 묶음 머리글의 글자(묶지 않으면 비어 있다). */
+    List<String> sectionTitles() {
+        return List.copyOf(sectionTitles);
     }
 
     // ── 스크롤 ──────────────────────────────────────────────────

@@ -47,6 +47,8 @@ public class ServerHeader extends JPanel {
     private final JButton moreButton = moreButton();
 
     private Consumer<ServerAction> onAction = a -> { };
+    /** 읽기 모드면 시작·정지·재부팅 버튼을 모두 숨긴다. */
+    private boolean readOnly;
     private Server server;
     private boolean busy;
     /** 앱이 전원을 켜거나 끌 수 없는 직접 연결 기기는 false. */
@@ -129,13 +131,19 @@ public class ServerHeader extends JPanel {
         updateButtons();
     }
 
+    /** 읽기 모드: 서버를 켜고 끄는 버튼을 숨긴다. 관리 모드로 돌아오면 서버 상태에 맞게 다시 보인다. */
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+        updateButtons();
+    }
+
     /** 서버의 상태에 맞춰 어떤 버튼이 보이고 눌리는지 정한다. */
     private void updateButtons() {
         ServerStatus status = server == null ? ServerStatus.UNKNOWN : server.status();
         boolean stopped = status == ServerStatus.STOPPED;
-        startButton.setVisible(powerControl && stopped);
-        stopButton.setVisible(powerControl && !stopped);
-        rebootButton.setVisible(powerControl);
+        startButton.setVisible(!readOnly && powerControl && stopped);
+        stopButton.setVisible(!readOnly && powerControl && !stopped);
+        rebootButton.setVisible(!readOnly && powerControl);
         startButton.setEnabled(!busy && status.canStart());
         stopButton.setEnabled(!busy && status.canStop());
         rebootButton.setEnabled(!busy && status.canReboot());

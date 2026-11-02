@@ -3,7 +3,9 @@ package com.infradesk.ui;
 import com.formdev.flatlaf.FlatClientProperties;
 import com.infradesk.core.Account;
 import com.infradesk.core.Server;
+import com.infradesk.core.ServerGrouping;
 import com.infradesk.service.AccountInventory;
+import com.infradesk.service.ServerGroups;
 import com.infradesk.ui.components.Buttons;
 import com.infradesk.ui.components.DashedButton;
 
@@ -44,6 +46,9 @@ public class Sidebar extends JPanel {
     private final List<ServerListItem> items = new ArrayList<>();
 
     private List<AccountInventory> inventory = List.of();
+    private ServerGrouping grouping = ServerGrouping.ACCOUNT;
+    /** 읽기 모드면 아래의 [계정·서버 추가]와 설정 버튼, 계정·서버의 우클릭 메뉴(설정·삭제)를 없앤다. */
+    private boolean readOnly;
     private java.util.Map<String, Double> cpu = java.util.Map.of();
     private String selectedServerId;
     private Consumer<Server> onSelect = s -> { };
@@ -224,6 +229,23 @@ public class Sidebar extends JPanel {
         rebuild();
     }
 
+    /** 읽기 / 관리 모드를 바꾼다. 읽기 모드에서는 아무것도 바꾸지 않게 추가·설정 진입점을 모두 숨긴다. */
+    public void setReadOnly(boolean readOnly) {
+        if (this.readOnly != readOnly) {
+            this.readOnly = readOnly;
+            footer.setVisible(!readOnly);
+            rebuild();
+        }
+    }
+
+    /** 서버를 묶는 방법을 바꾸고 목록을 다시 그린다(설정 "일반"에서 고른 값). */
+    public void setGrouping(ServerGrouping grouping) {
+        if (this.grouping != grouping) {
+            this.grouping = grouping;
+            rebuild();
+        }
+    }
+
     /** 서버 id별 최신 CPU. 실행 중인 서버 옆에 표시한다. */
     public void setCpu(java.util.Map<String, Double> cpu) {
         this.cpu = java.util.Map.copyOf(cpu);
@@ -258,25 +280,30 @@ public class Sidebar extends JPanel {
             groups.add(centered(loading ? "불러오는 중…" : "<html><center>등록된 계정이 없어요.<br>아래에서 계정을 추가하세요.</center></html>"));
         }
         boolean anyMatch = false;
-        for (AccountInventory inv : inventory) {
-            List<Server> servers = inv.servers().stream()
-                    .filter(s -> query.isEmpty() || s.name().toLowerCase(Locale.ROOT).contains(query))
-                    .toList();
-            if (!query.isEmpty() && servers.isEmpty()) {
-                continue;
-            }
+        // 묶는 규칙은 ServerGroups가 정한다(개요와 같은 규칙). 여기서는 받은 묶음을 순서대로 그리기만 한다.
+        // 검색어가 없을 때만 서버가 없는 계정도 보여 준다("서버가 없어요", 불러오기 오류).
+        List<ServerGroups.Group> list = ServerGroups.of(inventory, grouping,
+                s -> query.isEmpty() || s.name().toLowerCase(Locale.ROOT).contains(query), query.isEmpty());
+        for (ServerGroups.Group group : list) {
             anyMatch = true;
-            groups.add(groupHeader(inv));
-            if (inv.failed()) {
-                groups.add(errorLine(inv.error()));
-            } else if (servers.isEmpty()) {
-                groups.add(mutedLine("서버가 없어요"));
+            if (group.account() != null) {
+                AccountInventory inv = group.account();
+                groups.add(groupHeader(inv));
+                if (inv.failed()) {
+                    groups.add(errorLine(inv.error()));
+                } else if (group.members().isEmpty()) {
+                    groups.add(mutedLine("서버가 없어요"));
+                }
+            } else if (group.title() != null) {
+                groups.add(titleHeader(group.title(), group.members().size()));
             }
-            for (Server s : servers) {
+            for (ServerGroups.Member member : group.members()) {
+                Server s = member.server();
+                Account account = member.inventory().account();
                 ServerListItem item = new ServerListItem(s, cpu.get(s.id()), () -> {
                     select(s.id());
                     onSelect.accept(s);
-                }, () -> onSshSettings.accept(s), () -> onEditAccount.accept(inv.account()));
+                }, () -> onSshSettings.accept(s), () -> onEditAccount.accept(account), readOnly);
                 item.setSelected(s.id().equals(selectedServerId));
                 item.setCompact(compact);
                 item.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -294,6 +321,20 @@ public class Sidebar extends JPanel {
         groups.repaint();
     }
 
+    /** "상태별"의 묶음 머리글: 이름과 서버 수. 계정 머리글과 달리 우클릭 메뉴가 없다. */
+    private JPanel titleHeader(String title, int count) {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        header.setBorder(BorderFactory.createEmptyBorder(0, 8, 4, 8));
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
+        header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
+        header.add(small(title), BorderLayout.CENTER);
+        if (!compact) {
+            header.add(small(String.valueOf(count)), BorderLayout.EAST);
+        }
+        return header;
+    }
+
     private JPanel groupHeader(AccountInventory inv) {
         Account a = inv.account();
         JPanel header = new JPanel(new BorderLayout());
@@ -301,7 +342,7 @@ public class Sidebar extends JPanel {
         header.setBorder(BorderFactory.createEmptyBorder(0, 8, 4, 8));
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
         header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
-        JLabel left = small(a.provider().displayName().replace(" Cloud", "") + " · " + a.displayName());
+        JLabel left = small(ServerGroups.accountTitle(a));
         JLabel right = small(Regions.shortName(a.region()));
         right.setToolTipText(a.region());
         // 이름이 길거나 폭이 좁으면 왼쪽 글자가 "…"로 줄어든다(가운데에 두어야 줄어든다). 좁은 모드에서는 리전을 숨긴다.
@@ -311,16 +352,18 @@ public class Sidebar extends JPanel {
         }
         left.setToolTipText(a.provider().displayName() + " · " + a.displayName());
 
-        JPopupMenu menu = new JPopupMenu();
-        JMenuItem edit = new JMenuItem("계정 설정…");
-        edit.addActionListener(e -> onEditAccount.accept(a));
-        JMenuItem remove = new JMenuItem("계정 삭제…");
-        remove.addActionListener(e -> onRemoveAccount.accept(a));
-        menu.add(edit);
-        menu.addSeparator();
-        menu.add(remove);
-        header.setComponentPopupMenu(menu);
-        header.setToolTipText("우클릭: 계정 설정 · 삭제");
+        if (!readOnly) {
+            JPopupMenu menu = new JPopupMenu();
+            JMenuItem edit = new JMenuItem("계정 설정…");
+            edit.addActionListener(e -> onEditAccount.accept(a));
+            JMenuItem remove = new JMenuItem("계정 삭제…");
+            remove.addActionListener(e -> onRemoveAccount.accept(a));
+            menu.add(edit);
+            menu.addSeparator();
+            menu.add(remove);
+            header.setComponentPopupMenu(menu);
+            header.setToolTipText("우클릭: 계정 설정 · 삭제");
+        }
         return header;
     }
 
