@@ -60,7 +60,7 @@ public final class SettingsScreen extends JPanel {
         generalPage = new GeneralPage(launchAtLogin, demoMode, appSettings, inventory);
         pages.add(generalPage);
         pages.add(new AlertsPage(alerts, demoMode, onAlertsChanged));
-        pages.add(new SecurityPage());
+        pages.add(new SecurityPage(appSettings));
         connectionPage = new ConnectionPage(connections);
         pages.add(connectionPage);
         pages.add(about);

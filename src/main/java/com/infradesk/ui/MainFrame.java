@@ -50,6 +50,8 @@ public class MainFrame extends JFrame {
     private final com.infradesk.service.AppSettingsService appSettings;
     /** 앱을 연 뒤 첫 서버 목록으로 시작 화면을 이미 골랐는지. 그 뒤의 주기적인 갱신은 보던 화면을 바꾸지 않는다. */
     private boolean startScreenApplied;
+    /** 마지막으로 반영한 "공인 IP 기본으로 가리기" 값. 아직 반영한 적이 없으면 null. */
+    private Boolean appliedHidePublicIp;
     private final com.infradesk.service.UpdateService updates;
     /** 업데이트를 제자리에 설치한다. Gradle로 실행 중(패키징된 앱이 아님)이거나 데모 모드이면 null. */
     private com.infradesk.service.UpdateInstaller updateInstaller;
@@ -1524,11 +1526,18 @@ public class MainFrame extends JFrame {
         return id == null ? Optional.empty() : findServer(id);
     }
 
-    /** 설정 "일반"과 개요에서 고른 값을 화면에 반영한다: 서버 묶기(사이드바와 개요), 개요의 카드 / 목록. */
+    /**
+     * 설정에서 고른 값을 화면에 반영한다: 서버 묶기(사이드바와 개요), 개요의 카드 / 목록, 공인 IP 가리기.
+     * 공인 IP는 설정 값이 바뀐 때만 건드린다(그 세션에서 눈 모양 버튼으로 바꾼 것을 다른 설정을 바꿀 때마다 되돌리지 않게).
+     */
     private void applySettings(com.infradesk.core.AppSettings settings) {
         sidebar.setGrouping(settings.grouping());
         fleetScreen.setGrouping(settings.grouping());
         fleetScreen.setView(settings.overviewView());
+        if (appliedHidePublicIp == null || appliedHidePublicIp != settings.hidePublicIp()) {
+            appliedHidePublicIp = settings.hidePublicIp();
+            IpPrivacy.setRevealed(!settings.hidePublicIp());
+        }
     }
 
     /** 사용자가 서버를 골랐다(사이드바, 개요의 카드, 트레이). 설정 화면이 열려 있으면 닫고 그 서버를 보여 준다. */

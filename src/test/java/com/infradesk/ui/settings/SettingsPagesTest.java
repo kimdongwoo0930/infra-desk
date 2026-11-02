@@ -229,6 +229,38 @@ class SettingsPagesTest {
         assertEquals("묶지 않음", page.groupingBox().getSelectedItem());
     }
 
+    // ── 보안·안전 ───────────────────────────────────────────────
+
+    @Test
+    void theIpHidingSwitchStartsOnAndSavesWhenChanged() {
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore());
+        SecurityPage page = new SecurityPage(settings);
+        assertTrue(page.hideIpSwitch().isSelected());
+        assertTrue(page.hideIpSwitch().isEnabled(), "더 이상 준비 중이 아니다");
+
+        page.hideIpSwitch().doClick(0);   // 눌러서 끈다(doClick은 선택을 뒤집고 동작을 실행한다)
+
+        assertFalse(settings.current().hidePublicIp());
+        assertTrue(page.hideIpDescription().contains("앱을 열 때부터"));
+    }
+
+    @Test
+    void theIpHidingSwitchShowsTheSavedValue() {
+        AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore(
+                AppSettings.DEFAULT.withHidePublicIp(false)));
+
+        assertFalse(new SecurityPage(settings).hideIpSwitch().isSelected());
+    }
+
+    @Test
+    void theIrreversibleActionConfirmationIsNoLongerASetting() {
+        List<String> labels = new ArrayList<>();
+        collectLabels(new SecurityPage(new AppSettingsService(new InMemoryAppSettingsStore())), labels);
+
+        assertFalse(labels.contains("되돌릴 수 없는 작업 확인"));
+        assertTrue(labels.contains("공인 IP 기본으로 가리기"));
+    }
+
     // ── 알림 ────────────────────────────────────────────────────
 
     @Test

@@ -82,7 +82,7 @@ Async.run(
 | `AddAccountDialog`, `AddSshServerDialog` | 계정 추가, 연결 테스트 / 직접 연결 기기 추가 |
 | `LicensesDialog` | 오픈소스 라이선스 보기(설정의 "업데이트·정보"에서 연다) |
 | `TrayController`, `SwingTrayMenu` | 메뉴 막대(macOS)·알림 영역(Windows) 아이콘과 서버 상태 메뉴. macOS는 네이티브 AWT 메뉴, Windows는 `SwingTrayMenu`가 그림 |
-| `IpPrivacy` | 공인 IP 가리기/보이기 (앱 전체, 기본 가림) |
+| `IpPrivacy` | 공인 IP 가리기/보이기 (앱 전체). 앱을 열 때와 설정이 바뀔 때 `MainFrame.applySettings`가 "기본으로 가리기" 값을 따라 정하고, 눈 모양 버튼은 그 세션에서만 바꾼다 |
 
 ### `ui.fleet` — 개요 (앱의 첫 화면)
 
@@ -139,7 +139,7 @@ Async.run(
 | `SettingsCard`, `SettingsRow` | 카드(행들을 가는 선으로 구분)와 한 줄(굵은 제목 + 흐린 설명 + 오른쪽 컨트롤). `SettingsRow.comingSoon()`은 "준비 중" 배지를 붙이고 컨트롤을 비활성으로 만든다 |
 | `GeneralPage` | "로그인할 때 실행", "시작 화면"(개요 / 서버 지정), "서버 목록 묶기"(계정별 / 상태별 / 묶지 않음)는 동작. 시작 화면과 묶기는 `AppSettingsService`로 저장하고, 이 항목을 열 때마다 서버 목록을 새로 읽는다. 단축키는 준비 중. 창을 닫으면 메뉴 막대로 숨기는 동작은 항상 켜져 있어 설정으로 두지 않는다 |
 | `AlertsPage` | 디스코드 알림, 웹훅 URL(Enter나 칸을 떠날 때 형식을 확인해 저장), 테스트 메시지, 서버 멈춤·계정 오류·CPU 기준. 알림 기능 전체가 아직 열리지 않은 빌드(`AlertService.AVAILABLE`=false)에서는 전부 비활성. 앱 안 알림, 다시 보내기 간격, 디스크·컨테이너 규칙은 준비 중. 저장은 한 번에 하나씩, 저장 중에 또 바뀌면 끝난 뒤 최신 값으로 한 번 더 |
-| `SecurityPage` | 비밀값 저장 안내(실제 정보)와, 공인 IP 기본 가리기·읽기 전용·되돌릴 수 없는 작업 확인·활동 기록 보관·알고 있는 호스트 키(모두 준비 중) |
+| `SecurityPage` | "공인 IP 기본으로 가리기"(동작, `AppSettings.hidePublicIp`)와 비밀값 저장 안내(실제 정보). 읽기 전용·활동 기록 보관·알고 있는 호스트 키는 준비 중. "되돌릴 수 없는 작업 확인"은 항상 켜져 있어 설정으로 두지 않는다 |
 | `ConnectionPage` | 서버 상태 새로고침(30초), 메트릭(1분), 실시간 자동 꺼짐(10분), SSH 연결 새로 맺기(12시간)를 **읽기 전용 글자**로. 값은 코드의 상수(`RefreshPolicy`, `LiveController.AUTO_OFF`)에서 가져온다. "지금 열린 SSH 연결" 표는 틀만(준비 중) |
 | `AboutPage` | 버전과 [업데이트 확인], 새 빌드 자동 확인, 업데이트 파일 확인 설명, 로그 폴더, 라이선스 |
 
