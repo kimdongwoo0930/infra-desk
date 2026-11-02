@@ -1,6 +1,7 @@
 package com.infradesk.storage;
 
 import com.infradesk.core.AppSettings;
+import com.infradesk.core.OverviewView;
 import com.infradesk.core.ServerGrouping;
 import com.infradesk.service.AppSettingsService;
 import com.infradesk.service.UpdateService;
@@ -99,6 +100,37 @@ class JsonAppSettingsStoreTest {
 
         assertEquals(ServerGrouping.ACCOUNT, loaded.grouping());
         assertEquals("x", loaded.startServerId());
+    }
+
+    @Test
+    void theOverviewViewIsSavedAndStartsAsCards() {
+        JsonAppSettingsStore store = new JsonAppSettingsStore(dir);
+        assertEquals(OverviewView.CARDS, store.load().overviewView());
+
+        store.save(AppSettings.DEFAULT.withOverviewView(OverviewView.LIST));
+
+        assertEquals(OverviewView.LIST, new JsonAppSettingsStore(dir).load().overviewView());
+    }
+
+    @Test
+    void savingOtherValuesKeepsTheOverviewView() {
+        JsonAppSettingsStore store = new JsonAppSettingsStore(dir);
+        AppSettingsService service = new AppSettingsService(store);
+        service.update(s -> s.withOverviewView(OverviewView.LIST));
+
+        service.update(s -> s.withGrouping(ServerGrouping.STATUS).withStartServerId("x"));
+
+        AppSettings loaded = store.load();
+        assertEquals(OverviewView.LIST, loaded.overviewView());
+        assertEquals(ServerGrouping.STATUS, loaded.grouping());
+        assertEquals("x", loaded.startServerId());
+    }
+
+    @Test
+    void anUnknownOverviewViewFallsBackToCards() throws Exception {
+        Files.writeString(dir.resolve("app-settings.json"), "{\"overviewView\":\"GALLERY\"}");
+
+        assertEquals(OverviewView.CARDS, new JsonAppSettingsStore(dir).load().overviewView());
     }
 
     @Test

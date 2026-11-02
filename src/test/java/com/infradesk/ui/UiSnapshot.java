@@ -253,6 +253,31 @@ public final class UiSnapshot {
                 throw new java.io.UncheckedIOException(e);
             }
         });
+        // 개요의 목록 보기: 같은 데이터를 표의 줄로. 상태별 묶기로도 한 장 찍는다.
+        MainFrame[] listFrame = new MainFrame[1];
+        MainFrame[] listByStatusFrame = new MainFrame[1];
+        SwingUtilities.invokeAndWait(() -> {
+            listFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), null,
+                    new com.infradesk.service.AppSettingsService(new com.infradesk.storage.InMemoryAppSettingsStore(
+                            new com.infradesk.core.AppSettings(null, com.infradesk.core.ServerGrouping.ACCOUNT,
+                                    com.infradesk.core.OverviewView.LIST))), true);
+            listFrame[0].setInventory(inventory);
+            listByStatusFrame[0] = new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), null,
+                    new com.infradesk.service.AppSettingsService(new com.infradesk.storage.InMemoryAppSettingsStore(
+                            new com.infradesk.core.AppSettings(null, com.infradesk.core.ServerGrouping.STATUS,
+                                    com.infradesk.core.OverviewView.LIST))), true);
+            listByStatusFrame[0].setInventory(inventory);
+        });
+        Thread.sleep(3000);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(listFrame[0], listFrame[0].getContentPane(), 1280, 1100, "overview-list.png");
+                write(listByStatusFrame[0], listByStatusFrame[0].getContentPane(), 1280, 1100, "overview-list-status.png");
+                write(listFrame[0], listFrame[0].getContentPane(), 980, 1100, "overview-list-narrow.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        });
         // 직접 연결한 Mac mini: 상세 정보와 첫 SSH 샘플이 비동기로 도착한다.
         MainFrame[] sshFrame = new MainFrame[1];
         SwingUtilities.invokeAndWait(() -> {
