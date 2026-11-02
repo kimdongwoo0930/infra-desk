@@ -36,6 +36,8 @@ public final class AttentionCard extends RoundedPanel {
     private final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
     private Consumer<Container> onLogs = c -> { };
     private Consumer<Container> onStart = c -> { };
+    private boolean readOnly;
+    private List<Container> lastContainers;
     private Runnable onViewContainers = () -> { };
 
     public AttentionCard() {
@@ -82,8 +84,17 @@ public final class AttentionCard extends RoundedPanel {
         this.onViewContainers = listener;
     }
 
+    /** 읽기 모드: 멈춘 컨테이너를 시작하는 버튼을 숨긴다([로그 보기]는 그대로). */
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+        if (lastContainers != null) {
+            setContainers(lastContainers);
+        }
+    }
+
     /** 컨테이너 목록으로 카드를 갱신한다. 멈춘 것이 없으면 카드를 숨긴다. */
     public void setContainers(List<Container> containers) {
+        lastContainers = containers;
         List<Container> stopped = containers.stream().filter(AttentionCard::isStopped).toList();
         setVisible(!stopped.isEmpty());
         buttons.removeAll();
@@ -100,7 +111,9 @@ public final class AttentionCard extends RoundedPanel {
             JButton start = Buttons.secondary("시작", null);
             start.addActionListener(e -> onStart.accept(only));
             buttons.add(logs);
-            buttons.add(start);
+            if (!readOnly) {
+                buttons.add(start);
+            }
         } else {
             JButton view = Buttons.secondary("컨테이너 보기", null);
             view.addActionListener(e -> onViewContainers.run());

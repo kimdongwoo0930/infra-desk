@@ -30,6 +30,17 @@ public final class UiSnapshot {
     private UiSnapshot() {
     }
 
+    /** 읽기 모드로 시작한 데모 창(관리 비밀번호는 데모용으로 정해 둔다). */
+    private static MainFrame readOnlyFrame(com.infradesk.service.InventoryService service, com.infradesk.core.OverviewView view) {
+        var passwords = new com.infradesk.service.AdminPasswordService(new com.infradesk.storage.InMemorySecretStore(),
+                java.time.Clock.systemUTC());
+        passwords.set(MainFrame.DEMO_PASSWORD.toCharArray());
+        return new MainFrame(service, InfraDeskApp.demoTerminalService(), InfraDeskApp.demoAlertService(), null,
+                new com.infradesk.service.AppSettingsService(new com.infradesk.storage.InMemoryAppSettingsStore(
+                        new com.infradesk.core.AppSettings(null, com.infradesk.core.ServerGrouping.ACCOUNT, view))),
+                com.infradesk.service.AccessControl.of(passwords), true);
+    }
+
     /** 앱의 첫 화면은 개요다. 서버 화면을 찍는 시나리오는 첫 서버를 직접 고른다. */
     private static void setInventoryAndOpenFirst(MainFrame frame, List<AccountInventory> inventory) {
         frame.setInventory(inventory);
@@ -175,7 +186,7 @@ public final class UiSnapshot {
                                 () -> java.util.Map.of("a", "discord-bot", "b", "api-gateway", "c", "mac-mini", "d", "web-server"),
                                 () -> 2, com.infradesk.ui.settings.ConnectionPage.Disconnector.NONE),
                         new com.infradesk.service.AppSettingsService(new com.infradesk.storage.InMemoryAppSettingsStore()),
-                        () -> inventory);
+                        () -> inventory, () -> { });
                 for (String page : new String[] {"general", "alerts", "security", "connection", "about"}) {
                     settingsScreen.show(page);
                     write(frame, settingsScreen, 1280, 800, "settings-" + page + ".png");
@@ -274,6 +285,28 @@ public final class UiSnapshot {
                 write(listFrame[0], listFrame[0].getContentPane(), 1280, 1100, "overview-list.png");
                 write(listByStatusFrame[0], listByStatusFrame[0].getContentPane(), 1280, 1100, "overview-list-status.png");
                 write(listFrame[0], listFrame[0].getContentPane(), 980, 1100, "overview-list-narrow.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        });
+        // 읽기 모드(앱을 켤 때의 모습): 서버를 바꾸거나 접속하는 버튼이 모두 숨는다. 개요 카드와 목록, 서버 화면을 찍는다.
+        MainFrame[] readFrame = new MainFrame[1];
+        MainFrame[] readListFrame = new MainFrame[1];
+        MainFrame[] readServerFrame = new MainFrame[1];
+        SwingUtilities.invokeAndWait(() -> {
+            readFrame[0] = readOnlyFrame(service, com.infradesk.core.OverviewView.CARDS);
+            readFrame[0].setInventory(inventory);
+            readListFrame[0] = readOnlyFrame(service, com.infradesk.core.OverviewView.LIST);
+            readListFrame[0].setInventory(inventory);
+            readServerFrame[0] = readOnlyFrame(service, com.infradesk.core.OverviewView.CARDS);
+            setInventoryAndOpenFirst(readServerFrame[0], inventory);
+        });
+        Thread.sleep(3000);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                write(readFrame[0], readFrame[0].getContentPane(), 1280, 1100, "overview-readonly.png");
+                write(readListFrame[0], readListFrame[0].getContentPane(), 1280, 1100, "overview-list-readonly.png");
+                write(readServerFrame[0], readServerFrame[0].getContentPane(), 1280, 900, "server-readonly.png");
             } catch (IOException e) {
                 throw new java.io.UncheckedIOException(e);
             }

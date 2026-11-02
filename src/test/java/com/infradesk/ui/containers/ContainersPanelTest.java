@@ -125,6 +125,35 @@ class ContainersPanelTest {
     }
 
     @Test
+    void 읽기_모드에서는_작업_아이콘이_없고_눌러도_알리지_않는다() {
+        ContainersPanel p = panel();
+        List<String> events = new ArrayList<>();
+        p.onShell((c, console) -> events.add("shell:" + c.name()));
+        p.onAction((c, a) -> events.add(a + ":" + c.name()));
+        p.setReadOnly(true);
+
+        p.perform(WEB, RowAction.SHELL);
+        p.perform(WEB, RowAction.RESTART);
+        p.perform(WEB, RowAction.STOP);
+        p.perform(OLD, RowAction.START);
+
+        assertEquals(List.of(), events, "셸·재시작·정지·시작은 읽기 모드에서 실행되면 안 된다");
+    }
+
+    @Test
+    void 관리_모드로_돌아오면_작업_아이콘이_다시_동작한다() {
+        ContainersPanel p = panel();
+        List<String> events = new ArrayList<>();
+        p.onAction((c, a) -> events.add(a + ":" + c.name()));
+        p.setReadOnly(true);
+
+        p.setReadOnly(false);
+        p.perform(WEB, RowAction.RESTART);
+
+        assertEquals(List.of("RESTART:web"), events);
+    }
+
+    @Test
     void 요청_중에는_작업_아이콘을_눌러도_알리지_않는다() {
         ContainersPanel p = panel();
         List<String> events = new ArrayList<>();

@@ -52,6 +52,8 @@ public class MainFrame extends JFrame {
     private boolean startScreenApplied;
     /** 마지막으로 반영한 "공인 IP 기본으로 가리기" 값. 아직 반영한 적이 없으면 null. */
     private Boolean appliedHidePublicIp;
+    /** 읽기 / 관리 모드와 관리 비밀번호. */
+    private final com.infradesk.service.AccessControl access;
     private final com.infradesk.service.UpdateService updates;
     /** 업데이트를 제자리에 설치한다. Gradle로 실행 중(패키징된 앱이 아님)이거나 데모 모드이면 null. */
     private com.infradesk.service.UpdateInstaller updateInstaller;
@@ -159,8 +161,18 @@ public class MainFrame extends JFrame {
     public MainFrame(InventoryService service, TerminalService terminalService,
                      com.infradesk.alert.AlertService alerts, com.infradesk.service.UpdateService updates,
                      com.infradesk.service.AppSettingsService appSettings, boolean demoMode) {
+        // 접근 제어를 따로 주지 않는 곳(시험, 스냅샷)은 비밀번호 없이 관리 모드로 시작한다: 서버를 바꾸는 버튼이 모두 보인다.
+        this(service, terminalService, alerts, updates, appSettings, com.infradesk.service.AccessControl.unlocked(), demoMode);
+    }
+
+    /** @param access 읽기 / 관리 모드와 관리 비밀번호. 실제 앱은 읽기 모드로 시작하는 것을 넘긴다 */
+    public MainFrame(InventoryService service, TerminalService terminalService,
+                     com.infradesk.alert.AlertService alerts, com.infradesk.service.UpdateService updates,
+                     com.infradesk.service.AppSettingsService appSettings, com.infradesk.service.AccessControl access,
+                     boolean demoMode) {
         super("InfraDesk");
         this.appSettings = appSettings;
+        this.access = access;
         this.service = service;
         this.terminalService = terminalService;
         this.sshMetrics = new com.infradesk.service.SshMetricsService(terminalService, java.time.Clock.systemUTC());
@@ -273,7 +285,8 @@ public class MainFrame extends JFrame {
                                 return terminalService.disconnectAll(force);
                             }
                         }),
-                appSettings, () -> inventory);
+                appSettings, () -> inventory,
+                () -> PasswordDialog.change(this, access.passwords()));
         settingsScreen.onBack(this::closeSettings);
         screenSwitch.add(sidebarSplit, MAIN_SCREEN);
         screenSwitch.add(settingsScreen, SETTINGS_SCREEN);
@@ -369,6 +382,11 @@ public class MainFrame extends JFrame {
         });
         appSettings.onChange(changed -> javax.swing.SwingUtilities.invokeLater(() -> applySettings(changed)));
         applySettings(appSettings.current());
+        // 읽기 / 관리 모드: 타이틀바 토글을 누르면 여기로 온다. 읽기로 가는 것은 바로, 관리로 가는 것은 비밀번호를 확인한 뒤에.
+        titleBar.onModePicked(this::onModePicked);
+        // 모드는 비밀번호를 확인하는 작업 스레드에서 바뀔 수 있으므로 화면은 EDT에서 고친다.
+        access.mode().onChange(mode -> javax.swing.SwingUtilities.invokeLater(() -> applyAccess(mode)));
+        applyAccess(access.mode().mode());
         detail.onAction(this::runAction);
         showEmpty();
 
@@ -648,6 +666,9 @@ public class MainFrame extends JFrame {
 
     /** 설정 화면을 연다. {@code pageId}가 있으면 그 항목으로 바로 간다(예: 모니터링 탭의 "설정에서 바꾸기" → 알림). */
     private void openSettings(String pageId) {
+        if (readOnly()) {
+            return;   // 설정은 관리 모드에서만 연다
+        }
         if (pageId != null) {
             settingsScreen.show(pageId);
         }
@@ -1139,6 +1160,9 @@ public class MainFrame extends JFrame {
     }
 
     private void openSsh() {
+        if (readOnly()) {
+            return;
+        }
         findServer(selectedServerId).ifPresent(server -> {
             if (!terminalService.isConfigured(server.id())) {
                 if (!new SshSettingsDialog(this, terminalService, server).showDialog()) {
@@ -1153,6 +1177,9 @@ public class MainFrame extends JFrame {
     }
 
     private void editSshSettings(Server server) {
+        if (readOnly()) {
+            return;
+        }
         // 직접 연결 기기: 포트와, 사용자로는 이 컴퓨터에서의 이름을 추천한다.
         com.infradesk.ssh.SshSettings defaults = accountOf(server)
                 .filter(a -> a.provider() == com.infradesk.core.ProviderType.SSH)
@@ -1286,6 +1313,9 @@ public class MainFrame extends JFrame {
     }
 
     private void containerAction(com.infradesk.ssh.Container c, com.infradesk.ssh.DockerCommands.Action action) {
+        if (readOnly()) {
+            return;
+        }
         Optional<Server> server = findServer(selectedServerId);
         if (server.isEmpty()) {
             return;
@@ -1364,6 +1394,9 @@ public class MainFrame extends JFrame {
      * 있는 서버의 세션만 보여 주기 때문이다).
      */
     private void showTerminalOf(Server server) {
+        if (readOnly()) {
+            return;
+        }
         if (!server.id().equals(selectedServerId)) {
             showServer(server);
         }
@@ -1377,6 +1410,9 @@ public class MainFrame extends JFrame {
 
     /** 개요의 저장된 명령어를 눌렀다: 터미널 탭으로 가서 열린 세션에 보낸다. 세션이 없으면 접속을 안내한다(자동 접속은 하지 않는다). */
     private void runSavedCommand(String command) {
+        if (readOnly()) {
+            return;
+        }
         findServer(selectedServerId).ifPresent(server -> {
             detail.showTerminalTab();
             if (!terminalView.send(command)) {
@@ -1405,6 +1441,9 @@ public class MainFrame extends JFrame {
     /** 컨테이너 안의 터미널 탭: 그 컨테이너의 셸, 또는 이미지에 맞는 데이터베이스 콘솔. */
     void openContainerTerminal(Server server, com.infradesk.ssh.Container container,
                                        com.infradesk.ssh.DockerCommands.Console console) {
+        if (readOnly()) {
+            return;
+        }
         String title = console == null ? container.name() : container.name() + " (" + console.label + ")";
         String command = console == null ? com.infradesk.ssh.DockerCommands.shell(container.id())
                 : com.infradesk.ssh.DockerCommands.console(container.id(), console);
@@ -1428,6 +1467,9 @@ public class MainFrame extends JFrame {
     private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(MainFrame.class.getName());
 
     private void runAction(ServerAction action) {
+        if (readOnly()) {
+            return;
+        }
         Optional<Server> server = findServer(selectedServerId);
         if (server.isEmpty()) {
             return;
@@ -1525,6 +1567,58 @@ public class MainFrame extends JFrame {
         String id = appSettings.current().startServerId();
         return id == null ? Optional.empty() : findServer(id);
     }
+
+    /** 지금 읽기 모드인가. 서버를 바꾸거나 접속하는 동작은 화면에서 숨기는 것과 별개로 여기서도 한 번 더 막는다. */
+    private boolean readOnly() {
+        return access.mode().isReadOnly();
+    }
+
+    /** 타이틀바에서 [읽기] 또는 [관리]를 눌렀다. */
+    private void onModePicked(com.infradesk.core.AccessMode picked) {
+        if (picked == com.infradesk.core.AccessMode.READ_ONLY) {
+            access.mode().switchToReadOnly();
+            return;
+        }
+        String hint = demoMode ? "데모 모드의 비밀번호는 " + DEMO_PASSWORD + "예요." : null;
+        if (!PasswordDialog.ask(this, access.mode(), hint)) {
+            titleBar.setMode(access.mode().mode());   // 비밀번호를 확인하지 못했다: 토글을 지금 모드로 되돌린다
+        }
+    }
+
+    /**
+     * 모드가 바뀐 것을 화면에 반영한다. 읽기 모드는 순수하게 보기만 한다: 서버를 바꾸거나 접속하는 것, 계정·서버 추가와
+     * 설정, 공인 IP 보기를 모두 숨긴다.
+     */
+    private void applyAccess(com.infradesk.core.AccessMode mode) {
+        boolean ro = mode == com.infradesk.core.AccessMode.READ_ONLY;
+        titleBar.setMode(mode);
+        detail.setReadOnly(ro);
+        fleetScreen.setReadOnly(ro);
+        sidebar.setReadOnly(ro);
+        tray.ifPresent(t -> t.setReadOnly(ro));
+        if (ro && settingsVisible) {
+            closeSettings();   // 설정을 보고 있었다면 닫는다(읽기 모드에서는 설정을 열 수 없다)
+        }
+        // 공인 IP: 읽기 모드는 설정과 상관없이 항상 가린다(보이게 하는 버튼도 없다). 관리 모드로 오면 설정의 기본값을 따른다.
+        IpPrivacy.setRevealed(!ro && !appSettings.current().hidePublicIp());
+    }
+
+    /**
+     * 앱을 처음 쓸 때 관리 비밀번호를 정하게 한다(이미 있으면 아무것도 안 한다). 정하기 전에는 앱을 쓸 수 없어서, 창을 닫거나
+     * [앱 종료]를 누르면 앱을 끈다. 창이 보인 뒤에 불러야 한다.
+     */
+    public void requirePasswordSetup() {
+        if (access.passwords().isSet()) {
+            return;
+        }
+        String hint = demoMode ? "데모 모드의 비밀번호는 " + DEMO_PASSWORD + "로 정해 두었어요." : null;
+        if (!PasswordDialog.setUp(this, access.passwords(), hint)) {
+            quit();
+        }
+    }
+
+    /** 데모 모드의 관리 비밀번호. 데모는 실제 설정과 키체인을 쓰지 않으므로 누구나 알 수 있게 알려 준다. */
+    public static final String DEMO_PASSWORD = "demo";
 
     /**
      * 설정에서 고른 값을 화면에 반영한다: 서버 묶기(사이드바와 개요), 개요의 카드 / 목록, 공인 IP 가리기.
@@ -1638,6 +1732,9 @@ public class MainFrame extends JFrame {
     /** 개요 카드의 [SSH] [파일] [모니터링]: 그 서버 화면을 열고 해당 탭으로 간다. 이 동작이 서버에 접속하지는 않는다. */
     private void openServerTab(Server server, String tab) {
         showServer(server);
+        if (readOnly() && (ServerScreen.TAB_TERMINAL.equals(tab) || ServerScreen.TAB_FILES.equals(tab))) {
+            return;   // 읽기 모드에서는 이 탭들이 없다(서버 화면만 보여 준다)
+        }
         switch (tab) {
             case ServerScreen.TAB_TERMINAL -> detail.showTerminalTab();
             case ServerScreen.TAB_FILES -> detail.showFilesTab();
@@ -1659,10 +1756,16 @@ public class MainFrame extends JFrame {
     }
 
     private void addAccount() {
+        if (readOnly()) {
+            return;
+        }
         new AddAccountDialog(this, service, demoMode).showDialog().ifPresent(a -> refresh());
     }
 
     private void editAccount(Account account) {
+        if (readOnly()) {
+            return;
+        }
         if (account.provider() == com.infradesk.core.ProviderType.SSH) {
             new AddSshServerDialog(this, service, account).showDialog().ifPresent(a -> refresh());
             return;
@@ -1672,6 +1775,9 @@ public class MainFrame extends JFrame {
 
     /** 직접 연결 기기를 추가한 뒤 바로 SSH 사용자와 키를 묻는다. */
     private void addSshServer() {
+        if (readOnly()) {
+            return;
+        }
         new AddSshServerDialog(this, service, null).showDialog().ifPresent(a -> {
             refresh();
             String host = com.infradesk.core.SshHostProperties.host(a);
@@ -1682,6 +1788,9 @@ public class MainFrame extends JFrame {
     }
 
     private void removeAccount(Account account) {
+        if (readOnly()) {
+            return;
+        }
         int answer = JOptionPane.showConfirmDialog(this,
                 account.provider().isCloud()
                         ? "'" + account.displayName() + "' 계정을 삭제할까요?\n저장된 API 키도 함께 지워져요. 클라우드의 서버는 그대로 남아요."

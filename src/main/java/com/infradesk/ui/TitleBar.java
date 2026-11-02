@@ -1,13 +1,16 @@
 package com.infradesk.ui;
 
 import com.formdev.flatlaf.FlatClientProperties;
+import com.infradesk.core.AccessMode;
 import com.infradesk.ui.components.Buttons;
+import com.infradesk.ui.components.SegmentedControl;
 
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JButton;
@@ -22,6 +25,12 @@ public class TitleBar extends JPanel {
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
 
+    /** 읽기 | 관리 모드 전환. 관리로 바꿀 때는 비밀번호를 묻는다(그 일은 MainFrame이 한다). */
+    private final SegmentedControl modeSwitch = new SegmentedControl(
+            java.util.Arrays.stream(AccessMode.values()).map(AccessMode::label).toList());
+    /** 모드를 코드로 바꾸는 중이면 true(사용자가 누른 것으로 오해하지 않기 위해). */
+    private boolean settingMode;
+    private Consumer<AccessMode> onModePicked = m -> { };
     private final JLabel summary = new JLabel();
     private final JLabel lastRefresh = new JLabel();
     private final JButton refreshButton = Buttons.icon("refresh", "새로고침", 28);
@@ -58,6 +67,13 @@ public class TitleBar extends JPanel {
         JPanel right = row(12);
         lastRefresh.setForeground(Theme.TEXT_MUTED);
         lastRefresh.putClientProperty(FlatClientProperties.STYLE, "font: -1");
+        modeSwitch.setToolTipText("읽기: 보기만 해요 · 관리: 서버를 바꾸거나 접속할 수 있어요 (비밀번호가 필요해요)");
+        modeSwitch.addSelectionListener(index -> {
+            if (!settingMode) {
+                onModePicked.accept(AccessMode.values()[index]);
+            }
+        });
+        right.add(modeSwitch);
         right.add(lastRefresh);
         right.add(refreshButton);
         right.add(placeholder("win"));
@@ -65,6 +81,26 @@ public class TitleBar extends JPanel {
         add(leftWrap, BorderLayout.WEST);
         add(right, BorderLayout.EAST);
         setCounts(0, 0);
+    }
+
+    /** 사용자가 [읽기] 또는 [관리]를 눌렀다. 관리를 눌렀을 때 비밀번호를 확인하지 못하면 {@link #setMode}로 되돌려야 한다. */
+    public void onModePicked(Consumer<AccessMode> listener) {
+        this.onModePicked = listener;
+    }
+
+    /** 시험용: 모드 토글. */
+    SegmentedControl modeSwitch() {
+        return modeSwitch;
+    }
+
+    /** 지금 모드를 토글에 보여 준다(알림은 보내지 않는다). */
+    public void setMode(AccessMode mode) {
+        settingMode = true;
+        try {
+            modeSwitch.setSelectedIndex(mode.ordinal());
+        } finally {
+            settingMode = false;
+        }
     }
 
     /** 사이드바 접기/펼치기 버튼. */

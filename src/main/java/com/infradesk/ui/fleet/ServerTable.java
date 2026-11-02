@@ -61,6 +61,8 @@ final class ServerTable extends RoundedPanel {
     private static final int CONTAINERS_W = 100;
     private static final int UPTIME_W = 52;
     private static final int BUTTONS_W = 232;
+    /** 읽기 모드에서는 [모니터링] 하나만 남아서 버튼 열이 좁다. */
+    private static final int READ_ONLY_BUTTONS_W = 112;
     /** 이름 아래 계정·리전·사양 줄이 있을 때 첫 열이 적어도 가져야 하는 폭(줄임표로 줄어든다). */
     private static final int NAME_WITH_META_W = 170;
     private static final int ROW_H = 52;
@@ -75,11 +77,17 @@ final class ServerTable extends RoundedPanel {
     private final List<JComponent> extraHeaders = new ArrayList<>();
     /** 가장 긴 서버 이름(점 포함)의 폭. 어느 단계에서도 이 폭은 줄이지 않는다. */
     private final int nameWidth;
+    /** 버튼 열의 폭(읽기 모드는 좁다). */
+    private final int buttonsWidth;
     private int level = LEVEL_FULL;
 
+    /**
+     * @param readOnly 읽기 모드: 서버에 접속하거나 서버를 켜는 버튼을 빼고 [모니터링]만 둔다
+     */
     ServerTable(List<CardData> data, Consumer<Server> openServer, BiConsumer<Server, String> openTab,
-                Consumer<Server> start) {
+                Consumer<Server> start, boolean readOnly) {
         super(new BorderLayout(), Theme.PANEL_BG, Theme.DIVIDER, Theme.ARC_CARD);
+        this.buttonsWidth = readOnly ? READ_ONLY_BUTTONS_W : BUTTONS_W;
         JPanel column = new JPanel();
         column.setOpaque(false);
         column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
@@ -87,7 +95,7 @@ final class ServerTable extends RoundedPanel {
         column.add(header());
         int widest = 0;
         for (int i = 0; i < data.size(); i++) {
-            ServerRow row = new ServerRow(data.get(i), i < data.size() - 1, openServer, openTab, start);
+            ServerRow row = new ServerRow(data.get(i), i < data.size() - 1, readOnly, buttonsWidth, openServer, openTab, start);
             rows.add(row);
             column.add(row);
             widest = Math.max(widest, row.nameWidth());
@@ -105,17 +113,26 @@ final class ServerTable extends RoundedPanel {
      * @param nameWidth 가장 긴 서버 이름(점 포함)의 폭
      */
     static int requiredWidth(int level, int nameWidth) {
+        return requiredWidth(level, nameWidth, BUTTONS_W);
+    }
+
+    /** @param buttonsWidth 버튼 열의 폭 */
+    static int requiredWidth(int level, int nameWidth, int buttonsWidth) {
         int meter = level == LEVEL_FULL ? BAR_W : PERCENT_W;
         int name = level < LEVEL_NO_META ? Math.max(nameWidth, NAME_WITH_META_W) : nameWidth;
         boolean extras = level < LEVEL_NO_EXTRAS;
         int columns = 1 + 3 + (extras ? 2 : 0) + 1;
-        return FRAME_W + name + 3 * meter + (extras ? CONTAINERS_W + UPTIME_W : 0) + BUTTONS_W + columns * GAP;
+        return FRAME_W + name + 3 * meter + (extras ? CONTAINERS_W + UPTIME_W : 0) + buttonsWidth + columns * GAP;
     }
 
     /** 이 폭에서 쓸 단계: 필요한 폭이 들어가는 가장 낮은 단계. 가장 좁은 단계로도 안 들어가면 그 단계. */
     static int levelFor(int width, int nameWidth) {
+        return levelFor(width, nameWidth, BUTTONS_W);
+    }
+
+    static int levelFor(int width, int nameWidth, int buttonsWidth) {
         for (int l = LEVEL_FULL; l < LEVEL_NO_EXTRAS; l++) {
-            if (width >= requiredWidth(l, nameWidth)) {
+            if (width >= requiredWidth(l, nameWidth, buttonsWidth)) {
                 return l;
             }
         }
@@ -125,7 +142,7 @@ final class ServerTable extends RoundedPanel {
     @Override
     public void doLayout() {
         if (getWidth() > 0) {
-            int wanted = levelFor(getWidth(), nameWidth);
+            int wanted = levelFor(getWidth(), nameWidth, buttonsWidth);
             if (wanted != level) {
                 applyLevel(wanted);
             }
@@ -177,7 +194,7 @@ final class ServerTable extends RoundedPanel {
         extraHeaders.add(uptime);
         p.add(containers, at(x++, 1, false));
         p.add(uptime, at(x++, 1, false));
-        p.add(headerLabel("", BUTTONS_W), at(x, 1, false));
+        p.add(headerLabel("", buttonsWidth), at(x, 1, false));
         return p;
     }
 
@@ -271,8 +288,8 @@ final class ServerTable extends RoundedPanel {
         private final int nameWidth;
         private boolean hover;
 
-        ServerRow(CardData data, boolean divider, Consumer<Server> openServer, BiConsumer<Server, String> openTab,
-                  Consumer<Server> start) {
+        ServerRow(CardData data, boolean divider, boolean readOnly, int buttonsWidth, Consumer<Server> openServer,
+                  BiConsumer<Server, String> openTab, Consumer<Server> start) {
             super(new GridBagLayout());
             this.data = data;
             setOpaque(false);
@@ -327,7 +344,7 @@ final class ServerTable extends RoundedPanel {
             uptime = fixed(text(data.uptime().replaceFirst("^업타임 ", ""), Theme.TEXT_MUTED), UPTIME_W);
             add(containers, at(x++, 1, false));
             add(uptime, at(x++, 1, false));
-            add(buttons(openTab, start), at(x, 1, false));
+            add(buttons(readOnly, buttonsWidth, openTab, start), at(x, 1, false));
 
             MouseAdapter click = new MouseAdapter() {
                 @Override
@@ -412,19 +429,21 @@ final class ServerTable extends RoundedPanel {
             return p;
         }
 
-        private JComponent buttons(BiConsumer<Server, String> openTab, Consumer<Server> start) {
+        private JComponent buttons(boolean readOnly, int width, BiConsumer<Server, String> openTab, Consumer<Server> start) {
             JPanel p = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
             p.setOpaque(false);
             if (data.running()) {
-                p.add(ServerCard.small("SSH", "terminal", e -> openTab.accept(data.server(), ServerScreen.TAB_TERMINAL)));
-                p.add(ServerCard.small("파일", "folder", e -> openTab.accept(data.server(), ServerScreen.TAB_FILES)));
+                if (!readOnly) {
+                    p.add(ServerCard.small("SSH", "terminal", e -> openTab.accept(data.server(), ServerScreen.TAB_TERMINAL)));
+                    p.add(ServerCard.small("파일", "folder", e -> openTab.accept(data.server(), ServerScreen.TAB_FILES)));
+                }
                 p.add(ServerCard.small("모니터링", "chart", e -> openTab.accept(data.server(), ServerScreen.TAB_MONITORING)));
-            } else if (data.canStart()) {
+            } else if (data.canStart() && !readOnly) {
                 p.add(ServerCard.small("시작", "play", e -> start.accept(data.server())));
             }
             // 버튼은 어느 단계에서도 줄이지 않는다
-            p.setPreferredSize(new Dimension(BUTTONS_W, 32));
-            p.setMinimumSize(new Dimension(BUTTONS_W, 32));
+            p.setPreferredSize(new Dimension(width, 32));
+            p.setMinimumSize(new Dimension(width, 32));
             return p;
         }
 

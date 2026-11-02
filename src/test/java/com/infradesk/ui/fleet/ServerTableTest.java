@@ -24,7 +24,7 @@ class ServerTableTest {
 
     private static ServerTable table() {
         return new ServerTable(List.of(card("discord-bot", ServerStatus.RUNNING), card("batch-worker", ServerStatus.STOPPED)),
-                s -> { }, (s, tab) -> { }, s -> { });
+                s -> { }, (s, tab) -> { }, s -> { }, false);
     }
 
     private static int levelAt(ServerTable table, int width) {

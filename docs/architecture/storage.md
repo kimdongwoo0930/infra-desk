@@ -47,6 +47,7 @@
 | `account.<accountId>.privateKey` | OCI API 개인키 |
 | `server.<serverId>.sshKey` | SSH 개인키 |
 | `server.<serverId>.sshPassphrase` | SSH 키 암호 (있을 때만) |
+| `app.adminPassword` | 관리 비밀번호의 **해시**(비밀번호 자체가 아니다). 금고가 이 값을 한 번 더 암호화한다 |
 | `alerts.discordWebhook` | 디스코드 웹훅 URL |
 
 키 이름은 `SecretStore.accountKey(...)`나 `TerminalService`의 `serverKey(...)` 같은 곳에서 만든다.

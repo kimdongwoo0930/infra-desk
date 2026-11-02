@@ -53,14 +53,15 @@ public final class SettingsScreen extends JPanel {
 
     public SettingsScreen(AlertService alerts, boolean demoMode, UpdateService updates, LaunchAtLogin launchAtLogin,
                           Runnable checkNow, Runnable onAlertsChanged, ConnectionPage.Source connections,
-                          AppSettingsService appSettings, Supplier<List<AccountInventory>> inventory) {
+                          AppSettingsService appSettings, Supplier<List<AccountInventory>> inventory,
+                          Runnable onChangePassword) {
         super(new BorderLayout());
         setBackground(Theme.APP_BG);
         about = new AboutPage(updates, demoMode, checkNow);
         generalPage = new GeneralPage(launchAtLogin, demoMode, appSettings, inventory);
         pages.add(generalPage);
         pages.add(new AlertsPage(alerts, demoMode, onAlertsChanged));
-        pages.add(new SecurityPage(appSettings));
+        pages.add(new SecurityPage(appSettings, onChangePassword));
         connectionPage = new ConnectionPage(connections);
         pages.add(connectionPage);
         pages.add(about);

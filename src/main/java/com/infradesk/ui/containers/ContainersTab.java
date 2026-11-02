@@ -27,6 +27,11 @@ public class ContainersTab extends JPanel {
     /** 사용자가 손잡이를 끌었으면 true. 그 뒤로는 자동으로 위치를 바꾸지 않는다. */
     private boolean userMovedDivider;
 
+    /** 읽기 모드: 컨테이너를 움직이는 작업(셸·콘솔·재시작·정지·시작)을 숨긴다. 목록과 로그는 그대로 본다. */
+    public void setReadOnly(boolean readOnly) {
+        containers.setReadOnly(readOnly);
+    }
+
     public ContainersTab() {
         super(new BorderLayout());
         setOpaque(false);

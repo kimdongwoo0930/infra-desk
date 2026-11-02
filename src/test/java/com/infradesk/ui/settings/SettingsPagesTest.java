@@ -30,7 +30,7 @@ class SettingsPagesTest {
 
     private static SettingsScreen screen(Runnable onBack) {
         SettingsScreen screen = new SettingsScreen(InfraDeskApp.demoAlertService(), true, null, null, null, () -> { },
-                ConnectionPage.Source.none(), new AppSettingsService(new InMemoryAppSettingsStore()), List::of);
+                ConnectionPage.Source.none(), new AppSettingsService(new InMemoryAppSettingsStore()), List::of, () -> { });
         screen.onBack(onBack);
         return screen;
     }
@@ -234,7 +234,7 @@ class SettingsPagesTest {
     @Test
     void theIpHidingSwitchStartsOnAndSavesWhenChanged() {
         AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore());
-        SecurityPage page = new SecurityPage(settings);
+        SecurityPage page = new SecurityPage(settings, () -> { });
         assertTrue(page.hideIpSwitch().isSelected());
         assertTrue(page.hideIpSwitch().isEnabled(), "더 이상 준비 중이 아니다");
 
@@ -249,13 +249,49 @@ class SettingsPagesTest {
         AppSettingsService settings = new AppSettingsService(new InMemoryAppSettingsStore(
                 AppSettings.DEFAULT.withHidePublicIp(false)));
 
-        assertFalse(new SecurityPage(settings).hideIpSwitch().isSelected());
+        assertFalse(new SecurityPage(settings, () -> { }).hideIpSwitch().isSelected());
+    }
+
+    @Test
+    void theAdminPasswordRowHasAChangeButtonThatOpensTheChangeFlow() {
+        java.util.concurrent.atomic.AtomicInteger opened = new java.util.concurrent.atomic.AtomicInteger();
+        SecurityPage page = new SecurityPage(new AppSettingsService(new InMemoryAppSettingsStore()), opened::incrementAndGet);
+
+        assertTrue(com.infradesk.ui.SwingTree.labels(page).contains("관리 비밀번호"));
+        assertTrue(com.infradesk.ui.SwingTree.buttons(page).contains("변경"));
+        javax.swing.AbstractButton change = findButton(page, "변경");
+        change.doClick(0);
+
+        assertEquals(1, opened.get());
+    }
+
+    @Test
+    void startingInReadOnlyModeIsNotASettingBecauseTheAppAlwaysStartsThatWay() {
+        List<String> labels = new ArrayList<>();
+        collectLabels(new SecurityPage(new AppSettingsService(new InMemoryAppSettingsStore()), () -> { }), labels);
+
+        assertFalse(labels.contains("앱을 시작할 때 읽기 전용으로"));
+    }
+
+    private static javax.swing.AbstractButton findButton(java.awt.Component root, String text) {
+        if (root instanceof javax.swing.AbstractButton b && text.equals(b.getText())) {
+            return b;
+        }
+        if (root instanceof java.awt.Container c) {
+            for (java.awt.Component child : c.getComponents()) {
+                javax.swing.AbstractButton found = findButton(child, text);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     @Test
     void theIrreversibleActionConfirmationIsNoLongerASetting() {
         List<String> labels = new ArrayList<>();
-        collectLabels(new SecurityPage(new AppSettingsService(new InMemoryAppSettingsStore())), labels);
+        collectLabels(new SecurityPage(new AppSettingsService(new InMemoryAppSettingsStore()), () -> { }), labels);
 
         assertFalse(labels.contains("되돌릴 수 없는 작업 확인"));
         assertTrue(labels.contains("공인 IP 기본으로 가리기"));

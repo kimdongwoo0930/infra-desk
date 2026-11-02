@@ -37,7 +37,12 @@ installDist → appImage (jpackage + jlink 필요한 모듈만) → selfTestAppI
 
 ## 실행 옵션
 
-`--minimized`(메뉴 막대에서만 시작), `--debug-input`, `--self-test`, `--migrate-secrets`
+`--minimized`(메뉴 막대에서만 시작), `--debug-input`, `--self-test`, `--migrate-secrets`, `--reset-admin-password`
 
 - `--self-test`: 패키징된 앱이 제대로 뜨는지 점검하고 종료한다. 앱 안 업데이트도 새 빌드에 이걸 먼저 돌려 본다.
 - `--migrate-secrets`: 옛 항목별 키체인 비밀값을 금고로 옮긴다 → [architecture/storage.md](architecture/storage.md)
+- `--reset-admin-password`: **관리 비밀번호를 잊었을 때** 그 비밀번호만 지운다(계정 키 등 다른 비밀값은 그대로). 다음에 앱을 켜면 새로 정한다. **앱을 메뉴 막대까지 완전히 종료한 뒤** 터미널에서 실행한다(켜진 앱은 금고를 메모리에 들고 있어서, 켜 둔 채 지우면 옛 비밀번호가 다시 저장된다). 이 PC의 설정 폴더에 접근할 수 있는 사람만 할 수 있다.
+  - macOS: `/Applications/InfraDesk.app/Contents/MacOS/InfraDesk --reset-admin-password`
+  - Windows: 압축을 푼 폴더에서 `InfraDesk.exe --reset-admin-password`
+  - 개발 중: `./gradlew run --args="--reset-admin-password"`
+  - 금고 암호 키를 읽으려고 키체인 접근 확인 창이 한 번 뜰 수 있다. 끝나면 "관리 비밀번호를 지웠어요"가 나온다.

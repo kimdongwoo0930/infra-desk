@@ -54,6 +54,8 @@ public class ServerScreen extends JPanel {
     /** 지금 화면에 보여 주는 서버. 서버가 바뀌었는지 알아서 이전 서버의 컨테이너 로그 칩을 비우는 데 쓴다. */
     private String shownServerId;
     private Server shownServer;
+    /** 읽기 모드인지. 파일·터미널 탭과 서버를 바꾸는 버튼이 숨고, 그 탭들을 코드로도 열지 않는다. */
+    private boolean readOnly;
     private final CardLayout cards = new CardLayout();
     private final JPanel body = new JPanel(cards);
 
@@ -122,6 +124,33 @@ public class ServerScreen extends JPanel {
         });
     }
 
+    /**
+     * 읽기 / 관리 모드를 바꾼다. 읽기 모드에서는 서버에 접속하거나 서버를 바꾸는 것을 모두 숨긴다: 파일·터미널 탭,
+     * 서버 시작·정지·재부팅, 컨테이너 조작, 저장된 명령어. 보고 있던 탭이 숨으면 개요 탭으로 옮긴다.
+     */
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+        tabs.setTabVisible(TAB_FILES, !readOnly);
+        tabs.setTabVisible(TAB_TERMINAL, !readOnly);
+        header.setReadOnly(readOnly);
+        overview.setReadOnly(readOnly);
+        metrics.setReadOnly(readOnly);
+        containersTab.setReadOnly(readOnly);
+        if (readOnly && (TAB_FILES.equals(tabs.selectedId()) || TAB_TERMINAL.equals(tabs.selectedId()))) {
+            tabs.select(TAB_OVERVIEW);
+        }
+    }
+
+    /** 시험용: 지금 선택된 탭. */
+    String selectedTab() {
+        return tabs.selectedId();
+    }
+
+    /** 시험용: 그 탭이 보이는지. */
+    boolean tabVisible(String id) {
+        return tabs.isTabVisible(id);
+    }
+
     /** 본문을 세로 스크롤 창에 담는다. */
     private static JScrollPane scrolling(JPanel content) {
         JScrollPane scroll = new JScrollPane(content);
@@ -173,9 +202,11 @@ public class ServerScreen extends JPanel {
         }
     }
 
-    /** 터미널 탭을 연다(예: 컨테이너의 셸 버튼, 개요의 저장된 명령어). */
+    /** 터미널 탭을 연다(예: 컨테이너의 셸 버튼, 개요의 저장된 명령어). 읽기 모드에서는 열지 않는다. */
     public void showTerminalTab() {
-        tabs.select(TAB_TERMINAL);
+        if (!readOnly) {
+            tabs.select(TAB_TERMINAL);
+        }
     }
 
     /** 탭 이름 옆에 이 서버의 터미널 세션 수를 보여 준다. 0이면 숫자를 감춘다. */
@@ -191,6 +222,9 @@ public class ServerScreen extends JPanel {
 
     /** 파일 탭을 연다(예: 터미널 화면의 [SFTP 파일] 버튼). */
     public void showFilesTab() {
+        if (readOnly) {
+            return;
+        }
         tabs.select(TAB_FILES);
         if (shownServer != null) {
             files.show(shownServer);

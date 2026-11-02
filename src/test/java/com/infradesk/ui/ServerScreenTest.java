@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /** 서버 화면: 컨테이너 탭과 로그 패널의 연결 규칙. 가짜 값만 쓴다. */
@@ -28,6 +30,55 @@ class ServerScreenTest {
         // id는 서로 달라야 할 뿐이다. 항상 64자가 되도록 이름 뒤를 0으로 채운다(이름이 짧아도 길이가 모자라지 않는다).
         return new Container((name + "0".repeat(64)).substring(0, 64), name, name + ":1", running ? "running" : "exited",
                 "", "", running ? 1.0 : -1, "", -1, "");
+    }
+
+    @Test
+    void 읽기_모드에서는_파일과_터미널_탭이_숨고_나머지는_남는다() {
+        ServerScreen screen = new ServerScreen();
+        screen.show(server("one"), ACCOUNT);
+
+        screen.setReadOnly(true);
+
+        assertFalse(screen.tabVisible(ServerScreen.TAB_FILES));
+        assertFalse(screen.tabVisible(ServerScreen.TAB_TERMINAL));
+        assertTrue(screen.tabVisible(ServerScreen.TAB_OVERVIEW));
+        assertTrue(screen.tabVisible(ServerScreen.TAB_MONITORING));
+        assertTrue(screen.tabVisible(ServerScreen.TAB_CONTAINERS), "컨테이너 목록과 로그는 보기라서 남는다");
+    }
+
+    @Test
+    void 터미널_탭을_보다가_읽기_모드가_되면_개요_탭으로_옮겨진다() {
+        ServerScreen screen = new ServerScreen();
+        screen.show(server("one"), ACCOUNT);
+        screen.showTerminalTab();
+        assertEquals(ServerScreen.TAB_TERMINAL, screen.selectedTab());
+
+        screen.setReadOnly(true);
+
+        assertEquals(ServerScreen.TAB_OVERVIEW, screen.selectedTab());
+    }
+
+    @Test
+    void 읽기_모드에서는_코드로도_파일과_터미널_탭을_열지_않는다() {
+        ServerScreen screen = new ServerScreen();
+        screen.show(server("one"), ACCOUNT);
+        screen.setReadOnly(true);
+
+        screen.showTerminalTab();
+        screen.showFilesTab();
+
+        assertEquals(ServerScreen.TAB_OVERVIEW, screen.selectedTab());
+    }
+
+    @Test
+    void 관리_모드로_돌아오면_탭이_다시_보인다() {
+        ServerScreen screen = new ServerScreen();
+        screen.setReadOnly(true);
+
+        screen.setReadOnly(false);
+
+        assertTrue(screen.tabVisible(ServerScreen.TAB_FILES));
+        assertTrue(screen.tabVisible(ServerScreen.TAB_TERMINAL));
     }
 
     /** 요청이 나간 것을 기록하도록 연결한 서버 화면. */

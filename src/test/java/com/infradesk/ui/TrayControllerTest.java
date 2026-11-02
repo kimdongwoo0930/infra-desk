@@ -55,6 +55,20 @@ class TrayControllerTest {
     }
 
     @Test
+    void inReadOnlyModeTheServerMenusOfferOnlyViewing() {
+        TrayController.Actions noop = (TrayController.Actions) java.lang.reflect.Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[]{TrayController.Actions.class}, (o, m, a) -> null);
+        var inv = List.of(new AccountInventory(A, List.of(server("bot", ServerStatus.RUNNING), server("box", ServerStatus.STOPPED)), null));
+
+        var entries = TrayController.entries(inv, Map.of(), "", false, null, noop, true);
+
+        var servers = entries.stream().filter(e -> e instanceof TrayController.Entry.ServerMenu)
+                .map(e -> (TrayController.Entry.ServerMenu) e).toList();
+        assertEquals(List.of("대시보드에서 보기"), itemTexts(servers.get(0).items()), "SSH 열기·재부팅·정지는 없어야 한다");
+        assertEquals(List.of("대시보드에서 보기"), itemTexts(servers.get(1).items()), "시작도 없어야 한다");
+    }
+
+    @Test
     void plainLabelDropsEmojiForTheSwingMenu() {
         assertEquals("bot  —  CPU 23%", TrayController.plainLabel(server("bot", ServerStatus.RUNNING), 23.4));
     }
