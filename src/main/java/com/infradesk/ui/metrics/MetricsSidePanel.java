@@ -205,6 +205,11 @@ final class MetricsSidePanel extends JPanel {
         alertButton.setText(cpuThreshold(settings) == null ? "설정에서 켜기" : "설정에서 바꾸기");
     }
 
+    /** 읽기 모드: 설정을 여는 [설정에서 바꾸기]를 숨긴다(알림 기준 카드의 글자는 그대로 보인다). */
+    void setReadOnly(boolean readOnly) {
+        alertButton.setVisible(!readOnly);
+    }
+
     /** [설정에서 바꾸기]를 눌렀다. */
     void onOpenSettings(Runnable listener) {
         this.onOpenSettings = listener;

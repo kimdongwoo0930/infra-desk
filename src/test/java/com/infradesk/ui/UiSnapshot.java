@@ -30,7 +30,6 @@ public final class UiSnapshot {
     private UiSnapshot() {
     }
 
-    /** 앱의 첫 화면은 개요다. 서버 화면을 찍는 시나리오는 첫 서버를 직접 고른다. */
     /** 읽기 모드로 시작한 데모 창(관리 비밀번호는 데모용으로 정해 둔다). */
     private static MainFrame readOnlyFrame(com.infradesk.service.InventoryService service, com.infradesk.core.OverviewView view) {
         var passwords = new com.infradesk.service.AdminPasswordService(new com.infradesk.storage.InMemorySecretStore(),
@@ -42,6 +41,7 @@ public final class UiSnapshot {
                 com.infradesk.service.AccessControl.of(passwords), true);
     }
 
+    /** 앱의 첫 화면은 개요다. 서버 화면을 찍는 시나리오는 첫 서버를 직접 고른다. */
     private static void setInventoryAndOpenFirst(MainFrame frame, List<AccountInventory> inventory) {
         frame.setInventory(inventory);
         inventory.stream().flatMap(i -> i.servers().stream()).findFirst().ifPresent(frame::showServer);

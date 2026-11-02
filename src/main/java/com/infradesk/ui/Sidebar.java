@@ -47,6 +47,8 @@ public class Sidebar extends JPanel {
 
     private List<AccountInventory> inventory = List.of();
     private ServerGrouping grouping = ServerGrouping.ACCOUNT;
+    /** 읽기 모드면 아래의 [계정·서버 추가]와 설정 버튼, 계정·서버의 우클릭 메뉴(설정·삭제)를 없앤다. */
+    private boolean readOnly;
     private java.util.Map<String, Double> cpu = java.util.Map.of();
     private String selectedServerId;
     private Consumer<Server> onSelect = s -> { };
@@ -227,6 +229,15 @@ public class Sidebar extends JPanel {
         rebuild();
     }
 
+    /** 읽기 / 관리 모드를 바꾼다. 읽기 모드에서는 아무것도 바꾸지 않게 추가·설정 진입점을 모두 숨긴다. */
+    public void setReadOnly(boolean readOnly) {
+        if (this.readOnly != readOnly) {
+            this.readOnly = readOnly;
+            footer.setVisible(!readOnly);
+            rebuild();
+        }
+    }
+
     /** 서버를 묶는 방법을 바꾸고 목록을 다시 그린다(설정 "일반"에서 고른 값). */
     public void setGrouping(ServerGrouping grouping) {
         if (this.grouping != grouping) {
@@ -292,7 +303,7 @@ public class Sidebar extends JPanel {
                 ServerListItem item = new ServerListItem(s, cpu.get(s.id()), () -> {
                     select(s.id());
                     onSelect.accept(s);
-                }, () -> onSshSettings.accept(s), () -> onEditAccount.accept(account));
+                }, () -> onSshSettings.accept(s), () -> onEditAccount.accept(account), readOnly);
                 item.setSelected(s.id().equals(selectedServerId));
                 item.setCompact(compact);
                 item.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -341,16 +352,18 @@ public class Sidebar extends JPanel {
         }
         left.setToolTipText(a.provider().displayName() + " · " + a.displayName());
 
-        JPopupMenu menu = new JPopupMenu();
-        JMenuItem edit = new JMenuItem("계정 설정…");
-        edit.addActionListener(e -> onEditAccount.accept(a));
-        JMenuItem remove = new JMenuItem("계정 삭제…");
-        remove.addActionListener(e -> onRemoveAccount.accept(a));
-        menu.add(edit);
-        menu.addSeparator();
-        menu.add(remove);
-        header.setComponentPopupMenu(menu);
-        header.setToolTipText("우클릭: 계정 설정 · 삭제");
+        if (!readOnly) {
+            JPopupMenu menu = new JPopupMenu();
+            JMenuItem edit = new JMenuItem("계정 설정…");
+            edit.addActionListener(e -> onEditAccount.accept(a));
+            JMenuItem remove = new JMenuItem("계정 삭제…");
+            remove.addActionListener(e -> onRemoveAccount.accept(a));
+            menu.add(edit);
+            menu.addSeparator();
+            menu.add(remove);
+            header.setComponentPopupMenu(menu);
+            header.setToolTipText("우클릭: 계정 설정 · 삭제");
+        }
         return header;
     }
 

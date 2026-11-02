@@ -666,6 +666,9 @@ public class MainFrame extends JFrame {
 
     /** 설정 화면을 연다. {@code pageId}가 있으면 그 항목으로 바로 간다(예: 모니터링 탭의 "설정에서 바꾸기" → 알림). */
     private void openSettings(String pageId) {
+        if (readOnly()) {
+            return;   // 설정은 관리 모드에서만 연다
+        }
         if (pageId != null) {
             settingsScreen.show(pageId);
         }
@@ -1174,6 +1177,9 @@ public class MainFrame extends JFrame {
     }
 
     private void editSshSettings(Server server) {
+        if (readOnly()) {
+            return;
+        }
         // 직접 연결 기기: 포트와, 사용자로는 이 컴퓨터에서의 이름을 추천한다.
         com.infradesk.ssh.SshSettings defaults = accountOf(server)
                 .filter(a -> a.provider() == com.infradesk.core.ProviderType.SSH)
@@ -1579,13 +1585,22 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /** 모드가 바뀐 것을 화면에 반영한다: 읽기 모드에서는 서버를 바꾸거나 접속하는 것을 모두 숨긴다. */
+    /**
+     * 모드가 바뀐 것을 화면에 반영한다. 읽기 모드는 순수하게 보기만 한다: 서버를 바꾸거나 접속하는 것, 계정·서버 추가와
+     * 설정, 공인 IP 보기를 모두 숨긴다.
+     */
     private void applyAccess(com.infradesk.core.AccessMode mode) {
         boolean ro = mode == com.infradesk.core.AccessMode.READ_ONLY;
         titleBar.setMode(mode);
         detail.setReadOnly(ro);
         fleetScreen.setReadOnly(ro);
+        sidebar.setReadOnly(ro);
         tray.ifPresent(t -> t.setReadOnly(ro));
+        if (ro && settingsVisible) {
+            closeSettings();   // 설정을 보고 있었다면 닫는다(읽기 모드에서는 설정을 열 수 없다)
+        }
+        // 공인 IP: 읽기 모드는 설정과 상관없이 항상 가린다(보이게 하는 버튼도 없다). 관리 모드로 오면 설정의 기본값을 따른다.
+        IpPrivacy.setRevealed(!ro && !appSettings.current().hidePublicIp());
     }
 
     /**
@@ -1741,10 +1756,16 @@ public class MainFrame extends JFrame {
     }
 
     private void addAccount() {
+        if (readOnly()) {
+            return;
+        }
         new AddAccountDialog(this, service, demoMode).showDialog().ifPresent(a -> refresh());
     }
 
     private void editAccount(Account account) {
+        if (readOnly()) {
+            return;
+        }
         if (account.provider() == com.infradesk.core.ProviderType.SSH) {
             new AddSshServerDialog(this, service, account).showDialog().ifPresent(a -> refresh());
             return;
@@ -1754,6 +1775,9 @@ public class MainFrame extends JFrame {
 
     /** 직접 연결 기기를 추가한 뒤 바로 SSH 사용자와 키를 묻는다. */
     private void addSshServer() {
+        if (readOnly()) {
+            return;
+        }
         new AddSshServerDialog(this, service, null).showDialog().ifPresent(a -> {
             refresh();
             String host = com.infradesk.core.SshHostProperties.host(a);
@@ -1764,6 +1788,9 @@ public class MainFrame extends JFrame {
     }
 
     private void removeAccount(Account account) {
+        if (readOnly()) {
+            return;
+        }
         int answer = JOptionPane.showConfirmDialog(this,
                 account.provider().isCloud()
                         ? "'" + account.displayName() + "' 계정을 삭제할까요?\n저장된 API 키도 함께 지워져요. 클라우드의 서버는 그대로 남아요."

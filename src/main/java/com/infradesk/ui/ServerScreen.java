@@ -134,6 +134,7 @@ public class ServerScreen extends JPanel {
         tabs.setTabVisible(TAB_TERMINAL, !readOnly);
         header.setReadOnly(readOnly);
         overview.setReadOnly(readOnly);
+        metrics.setReadOnly(readOnly);
         containersTab.setReadOnly(readOnly);
         if (readOnly && (TAB_FILES.equals(tabs.selectedId()) || TAB_TERMINAL.equals(tabs.selectedId()))) {
             tabs.select(TAB_OVERVIEW);

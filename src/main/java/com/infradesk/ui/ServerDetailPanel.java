@@ -60,6 +60,10 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private final SavedCommandsCard savedCommands = new SavedCommandsCard();
     /** 저장된 명령어 카드 아래의 간격(카드를 숨길 때 같이 숨긴다). */
     private final java.awt.Component savedCommandsGap = Box.createVerticalStrut(16);
+    /** 정보 카드의 [SSH 설정](읽기 모드에서 숨긴다). */
+    private final JButton sshSettingsButton = Buttons.ghost("SSH 설정");
+    /** 읽기 모드인지(공인 IP의 보기·복사 버튼을 없앤다). */
+    private boolean readOnly;
 
     // 정보 카드의 값들
     private final JLabel publicIp = value(true);
@@ -136,12 +140,16 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     }
 
     /**
-     * 읽기 모드: 서버에서 명령을 실행하는 "저장된 명령어"를 숨기고, 컨테이너를 움직이는 버튼을 숨긴다.
-     * 모니터링과 정보 등 보기만 하는 것은 그대로 둔다.
+     * 읽기 모드: 서버에서 명령을 실행하는 "저장된 명령어"를 숨기고, 컨테이너를 움직이는 버튼과 설정을 바꾸는 [SSH 설정]을
+     * 숨긴다. 공인 IP는 보이게 하거나 복사하는 버튼도 숨겨서 가려진 채로만 보인다. 모니터링과 정보 등 보기만 하는 것은 그대로 둔다.
      */
     public void setReadOnly(boolean readOnly) {
         savedCommands.setVisible(!readOnly);
         savedCommandsGap.setVisible(!readOnly);
+        // 읽기 모드: 설정을 바꾸는 [SSH 설정]과, 공인 IP를 보이게 하거나 복사하는 버튼(복사하면 가려진 진짜 주소가 나간다)도 없앤다.
+        sshSettingsButton.setVisible(!readOnly);
+        this.readOnly = readOnly;
+        renderPublicIp();
         containerSummary.setReadOnly(readOnly);
         attention.setReadOnly(readOnly);
     }
@@ -296,7 +304,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
 
         JLabel title = new JLabel("정보");
         title.setFont(title.getFont().deriveFont(java.awt.Font.BOLD, 15f));
-        JButton sshSettings = Buttons.ghost("SSH 설정");
+        JButton sshSettings = sshSettingsButton;
         sshSettings.setForeground(Theme.TEXT_MUTED);
         sshSettings.addActionListener(e -> onSshSettings.run());
         JPanel head = new JPanel(new BorderLayout());
@@ -381,8 +389,11 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         String label = revealed ? "공인 IP 숨기기" : "공인 IP 보기";
         revealIp.setToolTipText(label);
         revealIp.getAccessibleContext().setAccessibleName(label);
-        revealIp.setVisible(publicIpValue != null);
-        copyIp.setVisible(publicIpValue != null);
+        // 읽기 모드에서는 IP가 있어도 보이게 하거나 복사하는 버튼을 두지 않는다. 서버를 보여줄 때마다 이 줄이 다시 불리므로
+        // 버튼의 표시는 여기서 한 번에 정한다(setReadOnly가 따로 숨기기만 하면 서버를 열 때 다시 보이게 된다).
+        boolean canUse = !readOnly && publicIpValue != null;
+        revealIp.setVisible(canUse);
+        copyIp.setVisible(canUse);
         copyIp.setToolTipText("공인 IP 복사");
     }
 
