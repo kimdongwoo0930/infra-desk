@@ -86,7 +86,10 @@ public final class InfraDeskApp {
                 UpdateService updates = new UpdateService(java.net.http.HttpClient.newHttpClient(),
                         UpdateService.RELEASE_API, UpdateService.assetForCurrentOs(),
                         AppPaths.configDir().resolve("app-settings.json"));
-                frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, updates, false);
+                // 시작 화면과 서버 묶기는 비밀값이 아니라서 금고가 아니라 app-settings.json에 둔다.
+                com.infradesk.service.AppSettingsService appSettings = new com.infradesk.service.AppSettingsService(
+                        new com.infradesk.storage.JsonAppSettingsStore(AppPaths.configDir()));
+                frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, updates, appSettings, false);
                 com.infradesk.service.UpdateInstaller.forRunningApp(AppPaths.cacheDir().resolve("update"),
                         AppPaths.logDir().resolve("update.log")).ifPresent(frame::setUpdateInstaller);
             }

@@ -2,6 +2,8 @@ package com.infradesk.ui.settings;
 
 import com.infradesk.alert.AlertService;
 import com.infradesk.app.LaunchAtLogin;
+import com.infradesk.service.AccountInventory;
+import com.infradesk.service.AppSettingsService;
 import com.infradesk.service.UpdateService;
 import com.infradesk.ui.Icons;
 import com.infradesk.ui.Theme;
@@ -17,6 +19,7 @@ import java.awt.RenderingHints;
 import java.awt.geom.RoundRectangle2D;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -43,16 +46,19 @@ public final class SettingsScreen extends JPanel {
     private final List<SettingsPage> pages = new ArrayList<>();
     private final List<MenuButton> menu = new ArrayList<>();
     private final AboutPage about;
+    private final GeneralPage generalPage;
     private final ConnectionPage connectionPage;
     private String shownId;
     private Runnable onBack = () -> { };
 
     public SettingsScreen(AlertService alerts, boolean demoMode, UpdateService updates, LaunchAtLogin launchAtLogin,
-                          Runnable checkNow, Runnable onAlertsChanged, ConnectionPage.Source connections) {
+                          Runnable checkNow, Runnable onAlertsChanged, ConnectionPage.Source connections,
+                          AppSettingsService appSettings, Supplier<List<AccountInventory>> inventory) {
         super(new BorderLayout());
         setBackground(Theme.APP_BG);
         about = new AboutPage(updates, demoMode, checkNow);
-        pages.add(new GeneralPage(launchAtLogin, demoMode));
+        generalPage = new GeneralPage(launchAtLogin, demoMode, appSettings, inventory);
+        pages.add(generalPage);
         pages.add(new AlertsPage(alerts, demoMode, onAlertsChanged));
         pages.add(new SecurityPage());
         connectionPage = new ConnectionPage(connections);
@@ -144,11 +150,21 @@ public final class SettingsScreen extends JPanel {
                 cards.show(body, id);
                 if (ConnectionPage.ID.equals(id)) {
                     connectionPage.refresh();
+                } else if (GeneralPage.ID.equals(id)) {
+                    generalPage.refresh();   // 서버 목록은 나중에 도착하므로 열 때마다 새로 읽는다
                 }
                 menu.get(i).setSelected(true);
                 return;
             }
         }
+    }
+
+    /**
+     * 서버 목록이 새로 도착했거나 설정 화면을 열 때 "일반"의 시작 서버 목록을 다시 읽는다. 앱이 켜질 때는 서버 목록이
+     * 비어 있는 채로 페이지가 만들어지므로, 이걸 하지 않으면 저장해 둔 서버가 "찾을 수 없는 서버"로 보인다.
+     */
+    public void refreshGeneral() {
+        generalPage.refresh();
     }
 
     /** "연결·조회" 항목이 보이는 동안 열린 연결 표를 다시 그린다(주기적으로 불린다). 다른 항목이 보이면 아무것도 안 한다. */
