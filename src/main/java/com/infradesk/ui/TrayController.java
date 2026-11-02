@@ -119,6 +119,14 @@ public final class TrayController {
     private Map<String, Double> lastCpu = Map.of();
     private java.time.LocalTime lastRefreshed;
     private com.infradesk.service.UpdateService.Release update;
+    /** 읽기 모드면 서버에 접속하거나 서버를 바꾸는 항목(SSH 열기, 재부팅, 정지, 시작)을 메뉴에서 뺀다. */
+    private boolean readOnly;
+
+    /** 읽기 / 관리 모드가 바뀌었다: 메뉴를 새 모드로 다시 만든다. EDT에서 호출한다. */
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+        update(lastInventory, lastCpu, lastRefreshed);
+    }
 
     /** "새 버전 설치" 항목을 표시한다(또는 지운다). EDT에서 호출한다. */
     public void setUpdate(com.infradesk.service.UpdateService.Release release) {
@@ -134,7 +142,7 @@ public final class TrayController {
         String updated = refreshedAt == null ? "" : " · " + refreshedAt.format(TIME) + " 갱신";
         icon.setImage(s.needsAttention() ? attentionImage : normalImage);
         icon.setToolTip("InfraDesk" + (demo ? " (데모)" : "") + " · " + s.headline() + updated);
-        entries = entries(inventory, cpu, updated, demo, update, actions);
+        entries = entries(inventory, cpu, updated, demo, update, actions, readOnly);
         if (MAC) {
             icon.setPopupMenu(toAwt(entries));
         }
@@ -206,6 +214,12 @@ public final class TrayController {
     /** 트레이 없이도 UI 스냅샷 도구가 메뉴를 그릴 수 있도록 package-private이고 static이다. */
     static List<Entry> entries(List<AccountInventory> inventory, Map<String, Double> cpu, String updated, boolean demo,
                                com.infradesk.service.UpdateService.Release update, Actions actions) {
+        return entries(inventory, cpu, updated, demo, update, actions, false);
+    }
+
+    /** @param readOnly 읽기 모드: 서버 하위 메뉴에 "대시보드에서 보기"만 둔다 */
+    static List<Entry> entries(List<AccountInventory> inventory, Map<String, Double> cpu, String updated, boolean demo,
+                               com.infradesk.service.UpdateService.Release update, Actions actions, boolean readOnly) {
         List<Entry> menu = new java.util.ArrayList<>();
         menu.add(new Entry.Label("InfraDesk" + (demo ? " (데모)" : "") + " · " + Summary.of(inventory).headline() + updated));
         if (update != null) {
@@ -223,7 +237,7 @@ public final class TrayController {
                     + (inv.failed() ? " — 연결 오류" : "")));
             for (Server s : inv.servers()) {
                 menu.add(new Entry.ServerMenu(s, cpu.get(s.id()),
-                        serverItems(s, inv.account().provider().hasPowerControl(), actions)));
+                        serverItems(s, inv.account().provider().hasPowerControl(), actions, readOnly)));
             }
         }
 
@@ -236,9 +250,12 @@ public final class TrayController {
         return menu;
     }
 
-    private static List<Entry> serverItems(Server s, boolean powerControl, Actions actions) {
+    private static List<Entry> serverItems(Server s, boolean powerControl, Actions actions, boolean readOnly) {
         List<Entry> m = new java.util.ArrayList<>();
         m.add(new Entry.Item("대시보드에서 보기", false, () -> actions.showServer(s.id())));
+        if (readOnly) {
+            return m;   // 읽기 모드: 서버에 접속하거나 바꾸는 항목은 없다
+        }
         if (s.status() == ServerStatus.RUNNING) {
             m.add(new Entry.Item("SSH 열기", false, () -> actions.openSsh(s.id())));
             if (!powerControl) {

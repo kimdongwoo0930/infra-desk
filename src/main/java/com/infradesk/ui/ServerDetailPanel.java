@@ -58,6 +58,8 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     private final AttentionCard attention = new AttentionCard();
     private final Component attentionGap = Box.createVerticalStrut(16);
     private final SavedCommandsCard savedCommands = new SavedCommandsCard();
+    /** 저장된 명령어 카드 아래의 간격(카드를 숨길 때 같이 숨긴다). */
+    private final java.awt.Component savedCommandsGap = Box.createVerticalStrut(16);
 
     // 정보 카드의 값들
     private final JLabel publicIp = value(true);
@@ -90,7 +92,7 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
         right.add(infoCard());
         right.add(Box.createVerticalStrut(16));
         right.add(savedCommands);
-        right.add(Box.createVerticalStrut(16));
+        right.add(savedCommandsGap);
         right.add(new RecentActivityCard());
         attentionGap.setVisible(false);
         attention.addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -131,6 +133,17 @@ public class ServerDetailPanel extends JPanel implements javax.swing.Scrollable 
     /** 확인 필요 카드(멈춘 컨테이너). */
     public AttentionCard attention() {
         return attention;
+    }
+
+    /**
+     * 읽기 모드: 서버에서 명령을 실행하는 "저장된 명령어"를 숨기고, 컨테이너를 움직이는 버튼을 숨긴다.
+     * 모니터링과 정보 등 보기만 하는 것은 그대로 둔다.
+     */
+    public void setReadOnly(boolean readOnly) {
+        savedCommands.setVisible(!readOnly);
+        savedCommandsGap.setVisible(!readOnly);
+        containerSummary.setReadOnly(readOnly);
+        attention.setReadOnly(readOnly);
     }
 
     /** 저장된 명령어 카드. */

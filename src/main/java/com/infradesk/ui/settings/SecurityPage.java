@@ -2,12 +2,14 @@ package com.infradesk.ui.settings;
 
 import com.infradesk.service.AppSettingsService;
 import com.infradesk.ui.Theme;
+import com.infradesk.ui.components.Buttons;
 import com.infradesk.ui.components.ComingSoon;
 import com.infradesk.ui.components.ToggleSwitch;
 
 import java.awt.BorderLayout;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
@@ -17,7 +19,9 @@ import javax.swing.JPanel;
  * <ul>
  *   <li>공인 IP 기본으로 가리기: 동작한다. 처음 값은 켜짐이고, 끄면 앱을 열 때부터 보인다(눈 모양 버튼은 그대로 쓸 수 있다).
  *   <li>"되돌릴 수 없는 작업 확인"은 설정으로 두지 않는다. 서버 파일·폴더 삭제 같은 작업의 확인 창은 항상 뜬다.
- *   <li>앱을 시작할 때 읽기 전용으로, 활동 기록 보관, 알고 있는 호스트 키는 자리만 있다(준비 중).
+ *   <li>관리 비밀번호: 읽기 모드에서 관리 모드로 바꿀 때 묻는 비밀번호를 바꾼다(현재 비밀번호를 확인한다).
+ *   <li>"앱을 시작할 때 읽기 전용으로"는 설정으로 두지 않는다. 앱은 항상 읽기 모드로 시작한다.
+ *   <li>활동 기록 보관, 알고 있는 호스트 키는 자리만 있다(준비 중).
  *   <li>비밀값 저장: 안내 글자.
  * </ul>
  */
@@ -31,7 +35,8 @@ public final class SecurityPage extends SettingsPage {
     private final ToggleSwitch hideIp = Controls.toggle(true);
     private final SettingsRow hideIpRow;
 
-    public SecurityPage(AppSettingsService settings) {
+    /** @param onChangePassword [변경]을 눌렀을 때: 비밀번호 바꾸기 창을 연다 */
+    public SecurityPage(AppSettingsService settings, Runnable onChangePassword) {
         super(ID, "보안·안전", "보안·안전", "실수로 서버를 바꾸지 않도록, 그리고 비밀값이 새지 않도록");
         hideIp.setSelected(settings.current().hidePublicIp());
         hideIpRow = new SettingsRow("공인 IP 기본으로 가리기", description(settings.current().hidePublicIp()), hideIp);
@@ -48,8 +53,10 @@ public final class SecurityPage extends SettingsPage {
 
         SettingsCard card = new SettingsCard();
         card.add(hideIpRow);
-        card.add(new SettingsRow("앱을 시작할 때 읽기 전용으로", "정지·재부팅·삭제·덮어쓰기를 막은 채로 시작해요",
-                Controls.toggle(false)).comingSoon());
+        JButton changePassword = Buttons.secondary("변경", null);
+        changePassword.addActionListener(e -> onChangePassword.run());
+        card.add(new SettingsRow("관리 비밀번호",
+                "관리 모드로 바꿀 때 물어요 · 해시로만 저장돼요 · 바꾸려면 현재 비밀번호가 필요해요", changePassword));
         card.add(new SettingsRow("활동 기록 보관", "이 PC에만 저장 · 명령 출력과 비밀값은 남기지 않아요",
                 Controls.choice(110, "30일")).comingSoon());
         card.add(new SettingsRow("비밀값 저장", "API 개인키·SSH 키·웹훅",

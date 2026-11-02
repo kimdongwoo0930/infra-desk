@@ -76,6 +76,8 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
     private final SegmentedControl view = new SegmentedControl(
             java.util.Arrays.stream(OverviewView.values()).map(OverviewView::label).toList());
     private OverviewView overviewView = OverviewView.CARDS;
+    /** 읽기 모드면 카드와 목록에서 서버에 접속하거나 서버를 켜는 버튼을 숨긴다. */
+    private boolean readOnly;
     /** 보기 방식을 코드로 바꾸는 중이면 true(사용자가 누른 것으로 오해하지 않기 위해). */
     private boolean settingView;
     private Consumer<OverviewView> onViewPicked = v -> { };
@@ -146,6 +148,15 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
     /** 사용자가 위쪽의 "묶기" 목록에서 방법을 골랐다. */
     public void onGroupingPicked(Consumer<ServerGrouping> listener) {
         this.onGroupingPicked = listener;
+    }
+
+    /** 읽기 / 관리 모드를 바꾼다. 읽기 모드에서는 [SSH] [파일] [시작]이 빠지고 [모니터링]만 남는다. */
+    public void setReadOnly(boolean readOnly) {
+        if (this.readOnly != readOnly) {
+            this.readOnly = readOnly;
+            invalidateTree(this);
+            rebuildGrid();
+        }
     }
 
     /** 사용자가 위쪽의 "카드 | 목록"에서 보기 방식을 골랐다. */
@@ -394,11 +405,11 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
             shown += values.size();
             JComponent body;
             if (overviewView == OverviewView.LIST) {
-                body = new ServerTable(values, onOpenServer, onOpenTab, onStart);
+                body = new ServerTable(values, onOpenServer, onOpenTab, onStart, readOnly);
             } else {
                 JPanel cards = new JPanel(new CardGridLayout(280, 12));
                 cards.setOpaque(false);
-                values.forEach(data -> cards.add(new ServerCard(data, onOpenServer, onOpenTab, onStart)));
+                values.forEach(data -> cards.add(new ServerCard(data, onOpenServer, onOpenTab, onStart, readOnly)));
                 body = cards;
             }
             body.setAlignmentX(LEFT_ALIGNMENT);

@@ -19,6 +19,10 @@ import com.infradesk.storage.AppPaths;
 import com.infradesk.storage.InMemoryAccountStore;
 import com.infradesk.storage.InMemoryAlertSettingsStore;
 import com.infradesk.storage.InMemorySavedCommandStore;
+import com.infradesk.service.AccessControl;
+import com.infradesk.service.AdminPasswordService;
+import com.infradesk.service.AppSettingsService;
+import com.infradesk.storage.InMemoryAppSettingsStore;
 import com.infradesk.storage.InMemorySecretStore;
 import com.infradesk.storage.InMemorySshSettingsStore;
 import com.infradesk.storage.JsonAccountStore;
@@ -52,6 +56,9 @@ public final class InfraDeskApp {
         if (Arrays.asList(args).contains("--migrate-secrets")) {
             System.exit(migrateSecrets());
         }
+        if (Arrays.asList(args).contains("--reset-admin-password")) {
+            System.exit(resetAdminPassword());
+        }
         Logging.install(AppPaths.logDir());
         com.infradesk.ui.ErrorReporter.install();
         boolean demo = Arrays.asList(args).contains("--demo") || Boolean.getBoolean("infradesk.demo");
@@ -75,8 +82,14 @@ public final class InfraDeskApp {
                 InputDiagnostics.install();
             }
             MainFrame frame;
+            boolean passwordSet;
             if (demo) {
-                frame = new MainFrame(demoService(), demoTerminalService(), demoAlertService(), null, true);
+                // 데모: 실제 비밀값 저장소를 쓰지 않는다. 관리 비밀번호는 미리 정해 두고(MainFrame.DEMO_PASSWORD) 창에서 알려 준다.
+                AdminPasswordService passwords = new AdminPasswordService(new InMemorySecretStore(), Clock.systemUTC());
+                passwords.set(MainFrame.DEMO_PASSWORD.toCharArray());
+                passwordSet = true;
+                frame = new MainFrame(demoService(), demoTerminalService(), demoAlertService(), null,
+                        new AppSettingsService(new InMemoryAppSettingsStore()), AccessControl.of(passwords), true);
             } else {
                 // 키체인 항목은 하나(금고의 마스터 키)뿐이고, 모든 비밀값은 암호화된 금고에 들어 있다.
                 KeychainSecretStore keychain = new KeychainSecretStore();
@@ -87,20 +100,43 @@ public final class InfraDeskApp {
                         UpdateService.RELEASE_API, UpdateService.assetForCurrentOs(),
                         AppPaths.configDir().resolve("app-settings.json"));
                 // 시작 화면과 서버 묶기는 비밀값이 아니라서 금고가 아니라 app-settings.json에 둔다.
-                com.infradesk.service.AppSettingsService appSettings = new com.infradesk.service.AppSettingsService(
+                AppSettingsService appSettings = new AppSettingsService(
                         new com.infradesk.storage.JsonAppSettingsStore(AppPaths.configDir()));
-                frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, updates, appSettings, false);
+                // 관리 비밀번호는 해시로 금고에 둔다. 앱은 항상 읽기 모드로 시작한다.
+                AdminPasswordService passwords = new AdminPasswordService(secrets, Clock.systemUTC());
+                passwordSet = passwords.isSet();
+                frame = new MainFrame(realService(secrets), realTerminalService(secrets), alerts, updates, appSettings,
+                        AccessControl.of(passwords), false);
                 com.infradesk.service.UpdateInstaller.forRunningApp(AppPaths.cacheDir().resolve("update"),
                         AppPaths.logDir().resolve("update.log")).ifPresent(frame::setUpdateInstaller);
             }
             AppIcon.applyTo(frame);
             // --minimized(로그인 시 실행): 메뉴 막대에만 머문다. 트레이가 없으면 돌아올 방법이 없으므로 창을 보여준다.
-            if (!minimized || !frame.hasTray()) {
+            // 관리 비밀번호가 없으면 정해야 쓸 수 있으므로 창을 보여 준다(메뉴 막대에만 숨어 시작하지 않는다).
+            if (!minimized || !frame.hasTray() || !passwordSet) {
                 frame.setVisible(true);
             }
+            frame.requirePasswordSetup();
             frame.refresh();
             frame.startUpdateChecks();
         });
+    }
+
+    /**
+     * {@code --reset-admin-password}: 관리 비밀번호만 지운다(계정 키 등 다른 비밀값은 그대로). 다음에 앱을 켜면 새로 정한다.
+     * 비밀번호를 잊었을 때 쓴다. 이 PC에 접근할 수 있는 사람만 할 수 있다.
+     */
+    private static int resetAdminPassword() {
+        try {
+            KeychainSecretStore keychain = new KeychainSecretStore();
+            SecretStore secrets = new VaultSecretStore(AppPaths.configDir(), keychain, keychain);
+            new AdminPasswordService(secrets, Clock.systemUTC()).reset();
+            System.out.println("관리 비밀번호를 지웠어요. 다음에 InfraDesk를 켜면 새로 정해요.");
+            return 0;
+        } catch (RuntimeException e) {
+            System.err.println("관리 비밀번호를 지우지 못했어요: " + e.getMessage());
+            return 1;
+        }
     }
 
     /** 데모 모드의 알림은 기기 밖으로 나가지 않고 미리보기 토스트로만 표시된다. */

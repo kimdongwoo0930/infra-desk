@@ -110,6 +110,8 @@ public class ContainersPanel extends JPanel {
     private boolean programmatic;
     private BiConsumer<Container, DockerCommands.Console> onShell = (c, console) -> { };
     private boolean busy;
+    /** 읽기 모드면 작업 칸(셸·콘솔·재시작·정지·시작)을 비우고 눌러도 아무 일도 하지 않는다. 목록과 로그 보기는 그대로. */
+    private boolean readOnly;
     /** 마우스가 올라가 있는 작업 아이콘(그 아이콘만 배경이 밝아진다). */
     private int hoverRow = -1;
     private RowAction hoverAction;
@@ -449,7 +451,7 @@ public class ContainersPanel extends JPanel {
 
     /** 칸 안에서 점 {@code p} 아래에 있는 작업 아이콘. 없으면 null. */
     private RowAction actionAt(Point p, int row, int col) {
-        if (row < 0 || row >= model.rows.size()) {
+        if (readOnly || row < 0 || row >= model.rows.size()) {
             return null;
         }
         Rectangle cell = table.getCellRect(row, col, false);
@@ -458,7 +460,7 @@ public class ContainersPanel extends JPanel {
 
     /** 눌린 작업을 알린다. 요청 중에는 무시한다(같은 동작을 연달아 보내지 않게). 테스트용으로 열어 둔다. */
     void perform(Container c, RowAction action) {
-        if (busy) {
+        if (busy || readOnly) {
             return;
         }
         switch (action) {
@@ -468,6 +470,14 @@ public class ContainersPanel extends JPanel {
             case STOP -> onAction.accept(c, DockerCommands.Action.STOP);
             case START -> onAction.accept(c, DockerCommands.Action.START);
         }
+    }
+
+    /** 읽기 모드를 켜고 끈다. 작업 칸이 비거나 다시 보이도록 표를 다시 그린다. */
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+        actionsCell.setReadOnly(readOnly);
+        setHover(-1, null);
+        table.repaint();
     }
 
     private void setHover(int row, RowAction action) {
@@ -689,6 +699,13 @@ public class ContainersPanel extends JPanel {
 
     /** 작업 칸: 상태에 맞는 아이콘들을 오른쪽 끝에 붙여 그린다. 위치 계산은 {@link ContainerRowActions}가 한다. */
     private static final class ActionsCell extends JComponent {
+
+        private boolean readOnly;
+
+        void setReadOnly(boolean readOnly) {
+            this.readOnly = readOnly;
+        }
+
         private Container container;
         private boolean selected;
         private RowAction hover;
@@ -712,7 +729,7 @@ public class ContainersPanel extends JPanel {
                 if (dimmed) {
                     g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(0.4f));
                 }
-                List<RowAction> actions = ContainerRowActions.actionsFor(container);
+                List<RowAction> actions = readOnly ? List.of() : ContainerRowActions.actionsFor(container);
                 List<Rectangle> boxes = ContainerRowActions.boxes(actions, getWidth(), getHeight());
                 for (int i = 0; i < actions.size(); i++) {
                     paintAction(g2, actions.get(i), boxes.get(i));
