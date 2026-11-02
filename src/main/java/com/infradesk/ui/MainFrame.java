@@ -46,6 +46,10 @@ public class MainFrame extends JFrame {
     private final InventoryService service;
     private final TerminalService terminalService;
     private final com.infradesk.alert.AlertService alerts;
+    /** 설정 "일반"의 값(시작 화면, 서버 묶기). */
+    private final com.infradesk.service.AppSettingsService appSettings;
+    /** 앱을 연 뒤 첫 서버 목록으로 시작 화면을 이미 골랐는지. 그 뒤의 주기적인 갱신은 보던 화면을 바꾸지 않는다. */
+    private boolean startScreenApplied;
     private final com.infradesk.service.UpdateService updates;
     /** 업데이트를 제자리에 설치한다. Gradle로 실행 중(패키징된 앱이 아님)이거나 데모 모드이면 null. */
     private com.infradesk.service.UpdateInstaller updateInstaller;
@@ -145,7 +149,16 @@ public class MainFrame extends JFrame {
     /** @param updates 업데이트 확인. null이면 사용하지 않는다 */
     public MainFrame(InventoryService service, TerminalService terminalService,
                      com.infradesk.alert.AlertService alerts, com.infradesk.service.UpdateService updates, boolean demoMode) {
+        this(service, terminalService, alerts, updates, new com.infradesk.service.AppSettingsService(
+                new com.infradesk.storage.InMemoryAppSettingsStore()), demoMode);
+    }
+
+    /** @param appSettings 시작 화면과 서버 묶기. 설정 "일반"이 바꾸고 이 창이 따라간다 */
+    public MainFrame(InventoryService service, TerminalService terminalService,
+                     com.infradesk.alert.AlertService alerts, com.infradesk.service.UpdateService updates,
+                     com.infradesk.service.AppSettingsService appSettings, boolean demoMode) {
         super("InfraDesk");
+        this.appSettings = appSettings;
         this.service = service;
         this.terminalService = terminalService;
         this.sshMetrics = new com.infradesk.service.SshMetricsService(terminalService, java.time.Clock.systemUTC());
@@ -257,7 +270,8 @@ public class MainFrame extends JFrame {
                             public int disconnectAll(boolean force) {
                                 return terminalService.disconnectAll(force);
                             }
-                        }));
+                        }),
+                appSettings, () -> inventory);
         settingsScreen.onBack(this::closeSettings);
         screenSwitch.add(sidebarSplit, MAIN_SCREEN);
         screenSwitch.add(settingsScreen, SETTINGS_SCREEN);
@@ -332,6 +346,18 @@ public class MainFrame extends JFrame {
             runAction(ServerAction.START);
         });
         fleetScreen.onRefresh(() -> readFleet(true));
+        // 서버 묶기: 값은 앱 설정이 쥐고 있다. 개요의 "묶기" 목록과 설정 "일반"은 둘 다 그 값을 바꾸고,
+        // 바뀐 값을 사이드바와 개요가 함께 따라간다.
+        fleetScreen.onGroupingPicked(g -> {
+            try {
+                appSettings.update(settings -> settings.withGrouping(g));
+            } catch (RuntimeException e) {
+                LOG.warning("Could not save the grouping: " + e.getMessage());
+                fleetScreen.setGrouping(appSettings.current().grouping());   // 저장하지 못했다: 목록을 저장된 값으로 되돌린다
+            }
+        });
+        appSettings.onChange(changed -> javax.swing.SwingUtilities.invokeLater(() -> applyGrouping(changed.grouping())));
+        applyGrouping(appSettings.current().grouping());
         detail.onAction(this::runAction);
         showEmpty();
 
@@ -616,6 +642,7 @@ public class MainFrame extends JFrame {
         }
         screens.show(screenSwitch, SETTINGS_SCREEN);
         settingsVisible = true;
+        settingsScreen.refreshGeneral();       // 서버 목록이 그 사이에 도착했을 수 있다
         settingsScreen.refreshConnections();   // 타이머를 기다리지 않고 열자마자 지금 상태를 보여 준다
     }
 
@@ -1456,6 +1483,7 @@ public class MainFrame extends JFrame {
             }
         }
         sidebar.setInventory(inventory);
+        settingsScreen.refreshGeneral();   // 설정 "일반"의 시작 서버 목록도 새 서버 목록으로
         // 목록에서 사라진 서버(삭제한 계정)의 파일 탭은 연결과 함께 닫는다.
         detail.files().retainOnly(allServers().stream().map(Server::id).collect(java.util.stream.Collectors.toSet()));
         sampleDirectServers(true);
@@ -1467,7 +1495,11 @@ public class MainFrame extends JFrame {
         } else if (inventory.isEmpty()) {
             selectedServerId = null;
             showEmpty();
+        } else if (!startScreenApplied && startServer().isPresent()) {
+            startScreenApplied = true;
+            showServerView(startServer().get());   // 설정 "일반"의 시작 화면: 지정한 서버
         } else {
+            startScreenApplied = true;
             showOverviewView();   // 처음이거나, 보던 서버가 목록에서 사라졌다
         }
         scheduleNext();
@@ -1475,6 +1507,18 @@ public class MainFrame extends JFrame {
             cpuLoadedOnce = true;
             refreshCpu();
         }
+    }
+
+    /** 설정 "일반"에서 지정한 시작 서버. 지정하지 않았거나 목록에 없으면 비어 있다(그때는 개요로 연다). */
+    private Optional<Server> startServer() {
+        String id = appSettings.current().startServerId();
+        return id == null ? Optional.empty() : findServer(id);
+    }
+
+    /** 사이드바와 개요가 서버를 묶는 방법을 바꾼다. */
+    private void applyGrouping(com.infradesk.core.ServerGrouping grouping) {
+        sidebar.setGrouping(grouping);
+        fleetScreen.setGrouping(grouping);
     }
 
     /** 사용자가 서버를 골랐다(사이드바, 개요의 카드, 트레이). 설정 화면이 열려 있으면 닫고 그 서버를 보여 준다. */
