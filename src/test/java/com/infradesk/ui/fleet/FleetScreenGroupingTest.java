@@ -1,6 +1,7 @@
 package com.infradesk.ui.fleet;
 
 import com.infradesk.core.Account;
+import com.infradesk.core.OverviewView;
 import com.infradesk.core.ProviderType;
 import com.infradesk.core.Server;
 import com.infradesk.core.ServerGrouping;
@@ -66,6 +67,61 @@ class FleetScreenGroupingTest {
 
         assertTrue(screen.sectionTitles().isEmpty());
         assertEquals(List.of("web", "db", "mac"), cardNames(screen));
+    }
+
+    @Test
+    void cardsAreTheStartingViewAndListShowsTheSameServers() {
+        FleetScreen screen = screen();
+        assertEquals(3, screen.cards().size());
+        assertTrue(screen.rows().isEmpty());
+
+        screen.setView(OverviewView.LIST);
+
+        assertTrue(screen.cards().isEmpty());
+        assertEquals(List.of("web", "db", "mac"), screen.rows().stream().map(c -> c.server().name()).toList());
+    }
+
+    @Test
+    void theListFollowsTheGroupingToo() {
+        FleetScreen screen = screen();
+        screen.setView(OverviewView.LIST);
+
+        screen.setGrouping(ServerGrouping.STATUS);
+
+        assertEquals(List.of("실행 중", "정지"), screen.sectionTitles());
+        assertEquals(List.of("web", "mac", "db"), screen.rows().stream().map(c -> c.server().name()).toList());
+    }
+
+    @Test
+    void theListShowsTheSameValuesAsTheCard() {
+        FleetScreen screen = screen();
+        List<CardData> cards = screen.cards();
+
+        screen.setView(OverviewView.LIST);
+
+        assertEquals(cards, screen.rows(), "보기 방식을 바꿔도 같은 값을 그려야 서버를 새로 읽지 않는다");
+    }
+
+    @Test
+    void switchingBackToCardsRemovesTheList() {
+        FleetScreen screen = screen();
+        screen.setView(OverviewView.LIST);
+
+        screen.setView(OverviewView.CARDS);
+
+        assertTrue(screen.rows().isEmpty());
+        assertEquals(3, screen.cards().size());
+    }
+
+    @Test
+    void settingTheViewFromOutsideDoesNotCountAsTheUserPickingIt() {
+        FleetScreen screen = screen();
+        List<OverviewView> picked = new ArrayList<>();
+        screen.onViewPicked(picked::add);
+
+        screen.setView(OverviewView.LIST);
+
+        assertTrue(picked.isEmpty());
     }
 
     @Test

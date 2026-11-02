@@ -356,8 +356,17 @@ public class MainFrame extends JFrame {
                 fleetScreen.setGrouping(appSettings.current().grouping());   // 저장하지 못했다: 목록을 저장된 값으로 되돌린다
             }
         });
-        appSettings.onChange(changed -> javax.swing.SwingUtilities.invokeLater(() -> applyGrouping(changed.grouping())));
-        applyGrouping(appSettings.current().grouping());
+        // 개요의 "카드 | 목록"도 같은 방식으로 앱 설정에 저장하고, 바뀐 값을 개요가 따라간다.
+        fleetScreen.onViewPicked(v -> {
+            try {
+                appSettings.update(settings -> settings.withOverviewView(v));
+            } catch (RuntimeException e) {
+                LOG.warning("Could not save the overview view: " + e.getMessage());
+                fleetScreen.setView(appSettings.current().overviewView());   // 저장하지 못했다: 전환을 저장된 값으로 되돌린다
+            }
+        });
+        appSettings.onChange(changed -> javax.swing.SwingUtilities.invokeLater(() -> applySettings(changed)));
+        applySettings(appSettings.current());
         detail.onAction(this::runAction);
         showEmpty();
 
@@ -1515,10 +1524,11 @@ public class MainFrame extends JFrame {
         return id == null ? Optional.empty() : findServer(id);
     }
 
-    /** 사이드바와 개요가 서버를 묶는 방법을 바꾼다. */
-    private void applyGrouping(com.infradesk.core.ServerGrouping grouping) {
-        sidebar.setGrouping(grouping);
-        fleetScreen.setGrouping(grouping);
+    /** 설정 "일반"과 개요에서 고른 값을 화면에 반영한다: 서버 묶기(사이드바와 개요), 개요의 카드 / 목록. */
+    private void applySettings(com.infradesk.core.AppSettings settings) {
+        sidebar.setGrouping(settings.grouping());
+        fleetScreen.setGrouping(settings.grouping());
+        fleetScreen.setView(settings.overviewView());
     }
 
     /** 사용자가 서버를 골랐다(사이드바, 개요의 카드, 트레이). 설정 화면이 열려 있으면 닫고 그 서버를 보여 준다. */

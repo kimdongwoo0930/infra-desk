@@ -2,6 +2,7 @@ package com.infradesk.ui.fleet;
 
 import com.formdev.flatlaf.FlatClientProperties;
 import com.infradesk.core.Account;
+import com.infradesk.core.OverviewView;
 import com.infradesk.core.Server;
 import com.infradesk.core.ServerGrouping;
 import com.infradesk.core.ServerStatus;
@@ -37,6 +38,7 @@ import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -47,7 +49,8 @@ import javax.swing.JScrollPane;
  * <p>이 화면은 값을 직접 읽지 않는다. 서버 목록, CPU, SSH로 읽은 값은 {@link #setData}로 받고, 읽기는 {@code
  * FleetService}가 한다(한 번에 2대씩, 값은 5분 재사용). 카드의 버튼은 그 서버 화면의 탭으로 이동만 한다.
  *
- * <p>아직 정해지지 않은 것은 준비 중으로 둔다: "확인 필요"를 판단하는 규칙(요약 칸, 목록, 거르기), 목록 보기.
+ * <p>아직 정해지지 않은 것은 준비 중으로 둔다: "확인 필요"를 판단하는 규칙(요약 칸, 목록, 거르기).
+ * 서버는 카드 또는 목록({@link ServerTable})으로 보이고, 둘 다 같은 {@link CardData}를 그린다.
  */
 public final class FleetScreen extends JPanel implements javax.swing.Scrollable {
 
@@ -69,6 +72,13 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
     private boolean settingGrouping;
     private ServerGrouping grouping = ServerGrouping.ACCOUNT;
     private Consumer<ServerGrouping> onGroupingPicked = g -> { };
+    /** "카드 | 목록" 전환. 번호는 {@link OverviewView#values()}의 순서와 같다. */
+    private final SegmentedControl view = new SegmentedControl(
+            java.util.Arrays.stream(OverviewView.values()).map(OverviewView::label).toList());
+    private OverviewView overviewView = OverviewView.CARDS;
+    /** 보기 방식을 코드로 바꾸는 중이면 true(사용자가 누른 것으로 오해하지 않기 위해). */
+    private boolean settingView;
+    private Consumer<OverviewView> onViewPicked = v -> { };
     private final FilterChip all = new FilterChip("전체");
     private final FilterChip running = new FilterChip("실행 중");
     private final FilterChip stopped = new FilterChip("정지");
@@ -138,17 +148,41 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
         this.onGroupingPicked = listener;
     }
 
+    /** 사용자가 위쪽의 "카드 | 목록"에서 보기 방식을 골랐다. */
+    public void onViewPicked(Consumer<OverviewView> listener) {
+        this.onViewPicked = listener;
+    }
+
+    /** 보기 방식(카드 / 목록)을 바꾸고 다시 그린다(앱 설정이 바뀌었을 때도 불린다). */
+    public void setView(OverviewView value) {
+        boolean changed = this.overviewView != value;
+        this.overviewView = value;
+        settingView = true;
+        try {
+            view.setSelectedIndex(value.ordinal());
+        } finally {
+            settingView = false;
+        }
+        if (changed) {
+            invalidateTree(this);
+            rebuildGrid();
+        }
+    }
+
     /** 묶는 방법을 바꾸고 카드를 다시 그린다(설정 "일반"에서 바뀌었을 때도 불린다). */
     public void setGrouping(ServerGrouping grouping) {
+        boolean changed = this.grouping != grouping;
         this.grouping = grouping;
         settingGrouping = true;
         try {
-            groupBy.setSelectedItem(grouping.label());
+            groupBy.setSelectedItem(grouping.label());   // 저장하지 못해 되돌릴 때는 목록만 맞추면 된다
         } finally {
             settingGrouping = false;
         }
-        invalidateTree(this);
-        rebuildGrid();
+        if (changed) {
+            invalidateTree(this);
+            rebuildGrid();
+        }
     }
 
     /** 서버 정보를 읽는 중이면 [새로고침]을 잠근다. */
@@ -280,9 +314,12 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
         });
         JLabel groupLabel = new JLabel("묶기");
         groupLabel.setForeground(Theme.TEXT_SECONDARY);
-        SegmentedControl view = new SegmentedControl(List.of("카드", "목록"));
-        // 준비 중(v2): 목록 보기
-        view.setSegmentEnabled(1, false, "목록 보기는 준비 중이에요");
+        view.addSelectionListener(index -> {
+            if (!settingView) {
+                // 고른 값은 앱 설정에 저장된다. 돌아오는 setView()가 화면을 다시 그린다.
+                onViewPicked.accept(OverviewView.values()[index]);
+            }
+        });
 
         JPanel p = new JPanel(new BorderLayout());
         p.setOpaque(false);
@@ -347,23 +384,31 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
             return !(filter == Filter.RUNNING && !isRunning || filter == Filter.STOPPED && isRunning);
         };
         for (ServerGroups.Group group : ServerGroups.of(inventory, grouping, keep, false)) {
-            JPanel cards = new JPanel(new CardGridLayout(280, 12));
-            cards.setOpaque(false);
-            cards.setAlignmentX(LEFT_ALIGNMENT);
+            // 카드와 목록은 같은 값(CardData)을 그린다: 보기 방식을 바꿔도 서버를 새로 읽지 않는다.
+            List<CardData> values = new ArrayList<>();
             for (ServerGroups.Member member : group.members()) {
                 Server server = member.server();
-                CardData data = CardData.of(server, member.inventory().account(), cpu.get(server.id()),
-                        readings.apply(server.id()), configured.test(server.id()));
-                cards.add(new ServerCard(data, onOpenServer, onOpenTab, onStart));
-                shown++;
+                values.add(CardData.of(server, member.inventory().account(), cpu.get(server.id()),
+                        readings.apply(server.id()), configured.test(server.id())));
             }
+            shown += values.size();
+            JComponent body;
+            if (overviewView == OverviewView.LIST) {
+                body = new ServerTable(values, onOpenServer, onOpenTab, onStart);
+            } else {
+                JPanel cards = new JPanel(new CardGridLayout(280, 12));
+                cards.setOpaque(false);
+                values.forEach(data -> cards.add(new ServerCard(data, onOpenServer, onOpenTab, onStart)));
+                body = cards;
+            }
+            body.setAlignmentX(LEFT_ALIGNMENT);
             String title = group.account() != null ? ServerGroups.accountTitle(group.account().account()) : group.title();
             if (title != null) {
                 sectionTitles.add(title);
                 grid.add(sectionHeader(title, group.members().size()));
                 grid.add(Box.createVerticalStrut(8));
             }
-            grid.add(cards);
+            grid.add(body);
             grid.add(Box.createVerticalStrut(20));
         }
         emptyNote.removeAll();
@@ -400,6 +445,17 @@ public final class FleetScreen extends JPanel implements javax.swing.Scrollable 
                         out.add(card.data());
                     }
                 }
+            }
+        }
+        return out;
+    }
+
+    /** 시험용: 목록 보기에서 지금 보이는 줄의 값(묶음 순서대로). 카드 보기면 비어 있다. */
+    List<CardData> rows() {
+        List<CardData> out = new ArrayList<>();
+        for (Component c : grid.getComponents()) {
+            if (c instanceof ServerTable table) {
+                out.addAll(table.data());
             }
         }
         return out;

@@ -93,7 +93,7 @@ final class ServerCard extends RoundedPanel {
     }
 
     /** 버튼을 뺀 나머지 부분에 누름·올림 감시를 단다(버튼은 자기 동작이 있다). */
-    private static void listenOnChildren(java.awt.Container parent, MouseAdapter click) {
+    static void listenOnChildren(java.awt.Container parent, MouseAdapter click) {
         parent.addMouseListener(click);
         for (java.awt.Component c : parent.getComponents()) {
             if (c instanceof JButton) {
@@ -251,8 +251,8 @@ final class ServerCard extends RoundedPanel {
         return row;
     }
 
-    /** 시안의 카드 버튼: 높이 28, 글자 12, 좌우 여백 10. */
-    private static JButton small(String text, String icon, java.awt.event.ActionListener action) {
+    /** 시안의 카드 버튼: 높이 28, 글자 12, 좌우 여백 10. 목록의 줄({@link ServerTable})도 같은 버튼을 쓴다. */
+    static JButton small(String text, String icon, java.awt.event.ActionListener action) {
         JButton b = Buttons.secondary(text, icon);
         b.putClientProperty(FlatClientProperties.STYLE,
                 "background: #00000000; borderWidth: 1; borderColor: #4E5157; hoverBackground: #FFFFFF10;"
