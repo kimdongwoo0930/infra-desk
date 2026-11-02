@@ -134,6 +134,32 @@ class JsonAppSettingsStoreTest {
     }
 
     @Test
+    void publicIpsAreHiddenByDefault() {
+        assertTrue(AppSettings.DEFAULT.hidePublicIp());
+        assertTrue(new JsonAppSettingsStore(dir).load().hidePublicIp(), "설정 파일이 없어도 가려야 한다");
+    }
+
+    @Test
+    void turningHidingOffIsSavedAndKeptWhenOtherValuesChange() {
+        JsonAppSettingsStore store = new JsonAppSettingsStore(dir);
+        AppSettingsService service = new AppSettingsService(store);
+
+        service.update(s -> s.withHidePublicIp(false));
+        service.update(s -> s.withGrouping(ServerGrouping.NONE));
+
+        assertFalse(new JsonAppSettingsStore(dir).load().hidePublicIp());
+    }
+
+    @Test
+    void anOldFileWithoutTheValueOrWithAnOddOneStillHidesTheIp() throws Exception {
+        Files.writeString(dir.resolve("app-settings.json"), "{\"grouping\":\"STATUS\"}");
+        assertTrue(new JsonAppSettingsStore(dir).load().hidePublicIp());
+
+        Files.writeString(dir.resolve("app-settings.json"), "{\"hidePublicIp\":\"maybe\"}");
+        assertTrue(new JsonAppSettingsStore(dir).load().hidePublicIp(), "모르는 값이면 안전한 쪽(가림)");
+    }
+
+    @Test
     void aBlankStartServerCountsAsNone() {
         assertNull(new AppSettings("  ", ServerGrouping.ACCOUNT).startServerId());
     }

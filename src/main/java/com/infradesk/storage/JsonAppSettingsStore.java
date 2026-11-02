@@ -17,7 +17,7 @@ import java.util.logging.Logger;
  * {@code <configDir>/app-settings.json}에 설정 "일반"의 값을 저장한다.
  *
  * <p>이 파일은 {@code UpdateService}의 {@code autoUpdateCheck}도 담는다. 그래서 저장할 때 파일 전체를 새로 쓰지 않고,
- * 읽어 온 내용에서 이 클래스가 아는 칸({@code startServerId}, {@code grouping}, {@code overviewView})만 바꿔서 다시 쓴다. 모르는 칸은 그대로 남는다.
+ * 읽어 온 내용에서 이 클래스가 아는 칸({@code startServerId}, {@code grouping}, {@code overviewView}, {@code hidePublicIp})만 바꿔서 다시 쓴다. 모르는 칸은 그대로 남는다.
  */
 public class JsonAppSettingsStore implements AppSettingsStore {
 
@@ -36,10 +36,13 @@ public class JsonAppSettingsStore implements AppSettingsStore {
         JsonNode start = root.get("startServerId");
         JsonNode grouping = root.get("grouping");
         JsonNode view = root.get("overviewView");
+        JsonNode hideIp = root.get("hidePublicIp");
         return new AppSettings(
                 start == null || !start.isTextual() ? null : start.asText(),
                 ServerGrouping.fromName(grouping == null ? null : grouping.asText(), ServerGrouping.ACCOUNT),
-                OverviewView.fromName(view == null ? null : view.asText(), OverviewView.CARDS));
+                OverviewView.fromName(view == null ? null : view.asText(), OverviewView.CARDS),
+                // 값이 없거나 true/false가 아니면 가리는 쪽: 모르면 안전한 쪽으로
+                hideIp == null || !hideIp.isBoolean() || hideIp.asBoolean());
     }
 
     @Override
@@ -52,6 +55,7 @@ public class JsonAppSettingsStore implements AppSettingsStore {
         }
         root.put("grouping", settings.grouping().name());
         root.put("overviewView", settings.overviewView().name());
+        root.put("hidePublicIp", settings.hidePublicIp());
         try {
             Files.createDirectories(file.getParent());
             // 임시 파일에 쓰고 바꿔치기한다: 쓰다가 멈춰도 원래 파일이 반쯤 쓰인 채 남지 않는다.
