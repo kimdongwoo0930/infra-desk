@@ -130,7 +130,7 @@ public final class FilesTab extends JPanel {
         remotePane.addAction(deleteRemote);
         remotePane.enableHiddenToggle();
         localPane.onActivate(f -> upload());
-        remotePane.onActivate(f -> download());
+        remotePane.onActivate(this::openInEditor);   // 더블클릭·Enter: 받지 않고 앱 안 편집 창으로 연다
         localPane.onSelectionChange(this::updateButtons);
         remotePane.onSelectionChange(this::updateButtons);
         installDropTargets();
@@ -150,7 +150,7 @@ public final class FilesTab extends JPanel {
 
         status.setForeground(Theme.TEXT_MUTED);
         status.putClientProperty(FlatClientProperties.STYLE, "font: -1");
-        JLabel hint = new JLabel("끌어다 놓아 주고받아요 · Finder·탐색기에서 서버 쪽으로 끌어와도 올라가요 · 끊긴 전송은 이어받아요");
+        JLabel hint = new JLabel("서버 파일을 더블클릭하면 열어서 고칠 수 있어요 · 끌어다 놓아 주고받아요 · Finder·탐색기에서 서버 쪽으로 끌어와도 올라가요 · 끊긴 전송은 이어받아요");
         hint.setForeground(Theme.TEXT_MUTED);
         hint.putClientProperty(FlatClientProperties.STYLE, "font: -1");
 
@@ -260,7 +260,8 @@ public final class FilesTab extends JPanel {
 
     /** 아직 서버에 올리지 못한 편집 내용이 있는 파일 수. */
     public int unsavedEdits() {
-        return (int) edits.stream().filter(s -> s.busy || s.watch.dirty()).count();
+        int dirtyEditors = (int) editors.values().stream().filter(FileEditorWindow::isDirty).count();
+        return dirtyEditors + (int) edits.stream().filter(s -> s.busy || s.watch.dirty()).count();
     }
 
     /**
@@ -269,6 +270,9 @@ public final class FilesTab extends JPanel {
      */
     public void close() {
         closed = true;
+        for (FileEditorWindow w : List.copyOf(editors.values())) {
+            w.closeWithoutAsking();   // 묻지 않는다: 닫기 전에 저장할지는 부르는 쪽이 unsavedEdits()로 물었다
+        }
         FileClipboard.removeListener(clipboardListener);
         FileClipboard.clearIfOwnedBy(this);
         watchers.clear();
@@ -800,9 +804,206 @@ public final class FilesTab extends JPanel {
         }
     }
 
-    /** 서버 파일을 임시 폴더로 받아 내 편집기로 연다. 편집기에서 저장하면 자동으로 서버에 올린다. */
+    /** 이 크기보다 큰 파일은 앱 안 편집 창으로 열지 않는다(받거나 외부 편집기를 권한다). */
+    private static final long MAX_EDITOR_BYTES = 2L * 1024 * 1024;
+
+    /** 앱 안 편집 창으로 열려 있는 서버 파일(서버 경로 → 창). 같은 파일을 또 열면 이미 열린 창을 앞으로 가져온다. */
+    private final java.util.Map<String, FileEditorWindow> editors = new java.util.HashMap<>();
+    private boolean readOnly;
+
+    /**
+     * 읽기 모드가 되면 열려 있는 편집 창은 더 고치거나 저장하지 못하고, 외부 편집기 복사본도 서버에 올리지 않는다.
+     * 파일 탭은 읽기 모드에서 숨지만 이미 열려 있던 것은 남기 때문이다.
+     */
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+        for (FileEditorWindow w : editors.values()) {
+            w.setReadOnly(readOnly);
+        }
+    }
+
+    /** 고른 서버 파일을 앱 안 편집 창으로 연다(더블클릭, Enter, [편집], 우클릭 "편집"). */
     private void edit() {
-        RemoteFile f = remotePane.single();
+        openInEditor(remotePane.single());
+    }
+
+    private record Loaded(byte[] bytes, RemoteFile stat) {
+    }
+
+    /** 편집 창 하나가 저장할 때 쓰는 정보. {@code baseline}은 내가 읽거나 마지막으로 올린 뒤의 서버 파일 상태다. */
+    private static final class EditorState {
+        final String path;
+        final String name;
+        final String remoteDir;
+        RemoteFile baseline;
+
+        EditorState(String path, String name, RemoteFile baseline) {
+            this.path = path;
+            this.name = name;
+            this.remoteDir = parentOf(path);
+            this.baseline = baseline;
+        }
+    }
+
+    /** 서버(POSIX) 경로의 폴더. 루트 바로 아래 파일이면 "/". */
+    static String parentOf(String path) {
+        int i = path.lastIndexOf('/');
+        return i <= 0 ? "/" : path.substring(0, i);
+    }
+
+    private void openInEditor(RemoteFile f) {
+        if (f == null || f.directory() || files == null || !remotePane.ready() || readOnly || closed) {
+            return;
+        }
+        FileEditorWindow open = editors.get(f.path());
+        if (open != null) {
+            open.toFront();
+            open.requestFocus();
+            return;
+        }
+        if (!RemoteFiles.safeLocalName(f.name()).equals(f.name())) {
+            showError("이 이름의 파일은 편집할 수 없어요: " + f.name());
+            return;
+        }
+        if (f.size() > MAX_EDITOR_BYTES) {
+            offerAlternatives(f, "'" + f.name() + "'은(는) " + FilePane.size(f.size()) + "로 커서 앱 안에서 열기 어려워요.", true);
+            return;
+        }
+        remotePane.run("파일을 여는 중…", () -> readForEditor(f), loaded -> showEditor(f, loaded));
+    }
+
+    private Loaded readForEditor(RemoteFile f) throws IOException {
+        Path temp = java.nio.file.Files.createTempFile("infradesk-open-", ".tmp");
+        try {
+            files.download(f.path(), temp, done -> { });
+            byte[] bytes = java.nio.file.Files.readAllBytes(temp);
+            return new Loaded(bytes, files.stat(f.path()));
+        } finally {
+            java.nio.file.Files.deleteIfExists(temp);
+        }
+    }
+
+    private void showEditor(RemoteFile f, Loaded loaded) {
+        if (closed || editors.containsKey(f.path())) {
+            return;
+        }
+        if (loaded.bytes().length > MAX_EDITOR_BYTES) {
+            offerAlternatives(f, "'" + f.name() + "'은(는) " + FilePane.size(loaded.bytes().length) + "로 커서 앱 안에서 열기 어려워요.", true);
+            return;
+        }
+        TextFileCodec.Decoded doc;
+        try {
+            doc = TextFileCodec.decode(loaded.bytes());
+        } catch (TextFileCodec.NotEditableException e) {
+            offerAlternatives(f, editorRefusal(e.problem(), f.name()), e.problem() != TextFileCodec.Problem.BINARY);
+            return;
+        }
+        EditorState state = new EditorState(f.path(), f.name(), loaded.stat());
+        FileEditorWindow window = new FileEditorWindow(SwingUtilities.getWindowAncestor(this), server.name(), f.path(), doc,
+                (w, bytes, done) -> saveFromEditor(state, w, bytes, done));
+        window.onClosed(() -> editors.remove(f.path()));
+        editors.put(f.path(), window);
+        window.setVisible(true);
+        status.setForeground(Theme.TEXT_MUTED);
+        status.setText("'" + f.name() + "'을(를) 편집 창으로 열었어요");
+    }
+
+    /** 앱 안에서 열 수 없는 이유(편집 창을 못 여는 파일을 안내할 때). */
+    static String editorRefusal(TextFileCodec.Problem problem, String name) {
+        return switch (problem) {
+            case BINARY -> "'" + name + "'은(는) 글자 파일이 아니라서(이미지·압축 파일 등) 앱 안에서 열지 않아요.";
+            case NOT_UTF8 -> "'" + name + "'에 UTF-8이 아닌 글자(EUC-KR 등)가 있어요.\n앱 안에서 저장하면 글자가 깨질 수 있어서 열지 않아요.";
+            case LONE_CR -> "'" + name + "'의 줄바꿈이 특수한 형식(CR)이라 앱 안에서는 열지 않아요.";
+        };
+    }
+
+    /** 편집 창으로 열 수 없는 파일: 받거나 외부 편집기로 열 수 있게 묻는다. */
+    private void offerAlternatives(RemoteFile f, String reason, boolean externalToo) {
+        String[] options = externalToo ? new String[] {"내 컴퓨터로 받기", "외부 편집기로 열기", "취소"}
+                : new String[] {"내 컴퓨터로 받기", "취소"};
+        int choice = JOptionPane.showOptionDialog(this, reason, "'" + f.name() + "' 열기", JOptionPane.DEFAULT_OPTION,
+                JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
+        if (choice == 0) {
+            downloadItems(List.of(f), downloadDir == null ? null : downloadDir.toString(), true);
+        } else if (externalToo && choice == 1) {
+            editExternalFile(f);
+        }
+    }
+
+    /**
+     * 편집 창의 [저장]: 서버에서 그 사이 바뀌었는지 보고(바뀌었으면 덮어쓸지 묻는다) 내용을 올린다. 올리기는 전송 목록에
+     * 보이지 않는 작업이라 파일 패널도 전송 목록도 건드리지 않고, 결과는 편집 창이 상태 줄에 보인다.
+     */
+    private void saveFromEditor(EditorState st, FileEditorWindow window, byte[] bytes,
+                                java.util.function.Consumer<FileEditorWindow.SaveResult> done) {
+        if (closed || files == null) {
+            done.accept(FileEditorWindow.SaveResult.failed("서버와 연결이 끊겼어요"));
+            return;
+        }
+        if (readOnly) {
+            done.accept(FileEditorWindow.SaveResult.failed("읽기 모드에서는 저장할 수 없어요"));
+            return;
+        }
+        Async.run(() -> files.exists(st.path) ? files.stat(st.path) : null, current -> {
+            if (closed) {
+                return;
+            }
+            boolean serverChanged = current != null && st.baseline != null && (current.size() != st.baseline.size()
+                    || !java.util.Objects.equals(current.modified(), st.baseline.modified()));
+            if (serverChanged && JOptionPane.showConfirmDialog(window,
+                    "'" + st.name + "'이(가) 편집하는 사이 서버에서 바뀌었어요.\n내 수정으로 덮어쓸까요?", "저장",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
+                done.accept(FileEditorWindow.SaveResult.declined());
+                return;
+            }
+            uploadEditorContent(st, bytes, done);
+        }, err -> done.accept(FileEditorWindow.SaveResult.failed("서버 파일을 확인하지 못했어요: " + Async.message(err))));
+    }
+
+    private void uploadEditorContent(EditorState st, byte[] bytes, java.util.function.Consumer<FileEditorWindow.SaveResult> done) {
+        Path dir;
+        Path local;
+        try {
+            dir = newEditDir();
+            local = dir.resolve(st.name);
+            java.nio.file.Files.write(local, bytes);
+        } catch (IOException e) {
+            done.accept(FileEditorWindow.SaveResult.failed("임시 파일을 만들지 못했어요: " + Async.message(e)));
+            return;
+        }
+        TransferQueue.Job job = queue.upload(local, st.remoteDir, true, true);   // 전송 목록에 보이지 않는 올리기
+        watch(job, finished -> {
+            removeTemp(dir);
+            if (finished.state() != TransferQueue.State.DONE) {
+                String why = finished.message() == null || finished.message().isBlank() ? "서버로 올리지 못했어요" : finished.message();
+                done.accept(FileEditorWindow.SaveResult.failed(why));
+                return;
+            }
+            // 다음 저장 때 "그 사이 서버에서 바뀌었나"를 가리려면 방금 올린 파일이 기준이어야 한다.
+            Async.run(() -> files.stat(st.path), stat -> {
+                st.baseline = stat;
+                done.accept(FileEditorWindow.SaveResult.saved());
+            }, err -> {
+                st.baseline = null;
+                done.accept(FileEditorWindow.SaveResult.saved());
+            });
+        });
+    }
+
+    /** 편집용 임시 폴더 안의 새 하위 폴더(저장할 때마다 따로 만든다). */
+    private Path newEditDir() throws IOException {
+        if (editRoot == null) {
+            editRoot = java.nio.file.Files.createTempDirectory("infradesk-edit-");
+        }
+        return java.nio.file.Files.createDirectories(editRoot.resolve(String.valueOf(++editSeq)));
+    }
+
+    private void editExternal() {
+        editExternalFile(remotePane.single());
+    }
+
+    /** 서버 파일을 임시 폴더로 받아 내 편집기로 연다. 편집기에서 저장하면 자동으로 서버에 올린다. */
+    private void editExternalFile(RemoteFile f) {
         if (f == null || f.directory() || files == null || !remotePane.ready()) {
             return;
         }
@@ -938,6 +1139,11 @@ public final class FilesTab extends JPanel {
     }
 
     private void uploadEdit(EditSession s) {
+        if (readOnly) {
+            s.watch.acknowledge();
+            showError("읽기 모드라 '" + s.remote.name() + "'을(를) 서버에 올리지 않았어요. 편집한 내용은 임시 파일에 있어요: " + s.local);
+            return;
+        }
         if (files == null || !remotePane.ready()) {
             return;
         }
@@ -955,7 +1161,7 @@ public final class FilesTab extends JPanel {
             }
             // 올리기 시작하는 시점의 파일을 기준으로 삼아서, 올리는 동안 또 저장하면 다시 올린다.
             s.watch.acknowledge();
-            s.job = queue.upload(s.local, s.remoteDir, true);
+            s.job = queue.upload(s.local, s.remoteDir, true, true);   // 저장할 때마다 전송 목록이 펼쳐지지 않게 숨긴다
             status.setForeground(Theme.TEXT_MUTED);
             status.setText("'" + s.remote.name() + "' 저장한 내용을 서버에 올려요");
         }, () -> {
@@ -1212,6 +1418,8 @@ public final class FilesTab extends JPanel {
         if (remote) {
             addItem(menu, "내 컴퓨터로 받기", canTransfer() && any, this::download);
             addItem(menu, "편집", pane.ready() && selection.size() == 1 && !selection.get(0).directory(), this::edit);
+            addItem(menu, "외부 편집기로 열기", pane.ready() && selection.size() == 1 && !selection.get(0).directory(),
+                    this::editExternal);
         } else {
             addItem(menu, "서버로 올리기", canTransfer() && any, this::upload);
             addItem(menu, "편집", pane.ready() && selection.size() == 1 && !selection.get(0).directory(), this::editLocal);

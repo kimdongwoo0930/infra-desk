@@ -413,7 +413,9 @@ public final class UiSnapshot {
                     }
                 }
             }
-            if (button != null) {
+            if (EXTERNAL.equals(button)) {
+                externalEdit(tabs.getFirst());
+            } else if (button != null) {
                 List<java.awt.Component> buttons = new java.util.ArrayList<>();
                 collect((Container) tabs.getFirst(), "JButton", buttons);
                 // 같은 글자("편집")의 버튼이 내 컴퓨터 쪽에도 있다: 서버 쪽 것은 뒤에 온다.
@@ -423,7 +425,7 @@ public final class UiSnapshot {
         };
         SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"docker-compose.yml"}, "내 컴퓨터로 받기"));
         Thread.sleep(1500);
-        SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"README.md"}, "편집"));
+        SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"README.md"}, EXTERNAL));
         Thread.sleep(1500);
         SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"README.md", "docker-compose.yml"}, null));
         snapshotMonitoring("files-tab.png", mainFrame[0]);
@@ -713,10 +715,7 @@ public final class UiSnapshot {
                     remote.setRowSelectionInterval(row, row);
                 }
             }
-            List<java.awt.Component> buttons = new java.util.ArrayList<>();
-            collect(sftp[0].getContentPane(), "JButton", buttons);
-            buttons.stream().map(b -> (javax.swing.AbstractButton) b)
-                    .filter(b -> "편집".equals(b.getText())).reduce((first, second) -> second).orElseThrow().doClick();
+            externalEdit(filesTab[0]);   // 앱 안 편집 창이 아니라 외부 편집기(임시 복사본을 지켜보는 쪽)를 시험한다
         });
         Thread.sleep(1500);
         java.nio.file.Path tempCopy = edited.get();
@@ -755,6 +754,17 @@ public final class UiSnapshot {
                 }
             });
         }
+        // 앱 안 편집 창: 화면에 띄우지 않고 그려서 찍는다.
+        SwingUtilities.invokeAndWait(() -> {
+            JDialog editor = com.infradesk.ui.files.EditorSnapshot.create("discord-bot", "/etc/nginx/conf.d/app.conf");
+            try {
+                write(editor, editor.getContentPane(), 900, 560, "file-editor.png");
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            } finally {
+                editor.dispose();
+            }
+        });
         System.out.println("Snapshots written to " + DIR.getAbsolutePath());
         System.exit(0);
     }
@@ -801,6 +811,9 @@ public final class UiSnapshot {
         return null;
     }
 
+    /** pickRemote의 버튼 자리에 넣으면 버튼 대신 "외부 편집기로 열기"를 한다. */
+    private static final String EXTERNAL = "\0external-edit";
+
     private static void write(Window window, Container pane, int width, int height, String name) throws IOException {
         window.addNotify();
         pane.setSize(width, height);
@@ -820,6 +833,17 @@ public final class UiSnapshot {
                 new com.infradesk.storage.InMemorySecretStore(),
                 new com.infradesk.demo.DemoShellConnector(Duration.ZERO, Duration.ofMillis(150)),
                 new com.infradesk.storage.InMemorySavedCommandStore(com.infradesk.demo.DemoData.savedCommands()), true);
+    }
+
+    /** 우클릭 메뉴의 "외부 편집기로 열기"를 누른 것처럼 한다(파일 탭의 비공개 메서드를 부른다). */
+    private static void externalEdit(java.awt.Component filesTab) {
+        try {
+            java.lang.reflect.Method m = filesTab.getClass().getDeclaredMethod("editExternal");
+            m.setAccessible(true);
+            m.invoke(filesTab);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static void collect(Container c, String simpleName, List<java.awt.Component> out) {

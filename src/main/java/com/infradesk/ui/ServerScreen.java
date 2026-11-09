@@ -132,6 +132,7 @@ public class ServerScreen extends JPanel {
         this.readOnly = readOnly;
         tabs.setTabVisible(TAB_FILES, !readOnly);
         tabs.setTabVisible(TAB_TERMINAL, !readOnly);
+        files.setReadOnly(readOnly);
         header.setReadOnly(readOnly);
         overview.setReadOnly(readOnly);
         metrics.setReadOnly(readOnly);
