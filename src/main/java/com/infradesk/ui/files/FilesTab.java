@@ -810,6 +810,13 @@ public final class FilesTab extends JPanel {
     /** 앱 안 편집 창으로 열려 있는 서버 파일(서버 경로 → 창). 같은 파일을 또 열면 이미 열린 창을 앞으로 가져온다. */
     private final java.util.Map<String, FileEditorWindow> editors = new java.util.HashMap<>();
     private boolean readOnly;
+    /** 편집 창을 화면에 띄우는 방법. 시험이 진짜 창을 띄우지 않게 바꿔 끼운다. */
+    private java.util.function.Consumer<FileEditorWindow> editorShower = w -> w.setVisible(true);
+
+    /** 시험용: 편집 창을 화면에 띄우는 일을 바꾼다(창을 만들고 읽고 저장하는 일은 그대로). */
+    void setEditorShowerForTest(java.util.function.Consumer<FileEditorWindow> shower) {
+        this.editorShower = shower;
+    }
 
     /**
      * 읽기 모드가 되면 열려 있는 편집 창은 더 고치거나 저장하지 못하고, 외부 편집기 복사본도 서버에 올리지 않는다.
@@ -903,7 +910,7 @@ public final class FilesTab extends JPanel {
                 (w, bytes, done) -> saveFromEditor(state, w, bytes, done));
         window.onClosed(() -> editors.remove(f.path()));
         editors.put(f.path(), window);
-        window.setVisible(true);
+        editorShower.accept(window);
         status.setForeground(Theme.TEXT_MUTED);
         status.setText("'" + f.name() + "'을(를) 편집 창으로 열었어요");
     }

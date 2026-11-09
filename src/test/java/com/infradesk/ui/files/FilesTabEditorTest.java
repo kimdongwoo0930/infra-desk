@@ -33,7 +33,9 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 /**
  * 파일 탭의 앱 안 편집 창을 데모 서버(메모리 파일 트리)로 처음부터 끝까지 돌려 본다: 파일을 열고, 고치고, 저장해서
- * 서버 내용이 바뀌는지, 전송 목록에 줄이 안 생기는지, 닫을 때 확인이 어떻게 처리되는지. 창은 실제로 뜬다(화면이 없으면 건너뜀).
+ * 서버 내용이 바뀌는지, 전송 목록에 줄이 안 생기는지, 닫을 때 확인이 어떻게 처리되는지. 창은 만들기만 하고 화면에 띄우지
+ * 않는다(진짜 창을 띄웠다 바로 닫으면 macOS의 화면 갱신 스레드가 드물게 죽어서 시험 전체가 멈춘 일이 있었다).
+ * 창을 만들 수 없는 환경(헤드리스)에서는 건너뛴다.
  */
 class FilesTabEditorTest {
 
@@ -61,7 +63,11 @@ class FilesTabEditorTest {
     }
 
     private FilesTab open(Server server) throws Exception {
-        FilesTab tab = onEdt(() -> new FilesTab(SERVICE, server));
+        FilesTab tab = onEdt(() -> {
+            FilesTab created = new FilesTab(SERVICE, server);
+            created.setEditorShowerForTest(w -> { });   // 창을 만들기만 하고 띄우지 않는다
+            return created;
+        });
         tabs.add(tab);
         FilePane remote = pane(tab, "remotePane");
         await("서버 파일 목록", () -> onEdt(() -> remote.ready() && remote.cwd() != null));
