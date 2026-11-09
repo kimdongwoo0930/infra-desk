@@ -18,10 +18,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
+import javax.swing.JButton;
 import javax.swing.JTable;
 import javax.swing.SwingUtilities;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -234,5 +236,47 @@ class FilesTabCopyPasteTest {
         press(local, "V");
 
         await("복사본이 목록에 나타남", () -> onEdt(() -> local.names().contains("notes 복사.txt")));
+    }
+
+    @Test
+    void 붙여넣기_버튼은_복사해_둔_것이_있을_때만_켜진다() throws Exception {
+        Server a = server("copytest-button");
+        FilesTab tab = open(a);
+        FilePane remote = pane(tab, "remotePane");
+        Field f = FilePane.class.getDeclaredField("paste");
+        f.setAccessible(true);
+        JButton paste = (JButton) f.get(remote);
+        assertFalse(onEdt(paste::isEnabled), "복사하기 전에는 꺼져 있다");
+
+        select(remote, "README.md");
+        press(remote, "C");
+
+        assertTrue(onEdt(paste::isEnabled), "복사하면 켜진다");
+        // 버튼으로 붙여넣으면 같은 폴더에 복사본이 생긴다.
+        String home = SERVICE.openFiles(a, null).home();
+        onEdt(() -> {
+            paste.doClick();
+            return null;
+        });
+        await("버튼으로 붙여넣음", () -> exists(a, home + "/README 복사.md"));
+    }
+
+    @Test
+    void 서버_쪽_붙여넣기는_전송_목록에_줄을_만들지_않는다() throws Exception {
+        Server a = server("copytest-quiet");
+        FilesTab tab = open(a);
+        String home = seed(tab, a, "quiet.txt", "조용히");
+        FilePane remote = pane(tab, "remotePane");
+        select(remote, "quiet.txt");
+
+        press(remote, "C");
+        press(remote, "V");
+
+        await("복사본 생성", () -> exists(a, home + "/quiet 복사.txt"));
+        Field t = FilesTab.class.getDeclaredField("transfers");
+        t.setAccessible(true);
+        TransferPanel panel = (TransferPanel) t.get(tab);
+        assertTrue(onEdt(panel::isEmpty), "받기·올리기 줄이 전송 목록에 보이면 안 된다");
+        await("전송이 모두 끝남", () -> onEdt(() -> tab.activeTransfers() == 0));
     }
 }

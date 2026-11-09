@@ -824,8 +824,12 @@ public final class UiSnapshot {
 
     private static void collect(Container c, String simpleName, List<java.awt.Component> out) {
         for (var child : c.getComponents()) {
-            if (child.getClass().getSimpleName().equals(simpleName)) {
-                out.add(child);
+            // 부모 클래스 이름도 본다: 화면의 표처럼 JTable을 상속한(이름 없는 포함) 부품도 "JTable"로 찾는다.
+            for (Class<?> k = child.getClass(); k != null; k = k.getSuperclass()) {
+                if (k.getSimpleName().equals(simpleName)) {
+                    out.add(child);
+                    break;
+                }
             }
             if (child instanceof Container cc) {
                 collect(cc, simpleName, out);

@@ -89,6 +89,13 @@ public final class FilesTab extends JPanel {
     /** 전송이 끝났을 때 이어서 할 일(복사해 붙여넣기의 두 번째 단계 등). 화면 스레드에서만 쓴다. */
     private final java.util.Map<Long, java.util.function.Consumer<TransferQueue.Job>> watchers = new java.util.HashMap<>();
     private boolean closed;
+    /** 복사해 둔 것이 바뀌면 두 패널의 [붙여넣기] 버튼을 켜고 끈다. 닫을 때 뗀다. */
+    private final Runnable clipboardListener = this::refreshPasteButtons;
+
+    private void refreshPasteButtons() {
+        localPane.refreshPaste();
+        remotePane.refreshPaste();
+    }
     /** 더블클릭·버튼으로 받은 파일이 저장되는 폴더(보통 Downloads). 끌어서 놓기는 놓은 곳에 저장된다. */
     private Path downloadDir;
     private int editSeq;
@@ -129,6 +136,9 @@ public final class FilesTab extends JPanel {
         installDropTargets();
         localPane.setMenuProvider(() -> menu(false));
         remotePane.setMenuProvider(() -> menu(true));
+        localPane.onPaste(() -> paste(false));
+        remotePane.onPaste(() -> paste(true));
+        FileClipboard.addListener(clipboardListener);
         for (FilePane pane : List.of(localPane, remotePane)) {
             pane.bind("F2", () -> rename(pane));
             pane.bind("DELETE", () -> delete(pane));
@@ -259,6 +269,7 @@ public final class FilesTab extends JPanel {
      */
     public void close() {
         closed = true;
+        FileClipboard.removeListener(clipboardListener);
         FileClipboard.clearIfOwnedBy(this);
         watchers.clear();
         RemoteFiles f = files;
@@ -319,6 +330,12 @@ public final class FilesTab extends JPanel {
      *                        아니면(폴더 행에 끌어다 놓은 경우) 덮어쓰지 않고 겹치는 파일은 건너뛴다
      */
     private List<TransferQueue.Job> uploadItems(List<RemoteFile> items, String remoteDir, boolean inCurrentFolder) {
+        return uploadItems(items, remoteDir, inCurrentFolder, false);
+    }
+
+    /** @param hidden 전송 목록에 보이지 않게 올린다(복사해 붙여넣기의 두 번째 단계) */
+    private List<TransferQueue.Job> uploadItems(List<RemoteFile> items, String remoteDir, boolean inCurrentFolder,
+                                                boolean hidden) {
         if (!canTransfer() || items.isEmpty() || remoteDir == null) {
             return List.of();
         }
@@ -338,10 +355,10 @@ public final class FilesTab extends JPanel {
             if (!overwrite && conflicts.contains(f)) {
                 continue;
             }
-            jobs.add(queue.upload(Path.of(f.path()), remoteDir, overwrite));
+            jobs.add(queue.upload(Path.of(f.path()), remoteDir, overwrite, hidden));
         }
         status.setForeground(Theme.TEXT_MUTED);
-        status.setText(jobs.size() + "개 항목을 서버로 올려요");
+        status.setText(jobs.size() + (hidden ? "개 항목을 서버에 붙여넣는 중…" : "개 항목을 서버로 올려요"));
         return jobs;
     }
 
@@ -488,7 +505,8 @@ public final class FilesTab extends JPanel {
         }
         // 새 전송이 시작되거나 실패가 생기면 닫아 둔 패널을 다시 연다. 상태는 이 코드가 도는 시점의 값이라
         // 작은 파일은 이미 끝나 있을 수 있으므로, 새 작업인지는 처음 알림을 받았는지로 판단한다.
-        if (announced.add(job.id()) || job.state() == TransferQueue.State.FAILED) {
+        // 숨긴 작업(붙여넣기의 중간 단계)은 목록을 펼치지 않는다. 실패는 이어서 할 일(watch)이 상태 줄에 알린다.
+        if (!job.hidden() && (announced.add(job.id()) || job.state() == TransferQueue.State.FAILED)) {
             transfers.setExpanded(true);   // 접어 둔 목록도 새 전송이나 실패가 생기면 다시 펼친다
         }
         updateTransfersVisible();
@@ -517,6 +535,9 @@ public final class FilesTab extends JPanel {
             } else if (job.direction() == TransferQueue.Direction.DOWNLOAD && job.targetDir().equals(localPane.cwd())) {
                 localPane.reload();
             }
+        }
+        if (job.hidden() && job.state().finished()) {
+            queue.remove(job);   // 목록에 보이지 않으니 쌓아 둘 이유가 없다
         }
     }
 
@@ -982,7 +1003,7 @@ public final class FilesTab extends JPanel {
         }
         FileClipboard.set(new FileClipboard.Entry(this, remote, pane.cwd(), items));
         status.setForeground(Theme.TEXT_MUTED);
-        status.setText(subject(items) + " 복사했어요 · 붙여넣을 폴더에서 " + SHORTCUT_LABEL + "V");
+        status.setText(subject(items) + " 복사했어요 · 붙여넣을 폴더를 연 뒤 머리의 붙여넣기 버튼 또는 " + SHORTCUT_LABEL + "V");
     }
 
     /**
@@ -1098,7 +1119,7 @@ public final class FilesTab extends JPanel {
         List<RemoteFile> items = entry.items();
         List<TransferQueue.Job> downloads = new ArrayList<>();
         for (RemoteFile f : items) {
-            downloads.add(origin.queue.download(f, temp, true));
+            downloads.add(origin.queue.download(f, temp, true, true));   // 전송 목록에는 보이지 않는다(붙여넣기의 중간 단계)
         }
         status.setForeground(Theme.TEXT_MUTED);
         status.setText(origin == this ? "서버 안에서 복사하려고 먼저 내 컴퓨터로 받아요…"
@@ -1148,19 +1169,25 @@ public final class FilesTab extends JPanel {
             removeTemp(temp);
             return;
         }
-        List<TransferQueue.Job> uploads = uploadItems(staged, targetDir, targetDir.equals(remotePane.cwd()));
+        List<TransferQueue.Job> uploads = uploadItems(staged, targetDir, targetDir.equals(remotePane.cwd()), true);
         if (uploads.isEmpty()) {
             removeTemp(temp);   // 취소했거나 겹쳐서 모두 건너뛰었다
             return;
         }
         int[] left = {uploads.size()};
+        boolean[] failed = {false};
         for (TransferQueue.Job job : uploads) {
             watch(job, done -> {
-                if (done.state() != TransferQueue.State.DONE) {
+                if (done.state() != TransferQueue.State.DONE && !failed[0]) {
+                    failed[0] = true;
                     showError("복사하지 못했어요: 서버로 올리지 못했어요. 다시 붙여넣어 주세요");
                 }
                 if (--left[0] == 0) {
                     removeTemp(temp);
+                    if (!failed[0]) {
+                        status.setForeground(Theme.TEXT_MUTED);
+                        status.setText(uploads.size() + "개 항목을 붙여넣었어요");
+                    }
                 }
             });
         }
@@ -1191,7 +1218,7 @@ public final class FilesTab extends JPanel {
         }
         menu.addSeparator();
         addItem(menu, "복사   " + SHORTCUT_LABEL + "C", pane.ready() && any, () -> copy(pane, remote));
-        addItem(menu, "붙여넣기   " + SHORTCUT_LABEL + "V", pane.ready() && !FileClipboard.isEmpty() && (!remote || files != null),
+        addItem(menu, "지금 폴더에 붙여넣기   " + SHORTCUT_LABEL + "V", pane.ready() && !FileClipboard.isEmpty() && (!remote || files != null),
                 () -> paste(remote));
         menu.addSeparator();
         addItem(menu, "새 폴더…", pane.ready(), () -> newFolder(pane));

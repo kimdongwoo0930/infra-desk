@@ -26,12 +26,29 @@ final class FileClipboard {
     }
 
     private static Entry current;
+    /** 클립보드가 바뀔 때 불리는 쪽(파일 탭의 [붙여넣기] 버튼을 켜고 끈다). */
+    private static final List<Runnable> LISTENERS = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     private FileClipboard() {
     }
 
+    static void addListener(Runnable listener) {
+        LISTENERS.add(listener);
+    }
+
+    static void removeListener(Runnable listener) {
+        LISTENERS.remove(listener);
+    }
+
+    private static void changed() {
+        for (Runnable l : LISTENERS) {
+            l.run();
+        }
+    }
+
     static void set(Entry entry) {
         current = entry;
+        changed();
     }
 
     /** 복사해 둔 것. 없으면 null. */
@@ -45,12 +62,14 @@ final class FileClipboard {
 
     static void clear() {
         current = null;
+        changed();
     }
 
     /** 이 탭이 닫히면(서버 삭제, 앱 종료) 그 탭에서 복사한 서버 항목은 더 읽을 수 없으니 비운다. */
     static void clearIfOwnedBy(FilesTab tab) {
         if (current != null && current.owner() == tab && current.remote()) {
             current = null;
+            changed();
         }
     }
 }

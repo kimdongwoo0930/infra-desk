@@ -1,12 +1,15 @@
 package com.infradesk.ui.files;
 
+import com.infradesk.ssh.TransferQueue;
 import com.infradesk.ssh.TransferQueue.Direction;
 import com.infradesk.ssh.TransferQueue.State;
 import org.junit.jupiter.api.Test;
 
 import java.awt.Rectangle;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -80,5 +83,26 @@ class TransferPanelTest {
         assertEquals(sep + "Users" + sep + "meow" + sep + "x", TransferPanel.tilde(sep + "Users" + sep + "meow" + sep + "x", home),
                 "이름이 비슷한 다른 폴더는 줄이지 않는다");
         assertEquals("/home/ubuntu", TransferPanel.tilde("/home/ubuntu", ""), "홈을 모르면 그대로");
+    }
+
+    @Test
+    void hiddenJobsAreNotListedButTheQueueStillHasThem() {
+        // 연결을 맺지 못하는 대기열: 작업은 곧 실패하지만 목록에 보이는지만 본다.
+        TransferQueue queue = new TransferQueue(() -> {
+            throw new java.io.IOException("연결하지 않는다");
+        }, job -> { });
+        try {
+            TransferPanel panel = new TransferPanel(queue, () -> { });
+
+            queue.upload(Path.of("/nonexistent/hidden.txt"), "/tmp", false, true);
+            assertTrue(panel.isEmpty(), "숨긴 작업(붙여넣기의 중간 단계)은 목록에 보이지 않는다");
+            assertEquals(1, queue.jobs().size(), "대기열에는 있다");
+            assertTrue(queue.jobs().getFirst().hidden());
+
+            queue.upload(Path.of("/nonexistent/shown.txt"), "/tmp", false);
+            assertFalse(panel.isEmpty(), "보통 전송은 목록에 보인다");
+        } finally {
+            queue.close();
+        }
     }
 }
