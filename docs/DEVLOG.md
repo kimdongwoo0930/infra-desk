@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-11-09 · 핫픽스: 릴리스 빌드에서 Gradle 내려받기 시간 초과
+
+브랜치 `hotfix/gradle-wrapper-timeout`(`main`에서 분기).
+
+**문제:** `main`에 합친 직후의 릴리스 빌드에서 macOS 패키징 작업이 `Test` 단계에서 `timeout (10000ms)`로 실패했다(`SocketTimeoutException: Read timed out`, `org.gradle.wrapper.Download`). 러너에는 Gradle 9.8.0이 없어서 wrapper가 처음 내려받는데, `gradle-wrapper.properties`의 제한 시간이 10초(`networkTimeout=10000`)이고 재시도가 없어서(`retries=0`) 한 번 늦으면 바로 실패했다. 코드 문제가 아니라서 같은 코드의 전체 테스트는 통과했다. 릴리스 작업은 모든 패키징 작업이 성공해야 돌기 때문에 새 릴리스가 만들어지지 않았다.
+
+**한 일:** `networkTimeout` 10초 → 120초, `retries` 0 → 3, `retryBackOffMs` 500 → 2000. 제한 시간은 읽기 한 번마다 적용되어 네트워크가 정말 막힌 경우에도 최악의 대기만 길어질 뿐 정상 경우에는 영향이 없다.
+
+**확인:** 빈 Gradle 홈(임시 폴더)에서 `./gradlew --version`을 돌려 wrapper가 새 설정을 읽는지("retrying 3 times, with an initial back off of 2000 ms")와 9.8.0을 처음부터 내려받아 실행되는지 확인했다(약 20초). 실제 GitHub Actions 러너에서의 확인은 `main`에 합친 뒤 릴리스 빌드로 해야 한다.
+
+**알아 둘 것:** 시간 초과가 계속되면 러너에서 `~/.gradle`을 캐시하는지(`gradle/actions/setup-gradle`) 보고, 그래도 안 되면 `gradle/actions/wrapper-validation`이나 배포판 미러를 생각한다.
+
+---
+
 ## 2026-11-09 · 파일 탭: 앱 안 편집 창
 
 브랜치 `feat/sftp-editor`(`feat/sftp-copy-select` 위에 쌓음: 두 브랜치가 `FilesTab`의 전송 처리를 같이 고쳐서 `develop`에서 따면 합칠 때 충돌한다). 개선 목록의 2-1, 2-2, 2-5.
