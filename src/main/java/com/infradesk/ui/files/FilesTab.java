@@ -86,6 +86,9 @@ public final class FilesTab extends JPanel {
     private Path editRoot;
     /** 화면에 이미 알린 작업. 처음 알리는 작업이 새 전송이다. */
     private final Set<Long> announced = new HashSet<>();
+    /** 전송이 끝났을 때 이어서 할 일(복사해 붙여넣기의 두 번째 단계 등). 화면 스레드에서만 쓴다. */
+    private final java.util.Map<Long, java.util.function.Consumer<TransferQueue.Job>> watchers = new java.util.HashMap<>();
+    private boolean closed;
     /** 더블클릭·버튼으로 받은 파일이 저장되는 폴더(보통 Downloads). 끌어서 놓기는 놓은 곳에 저장된다. */
     private Path downloadDir;
     private int editSeq;
@@ -130,6 +133,9 @@ public final class FilesTab extends JPanel {
             pane.bind("F2", () -> rename(pane));
             pane.bind("DELETE", () -> delete(pane));
             pane.bind("BACK_SPACE", () -> delete(pane));
+            boolean remote = pane == remotePane;
+            pane.bind(SHORTCUT_KEY + " C", () -> copy(pane, remote));
+            pane.bind(SHORTCUT_KEY + " V", () -> paste(remote));
         }
 
         status.setForeground(Theme.TEXT_MUTED);
@@ -252,6 +258,9 @@ public final class FilesTab extends JPanel {
      * 확인받는 일은 부르는 쪽(앱 종료, 서버 삭제)이 {@link #activeTransfers()}와 {@link #unsavedEdits()}로 한다.
      */
     public void close() {
+        closed = true;
+        FileClipboard.clearIfOwnedBy(this);
+        watchers.clear();
         RemoteFiles f = files;
         files = null;
         editTimer.stop();
@@ -309,9 +318,9 @@ public final class FilesTab extends JPanel {
      * @param inCurrentFolder 대상이 서버 패널의 현재 폴더인지. 그렇다면 같은 이름이 있는지 미리 묻고,
      *                        아니면(폴더 행에 끌어다 놓은 경우) 덮어쓰지 않고 겹치는 파일은 건너뛴다
      */
-    private void uploadItems(List<RemoteFile> items, String remoteDir, boolean inCurrentFolder) {
+    private List<TransferQueue.Job> uploadItems(List<RemoteFile> items, String remoteDir, boolean inCurrentFolder) {
         if (!canTransfer() || items.isEmpty() || remoteDir == null) {
-            return;
+            return List.of();
         }
         List<RemoteFile> conflicts = List.of();
         Decision decision = Decision.SKIP_NONE;
@@ -321,28 +330,28 @@ public final class FilesTab extends JPanel {
             decision = conflicts.isEmpty() ? Decision.SKIP_NONE : askConflict(conflicts, "서버");
         }
         if (decision == Decision.CANCEL) {
-            return;
+            return List.of();
         }
         boolean overwrite = decision == Decision.OVERWRITE;
-        int queued = 0;
+        List<TransferQueue.Job> jobs = new ArrayList<>();
         for (RemoteFile f : items) {
             if (!overwrite && conflicts.contains(f)) {
                 continue;
             }
-            queue.upload(Path.of(f.path()), remoteDir, overwrite);
-            queued++;
+            jobs.add(queue.upload(Path.of(f.path()), remoteDir, overwrite));
         }
         status.setForeground(Theme.TEXT_MUTED);
-        status.setText(queued + "개 항목을 서버로 올려요");
+        status.setText(jobs.size() + "개 항목을 서버로 올려요");
+        return jobs;
     }
 
     /**
      * @param askConflicts 같은 이름이 이미 있는지 미리 묻는다. 아니면(폴더 행에 끌어다 놓은 경우) 덮어쓰지 않고
      *                     겹치는 파일은 건너뛴다
      */
-    private void downloadItems(List<RemoteFile> items, String localDirPath, boolean askConflicts) {
+    private List<TransferQueue.Job> downloadItems(List<RemoteFile> items, String localDirPath, boolean askConflicts) {
         if (!canTransfer() || items.isEmpty() || localDirPath == null) {
-            return;
+            return List.of();
         }
         Path localDir = Path.of(localDirPath);
         List<RemoteFile> conflicts = List.of();
@@ -355,20 +364,20 @@ public final class FilesTab extends JPanel {
             decision = conflicts.isEmpty() ? Decision.SKIP_NONE : askConflict(conflicts, "내 컴퓨터");
         }
         if (decision == Decision.CANCEL) {
-            return;
+            return List.of();
         }
         boolean overwrite = decision == Decision.OVERWRITE;
-        int queued = 0;
+        List<TransferQueue.Job> jobs = new ArrayList<>();
         for (RemoteFile f : items) {
             if (!overwrite && conflicts.contains(f)) {
                 continue;
             }
-            queue.download(f, localDir, overwrite);
-            queued++;
+            jobs.add(queue.download(f, localDir, overwrite));
         }
         status.setForeground(Theme.TEXT_MUTED);
-        status.setText(queued + "개 항목을 '" + (localDir.getFileName() == null ? localDir : localDir.getFileName())
+        status.setText(jobs.size() + "개 항목을 '" + (localDir.getFileName() == null ? localDir : localDir.getFileName())
                 + "' 폴더로 받아요");
+        return jobs;
     }
 
     // ---- 끌어서 놓기 ----
@@ -471,6 +480,12 @@ public final class FilesTab extends JPanel {
 
     private void onJobChanged(TransferQueue.Job job) {
         transfers.refresh();
+        if (job.state().finished()) {
+            var next = watchers.remove(job.id());
+            if (next != null) {
+                next.accept(job);
+            }
+        }
         // 새 전송이 시작되거나 실패가 생기면 닫아 둔 패널을 다시 연다. 상태는 이 코드가 도는 시점의 값이라
         // 작은 파일은 이미 끝나 있을 수 있으므로, 새 작업인지는 처음 알림을 받았는지로 판단한다.
         if (announced.add(job.id()) || job.state() == TransferQueue.State.FAILED) {
@@ -953,6 +968,213 @@ public final class FilesTab extends JPanel {
         }
     }
 
+    // ---- 복사해서 붙여넣기 ----
+
+    /** 복사·붙여넣기 단축키 앞부분: macOS는 Cmd, 그 외는 Ctrl. */
+    private static final String SHORTCUT_KEY = FilePane.IS_MAC ? "meta" : "ctrl";
+    private static final String SHORTCUT_LABEL = FilePane.IS_MAC ? "⌘" : "Ctrl+";
+
+    /** 고른 항목을 복사해 둔다(앱 안 클립보드). 다른 폴더나 다른 서버의 파일 탭에서 붙여넣을 수 있다. */
+    private void copy(FilePane pane, boolean remote) {
+        List<RemoteFile> items = pane.selection();
+        if (items.isEmpty() || !pane.ready()) {
+            return;
+        }
+        FileClipboard.set(new FileClipboard.Entry(this, remote, pane.cwd(), items));
+        status.setForeground(Theme.TEXT_MUTED);
+        status.setText(subject(items) + " 복사했어요 · 붙여넣을 폴더에서 " + SHORTCUT_LABEL + "V");
+    }
+
+    /**
+     * 복사해 둔 항목을 이 패널의 현재 폴더에 붙여넣는다.
+     * 내 컴퓨터→서버는 올리기, 서버→내 컴퓨터는 받기, 내 컴퓨터 안은 파일 복사, 서버→서버는 내 컴퓨터를 거쳐 옮긴다.
+     */
+    private void paste(boolean toRemote) {
+        FileClipboard.Entry entry = FileClipboard.get();
+        FilePane target = toRemote ? remotePane : localPane;
+        if (entry == null || !target.ready() || target.cwd() == null) {
+            return;
+        }
+        if (!entry.remote()) {
+            if (toRemote) {
+                uploadItems(entry.items(), remotePane.cwd(), true);
+            } else {
+                copyLocal(entry);
+            }
+        } else if (!toRemote) {
+            pasteRemoteToLocal(entry);
+        } else {
+            relayCopy(entry);
+        }
+    }
+
+    /** 서버에서 복사한 것을 내 컴퓨터 패널의 현재 폴더에 받는다. 다른 서버에서 복사했으면 그 서버 탭의 연결로 받는다. */
+    private void pasteRemoteToLocal(FileClipboard.Entry entry) {
+        FilesTab origin = entry.owner();
+        if (origin.closed || !origin.canTransfer()) {
+            showError("복사해 둔 서버에 연결돼 있지 않아서 붙여넣을 수 없어요");
+            return;
+        }
+        List<TransferQueue.Job> jobs = origin.downloadItems(entry.items(), localPane.cwd(), true);
+        if (origin != this && !jobs.isEmpty()) {
+            status.setForeground(Theme.TEXT_MUTED);
+            status.setText("'" + origin.server.name() + "' 서버에서 받아요 · 진행은 그 서버의 파일 탭에 보여요");
+            for (TransferQueue.Job job : jobs) {
+                origin.watch(job, done -> {
+                    if (done.state() == TransferQueue.State.DONE) {
+                        localPane.reload();
+                    }
+                });
+            }
+        }
+    }
+
+    /** 내 컴퓨터 안에서 복사한다(같은 폴더면 " 복사" 이름으로, 다른 폴더면 겹치는 이름을 물어서). */
+    private void copyLocal(FileClipboard.Entry entry) {
+        String dir = localPane.cwd();
+        Set<String> existing = localPane.names();
+        java.util.Map<RemoteFile, String> targets = new java.util.LinkedHashMap<>();
+        if (java.util.Objects.equals(entry.dir(), dir)) {
+            Set<String> taken = new HashSet<>(existing);
+            for (RemoteFile f : entry.items()) {
+                String name = CopyNames.unique(f.name(), f.directory(), taken);
+                taken.add(name);
+                targets.put(f, name);
+            }
+        } else {
+            List<RemoteFile> conflicts = entry.items().stream().filter(f -> existing.contains(f.name())).toList();
+            Decision decision = conflicts.isEmpty() ? Decision.SKIP_NONE : askConflict(conflicts, "내 컴퓨터");
+            if (decision == Decision.CANCEL) {
+                return;
+            }
+            for (RemoteFile f : entry.items()) {
+                if (decision != Decision.OVERWRITE && conflicts.contains(f)) {
+                    continue;
+                }
+                targets.put(f, f.name());
+            }
+        }
+        if (targets.isEmpty()) {
+            return;
+        }
+        Path targetDir = Path.of(dir);
+        status.setForeground(Theme.TEXT_MUTED);
+        status.setText(targets.size() + "개 항목을 복사하는 중…");
+        Async.run(() -> {
+            for (var e : targets.entrySet()) {
+                LocalCopy.copy(Path.of(e.getKey().path()), targetDir, e.getValue());
+            }
+            return targets.size();
+        }, count -> {
+            localPane.reload();
+            status.setText(count + "개 항목을 복사했어요");
+        }, err -> {
+            localPane.reload();
+            showError("복사하지 못했어요: " + Async.message(err));
+        });
+    }
+
+    /**
+     * 서버에서 복사한 것을 서버 패널에 붙여넣는다(같은 서버 안, 또는 다른 서버로). SFTP에는 서버끼리 바로 복사하는 기능이
+     * 없어서 임시 폴더를 거친다: 복사한 서버에서 받고 → 이 서버로 올리고 → 임시 폴더를 지운다. 받기와 올리기는 기존 전송
+     * 대기열(이어받기·권한 유지·취소)을 그대로 쓰고, 진행은 각 서버의 전송 목록에 보인다.
+     */
+    private void relayCopy(FileClipboard.Entry entry) {
+        FilesTab origin = entry.owner();
+        if (origin.closed || !origin.canTransfer() || !canTransfer()) {
+            showError("복사해 둔 서버에 연결돼 있지 않아서 붙여넣을 수 없어요");
+            return;
+        }
+        Path temp;
+        try {
+            temp = java.nio.file.Files.createTempDirectory("infradesk-copy-");
+        } catch (IOException e) {
+            showError("임시 폴더를 만들지 못했어요: " + Async.message(e));
+            return;
+        }
+        String targetDir = remotePane.cwd();
+        Set<String> taken = new HashSet<>(remotePane.names());
+        boolean sameFolder = origin == this && java.util.Objects.equals(entry.dir(), targetDir);
+        List<RemoteFile> items = entry.items();
+        List<TransferQueue.Job> downloads = new ArrayList<>();
+        for (RemoteFile f : items) {
+            downloads.add(origin.queue.download(f, temp, true));
+        }
+        status.setForeground(Theme.TEXT_MUTED);
+        status.setText(origin == this ? "서버 안에서 복사하려고 먼저 내 컴퓨터로 받아요…"
+                : "'" + origin.server.name() + "'에서 받아 이 서버로 옮겨요…");
+        int[] left = {downloads.size()};
+        boolean[] failed = {false};
+        for (TransferQueue.Job job : downloads) {
+            origin.watch(job, done -> {
+                if (done.state() != TransferQueue.State.DONE && !failed[0]) {
+                    failed[0] = true;
+                    showError("복사하지 못했어요: " + (done.message() == null || done.message().isBlank()
+                            ? "받는 중에 멈췄어요" : done.message()));
+                    for (TransferQueue.Job other : downloads) {
+                        if (!other.state().finished()) {
+                            origin.queue.cancel(other);   // 나머지는 받아 봐야 쓸 데가 없다
+                        }
+                    }
+                }
+                if (--left[0] > 0) {
+                    return;
+                }
+                if (failed[0] || closed) {
+                    removeTemp(temp);
+                    return;
+                }
+                uploadRelayed(temp, items, targetDir, taken, sameFolder);
+            });
+        }
+    }
+
+    /** 복사의 두 번째 단계: 임시 폴더로 받은 것을 이 서버에 올린다. */
+    private void uploadRelayed(Path temp, List<RemoteFile> items, String targetDir, Set<String> taken, boolean sameFolder) {
+        List<RemoteFile> staged = new ArrayList<>();
+        try {
+            for (RemoteFile f : items) {
+                Path staged1 = temp.resolve(RemoteFiles.safeLocalName(f.name()));
+                if (sameFolder) {
+                    String name = CopyNames.unique(staged1.getFileName().toString(), f.directory(), taken);
+                    taken.add(name);
+                    staged1 = java.nio.file.Files.move(staged1, temp.resolve(name));
+                }
+                staged.add(new RemoteFile(staged1.getFileName().toString(), staged1.toString(), f.directory(), f.size(),
+                        Instant.now()));
+            }
+        } catch (IOException e) {
+            showError("복사하지 못했어요: " + Async.message(e));
+            removeTemp(temp);
+            return;
+        }
+        List<TransferQueue.Job> uploads = uploadItems(staged, targetDir, targetDir.equals(remotePane.cwd()));
+        if (uploads.isEmpty()) {
+            removeTemp(temp);   // 취소했거나 겹쳐서 모두 건너뛰었다
+            return;
+        }
+        int[] left = {uploads.size()};
+        for (TransferQueue.Job job : uploads) {
+            watch(job, done -> {
+                if (done.state() != TransferQueue.State.DONE) {
+                    showError("복사하지 못했어요: 서버로 올리지 못했어요. 다시 붙여넣어 주세요");
+                }
+                if (--left[0] == 0) {
+                    removeTemp(temp);
+                }
+            });
+        }
+    }
+
+    private static void removeTemp(Path temp) {
+        Thread.ofVirtual().start(() -> deleteTree(temp));
+    }
+
+    /** 이 전송이 끝나면 {@code next}를 부른다(화면 스레드에서). 전송을 만든 직후, 같은 화면 스레드 안에서 걸어야 한다. */
+    private void watch(TransferQueue.Job job, java.util.function.Consumer<TransferQueue.Job> next) {
+        watchers.put(job.id(), next);
+    }
+
     // ---- 우클릭 메뉴와 버튼 ----
 
     private JPopupMenu menu(boolean remote) {
@@ -967,6 +1189,10 @@ public final class FilesTab extends JPanel {
             addItem(menu, "서버로 올리기", canTransfer() && any, this::upload);
             addItem(menu, "편집", pane.ready() && selection.size() == 1 && !selection.get(0).directory(), this::editLocal);
         }
+        menu.addSeparator();
+        addItem(menu, "복사   " + SHORTCUT_LABEL + "C", pane.ready() && any, () -> copy(pane, remote));
+        addItem(menu, "붙여넣기   " + SHORTCUT_LABEL + "V", pane.ready() && !FileClipboard.isEmpty() && (!remote || files != null),
+                () -> paste(remote));
         menu.addSeparator();
         addItem(menu, "새 폴더…", pane.ready(), () -> newFolder(pane));
         addItem(menu, "새 파일…", pane.ready(), () -> newFile(pane));
