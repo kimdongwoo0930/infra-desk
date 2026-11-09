@@ -226,7 +226,7 @@ public final class TransferPanel extends JPanel {
     // ── 목록 ────────────────────────────────────────────────────
 
     private void removeFinished() {
-        for (Job j : queue.jobs()) {
+        for (Job j : shown()) {
             if (j.state().finished()) {
                 queue.remove(j);
                 rate.forget(j.id());
@@ -240,7 +240,12 @@ public final class TransferPanel extends JPanel {
     }
 
     boolean isEmpty() {
-        return queue.jobs().isEmpty();
+        return shown().isEmpty();
+    }
+
+    /** 목록에 보이는 작업(붙여넣기의 중간 단계처럼 숨긴 작업은 뺀다). */
+    private List<Job> shown() {
+        return queue.jobs().stream().filter(j -> !j.hidden()).toList();
     }
 
     /** 끝나지 않은(대기 중이거나 전송 중인) 작업 수. */
@@ -279,7 +284,7 @@ public final class TransferPanel extends JPanel {
             selected.add(j.id());
         }
         long now = System.nanoTime();
-        List<Job> jobs = queue.jobs();
+        List<Job> jobs = shown();
         for (Job j : jobs) {
             if (j.state() == State.RUNNING && j.totalBytes() >= 0) {
                 speedOf.put(j.id(), rate.update(j.id(), j.doneBytes(), now));
@@ -310,7 +315,7 @@ public final class TransferPanel extends JPanel {
     }
 
     private void updateView() {
-        List<Job> jobs = queue.jobs();
+        List<Job> jobs = shown();
         long finished = jobs.stream().filter(j -> j.state().finished()).count();
         summary.setText(summaryText(jobs.size() - (int) finished, (int) finished));
         clearDone.setEnabled(finished > 0);

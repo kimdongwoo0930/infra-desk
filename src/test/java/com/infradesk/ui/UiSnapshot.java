@@ -78,6 +78,22 @@ public final class UiSnapshot {
         com.infradesk.ui.containers.ContainerLogWindow[] logWindow = new com.infradesk.ui.containers.ContainerLogWindow[1];
         SwingUtilities.invokeAndWait(() -> mainFrame[0].serverScreen().showContainersTab());
         Thread.sleep(1200);
+        // 컨테이너 탭을 본 채로 다른 서버를 고르면, 새 목록이 오기 전에 이전 서버의 컨테이너가 남아 있으면 안 된다.
+        // 결과는 화면 스레드의 다음 일감으로 도착하므로, 서버를 바꾼 같은 일감 안에서 보면 "새 목록을 기다리는 중"이다.
+        boolean[] waiting = new boolean[1];
+        SwingUtilities.invokeAndWait(() -> {
+            mainFrame[0].showServer(inventory.get(1).servers().getFirst());
+            waiting[0] = mainFrame[0].serverScreen().containers().isBusy();
+            try {
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "server-containers-switching.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            mainFrame[0].showServer(inventory.getFirst().servers().getFirst());   // 원래 서버로 돌아온다(아래 스냅샷용)
+        });
+        System.out.println(waiting[0] ? "CONTAINERS-SWITCH: OK (다른 서버를 고른 직후 이전 서버의 표가 비고 로딩 중이다)"
+                : "CONTAINERS-SWITCH: FAILED (새 서버의 목록을 기다리는 상태가 아니다)");
+        Thread.sleep(1500);
         SwingUtilities.invokeAndWait(() -> {
             try {
                 write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "server-containers.png");
@@ -413,7 +429,9 @@ public final class UiSnapshot {
                     }
                 }
             }
-            if (button != null) {
+            if (EXTERNAL.equals(button)) {
+                externalEdit(tabs.getFirst());
+            } else if (button != null) {
                 List<java.awt.Component> buttons = new java.util.ArrayList<>();
                 collect((Container) tabs.getFirst(), "JButton", buttons);
                 // 같은 글자("편집")의 버튼이 내 컴퓨터 쪽에도 있다: 서버 쪽 것은 뒤에 온다.
@@ -423,7 +441,7 @@ public final class UiSnapshot {
         };
         SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"docker-compose.yml"}, "내 컴퓨터로 받기"));
         Thread.sleep(1500);
-        SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"README.md"}, "편집"));
+        SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"README.md"}, EXTERNAL));
         Thread.sleep(1500);
         SwingUtilities.invokeAndWait(() -> pickRemote.accept(new String[] {"README.md", "docker-compose.yml"}, null));
         snapshotMonitoring("files-tab.png", mainFrame[0]);
@@ -713,10 +731,7 @@ public final class UiSnapshot {
                     remote.setRowSelectionInterval(row, row);
                 }
             }
-            List<java.awt.Component> buttons = new java.util.ArrayList<>();
-            collect(sftp[0].getContentPane(), "JButton", buttons);
-            buttons.stream().map(b -> (javax.swing.AbstractButton) b)
-                    .filter(b -> "편집".equals(b.getText())).reduce((first, second) -> second).orElseThrow().doClick();
+            externalEdit(filesTab[0]);   // 앱 안 편집 창이 아니라 외부 편집기(임시 복사본을 지켜보는 쪽)를 시험한다
         });
         Thread.sleep(1500);
         java.nio.file.Path tempCopy = edited.get();
@@ -755,6 +770,17 @@ public final class UiSnapshot {
                 }
             });
         }
+        // 앱 안 편집 창: 화면에 띄우지 않고 그려서 찍는다.
+        SwingUtilities.invokeAndWait(() -> {
+            JDialog editor = com.infradesk.ui.files.EditorSnapshot.create("discord-bot", "/etc/nginx/conf.d/app.conf");
+            try {
+                write(editor, editor.getContentPane(), 900, 560, "file-editor.png");
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            } finally {
+                editor.dispose();
+            }
+        });
         System.out.println("Snapshots written to " + DIR.getAbsolutePath());
         System.exit(0);
     }
@@ -801,6 +827,9 @@ public final class UiSnapshot {
         return null;
     }
 
+    /** pickRemote의 버튼 자리에 넣으면 버튼 대신 "외부 편집기로 열기"를 한다. */
+    private static final String EXTERNAL = "\0external-edit";
+
     private static void write(Window window, Container pane, int width, int height, String name) throws IOException {
         window.addNotify();
         pane.setSize(width, height);
@@ -822,10 +851,25 @@ public final class UiSnapshot {
                 new com.infradesk.storage.InMemorySavedCommandStore(com.infradesk.demo.DemoData.savedCommands()), true);
     }
 
+    /** 우클릭 메뉴의 "외부 편집기로 열기"를 누른 것처럼 한다(파일 탭의 비공개 메서드를 부른다). */
+    private static void externalEdit(java.awt.Component filesTab) {
+        try {
+            java.lang.reflect.Method m = filesTab.getClass().getDeclaredMethod("editExternal");
+            m.setAccessible(true);
+            m.invoke(filesTab);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static void collect(Container c, String simpleName, List<java.awt.Component> out) {
         for (var child : c.getComponents()) {
-            if (child.getClass().getSimpleName().equals(simpleName)) {
-                out.add(child);
+            // 부모 클래스 이름도 본다: 화면의 표처럼 JTable을 상속한(이름 없는 포함) 부품도 "JTable"로 찾는다.
+            for (Class<?> k = child.getClass(); k != null; k = k.getSuperclass()) {
+                if (k.getSimpleName().equals(simpleName)) {
+                    out.add(child);
+                    break;
+                }
             }
             if (child instanceof Container cc) {
                 collect(cc, simpleName, out);

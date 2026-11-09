@@ -231,12 +231,27 @@ final class FilePane extends JPanel {
             .withZone(ZoneId.systemDefault());
 
     private final FileTableModel model = new FileTableModel();
-    private final JTable table = new JTable(model);
+    private final ClickToDeselect deselect = new ClickToDeselect();
+    private final JTable table = new JTable(model) {
+        @Override
+        protected void processMouseEvent(MouseEvent e) {
+            // JTable의 기본 처리(누르면 선택을 바꾼다)보다 먼저, 누르기 직전의 선택 상태를 기억한다.
+            if (e.getID() == MouseEvent.MOUSE_PRESSED) {
+                int row = rowAtPoint(e.getPoint());
+                deselect.pressed(row, row >= 0 && isRowSelected(row), getSelectedRowCount(),
+                        javax.swing.SwingUtilities.isLeftMouseButton(e),
+                        e.isShiftDown() || e.isControlDown() || e.isMetaDown(), e.isPopupTrigger());
+            }
+            super.processMouseEvent(e);
+        }
+    };
     private final JTextField pathField = new JTextField();
     private final JLabel info = new JLabel(" ");
     private final JButton up = Buttons.icon("arrow-up", "상위 폴더", 30);
     private final JButton refresh = Buttons.icon("refresh", "새로고침", 30);
     private final JButton newFolder = Buttons.icon("folder-plus", "새 폴더", 30);
+    private final JButton paste = Buttons.icon("clipboard", "붙여넣기 (복사해 둔 것이 없으면 꺼져 있어요)", 30);
+    private Runnable onPaste = () -> { };
     /** "숨김 파일" 토글(서버 창에만 둔다). 켜져 있으면 점(.)으로 시작하는 이름도 보인다. */
     private final FilterChip hiddenToggle = new FilterChip("숨김 파일");
     private final FilterChip startChip = new FilterChip("처음 경로");
@@ -283,6 +298,7 @@ final class FilePane extends JPanel {
         });
         refresh.addActionListener(e -> reload());
         newFolder.addActionListener(e -> onNewFolder.run());
+        paste.addActionListener(e -> onPaste.run());
         hiddenToggle.setSelected(true);
         hiddenToggle.setVisible(false);
         hiddenToggle.addActionListener(e -> {
@@ -304,6 +320,7 @@ final class FilePane extends JPanel {
         tools.add(up);
         tools.add(refresh);
         tools.add(newFolder);
+        tools.add(paste);
         tools.add(hiddenToggle);
         JPanel head = new JPanel(new BorderLayout(8, 0));
         head.setOpaque(false);
@@ -345,8 +362,13 @@ final class FilePane extends JPanel {
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2 && !e.isPopupTrigger()) {
+                if (e.isPopupTrigger()) {
+                    return;
+                }
+                if (e.getClickCount() == 2) {
                     activateSelected();
+                } else if (deselect.shouldClear(table.rowAtPoint(e.getPoint()), e.getClickCount())) {
+                    table.clearSelection();   // 하나만 선택된 행을 한 번 더 누르면 풀린다(Cmd/Ctrl 없이)
                 }
             }
 
@@ -432,6 +454,16 @@ final class FilePane extends JPanel {
         button.setPreferredSize(null);
         button.setPreferredSize(new java.awt.Dimension(button.getPreferredSize().width + 4, Theme.BUTTON_HEIGHT));
         actions.add(button);
+    }
+
+    /** 머리의 [붙여넣기] 아이콘을 눌렀을 때(지금 보는 폴더에 붙여넣는다). */
+    void onPaste(Runnable listener) {
+        this.onPaste = listener;
+    }
+
+    /** [붙여넣기]는 폴더를 읽은 뒤이고 복사해 둔 것이 있을 때만 켠다. 복사가 바뀌거나 목록이 바뀔 때 부른다. */
+    void refreshPaste() {
+        paste.setEnabled(ready() && !FileClipboard.isEmpty());
     }
 
     /** 머리의 [새 폴더] 아이콘을 눌렀을 때. */
@@ -858,6 +890,7 @@ final class FilePane extends JPanel {
         pathField.setEnabled(ready);
         table.setEnabled(source != null);
         newFolder.setEnabled(ready);
+        refreshPaste();
         int selected = table.getSelectedRowCount();
         selectionBar.setVisible(selected > 0);
         selectionLabel.setText(selected + "개 선택");

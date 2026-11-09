@@ -1,0 +1,52 @@
+name: "🐞 Bug"
+description: "버그 제보"
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **이 저장소는 공개예요.** 실제 서버 IP, 계정 정보(OCID 등), SSH 키, 비밀번호, 웹훅 주소가 보이는 로그나 스크린샷은 올리지 마세요. 가려서 올려 주세요.
+  - type: textarea
+    attributes:
+      label: "📄 설명"
+      description: "어떤 문제인지 작성해 주세요."
+      placeholder: "어느 화면(개요, 컨테이너, 파일, 터미널 등)에서 무엇을 했더니 어떻게 됐는지 적어 주세요."
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: "🔁 재현 방법"
+      description: "순서대로 적어 주세요."
+      placeholder: |
+        1. 서버 A를 고른다
+        2. 컨테이너 탭을 연다
+        3. 서버 B를 고른다
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: "✅ 기대한 동작"
+      description: "원래 어떻게 되어야 한다고 생각했는지 적어 주세요."
+  - type: dropdown
+    attributes:
+      label: "💻 운영체제"
+      options:
+        - macOS
+        - Windows
+  - type: dropdown
+    attributes:
+      label: "🧪 데모 모드(`./gradlew runDemo`)에서도 그런가요?"
+      options:
+        - 네
+        - 아니요
+        - 해 보지 않았어요
+  - type: input
+    attributes:
+      label: "🏷️ 앱 버전"
+      description: "화면 맨 아래 오른쪽에 보여요."
+      placeholder: "예: v1.0.0"
+  - type: textarea
+    attributes:
+      label: "🙋🏻 참고 자료"
+      description: "스크린샷이나 로그가 있다면 올려 주세요. (비밀 정보는 가려 주세요)"
