@@ -41,6 +41,10 @@ class FleetServiceTest {
         final AtomicInteger running = new AtomicInteger();
         final AtomicInteger peak = new AtomicInteger();
         volatile long holdMillis;
+        /** 읽기를 시작할 때마다 하나씩 센다(시험이 "지금 몇 대가 읽는 중인지"를 시간 가정 없이 알려고). 없으면 null. */
+        volatile CountDownLatch started;
+        /** 열릴 때까지 읽기가 끝나지 않는다(시험이 읽는 중인 상태를 붙잡아 두려고). 없으면 null. */
+        volatile CountDownLatch gate;
 
         @Override
         public boolean readable(Server server) {
@@ -51,7 +55,15 @@ class FleetServiceTest {
         public HostFacts facts(Server server) {
             int now = running.incrementAndGet();
             peak.accumulateAndGet(now, Math::max);
+            CountDownLatch startedLatch = started;
+            if (startedLatch != null) {
+                startedLatch.countDown();
+            }
             try {
+                CountDownLatch gateLatch = gate;
+                if (gateLatch != null) {
+                    gateLatch.await();
+                }
                 Thread.sleep(holdMillis);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -151,8 +163,12 @@ class FleetServiceTest {
 
     @Test
     void cancelSkipsServersThatHaveNotStarted() throws Exception {
+        // 시간(sleep)에 기대지 않는다. 예전에는 "20ms 뒤 취소하면 60ms 걸리는 첫 두 대가 아직 읽는 중"이라고 가정했는데,
+        // 느린 CI 러너에서 취소가 60ms 넘게 밀리면 다음 두 대가 시작해서 2가 아니라 4가 읽혔다.
+        // 그래서 읽는 두 대를 문(gate)으로 붙잡아 둔 채 취소하고, 그다음에 문을 연다.
         FakeReader reader = new FakeReader();
-        reader.holdMillis = 60;
+        reader.started = new CountDownLatch(2);
+        reader.gate = new CountDownLatch(1);
         FleetService fleet = new FleetService(reader, clock);
         List<Server> servers = new ArrayList<>();
         for (int i = 0; i < 6; i++) {
@@ -160,9 +176,12 @@ class FleetServiceTest {
         }
         CountDownLatch firstTwo = new CountDownLatch(2);
         fleet.read(servers, false, r -> firstTwo.countDown());
-        Thread.sleep(20);   // 첫 두 대가 읽는 중
+        assertTrue(reader.started.await(5, TimeUnit.SECONDS), "첫 두 대가 읽기 시작했다");
         fleet.cancel();
-        assertTrue(firstTwo.await(2, TimeUnit.SECONDS));
+        reader.gate.countDown();   // 읽던 두 대가 끝난다
+        assertTrue(firstTwo.await(5, TimeUnit.SECONDS));
+        // 취소된 나머지가 읽히지 않는지 지켜보는 대기다(아무 일도 안 일어나는 것을 확인하는 거라, 길이가 모자라도
+        // 시험이 억지로 실패하지는 않는다).
         Thread.sleep(150);
 
         assertEquals(2, reader.read.size(), "시작하지 않은 서버는 읽지 않는다");
