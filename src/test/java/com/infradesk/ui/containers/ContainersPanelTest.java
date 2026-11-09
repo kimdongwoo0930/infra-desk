@@ -13,6 +13,7 @@ import java.util.List;
 import javax.swing.JTextField;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ContainersPanelTest {
 
@@ -224,5 +225,25 @@ class ContainersPanelTest {
 
         assertEquals(0, p.visibleRows());
         assertEquals(0, chip(p, "전체").getCount());
+    }
+
+    @Test
+    void 서버가_바뀌어_기다리는_동안_이전_서버의_행과_개수가_사라진다() {
+        ContainersPanel p = panel();
+
+        p.showSwitching();
+
+        assertEquals(0, p.visibleRows());
+        assertEquals(0, chip(p, "전체").getCount());
+        assertTrue(p.isBusy(), "새 목록을 기다리는 중이라 새로고침은 막힌다");
+    }
+
+    @Test
+    void 같은_서버를_새로고침하는_동안에는_행이_그대로_남는다() {
+        ContainersPanel p = panel();
+
+        p.showLoading();
+
+        assertEquals(4, p.visibleRows());
     }
 }

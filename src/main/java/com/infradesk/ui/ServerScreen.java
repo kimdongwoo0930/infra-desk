@@ -132,6 +132,7 @@ public class ServerScreen extends JPanel {
         this.readOnly = readOnly;
         tabs.setTabVisible(TAB_FILES, !readOnly);
         tabs.setTabVisible(TAB_TERMINAL, !readOnly);
+        files.setReadOnly(readOnly);
         header.setReadOnly(readOnly);
         overview.setReadOnly(readOnly);
         metrics.setReadOnly(readOnly);
@@ -341,6 +342,7 @@ public class ServerScreen extends JPanel {
             // 다른 서버로 바뀌었다: 새 목록이 올 때까지 이전 서버의 컨테이너 칩과 개수가 남아 있지 않게 비운다.
             shownServerId = server.id();
             clearContainers();
+            containersTab.containers().showSwitching();   // 컨테이너 탭의 표에도 이전 서버의 행이 남지 않게 한다
         }
         shownServer = server;
         if (terminal != null) {

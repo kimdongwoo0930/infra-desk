@@ -67,6 +67,8 @@ public final class TransferQueue implements AutoCloseable {
         private final String targetDir;
         private final RemoteFile remote;
         private final boolean overwrite;
+        /** 전송 목록에 보이지 않는 작업(복사해 붙여넣기의 중간 단계). 진행 중인 전송 수에는 들어간다. */
+        private final boolean hidden;
 
         private volatile State state = State.QUEUED;
         private volatile long doneBytes;
@@ -89,13 +91,20 @@ public final class TransferQueue implements AutoCloseable {
         /** 새로 만든 서버 폴더와 줄 권한. 안에 파일을 다 올린 뒤에 적용한다(읽기 전용 폴더면 파일을 못 올리므로). */
         private final Map<String, Integer> pendingDirModes = new LinkedHashMap<>();
 
-        private Job(Direction direction, String name, String source, String targetDir, RemoteFile remote, boolean overwrite) {
+        private Job(Direction direction, String name, String source, String targetDir, RemoteFile remote, boolean overwrite,
+                    boolean hidden) {
+            this.hidden = hidden;
             this.direction = direction;
             this.name = name;
             this.source = source;
             this.targetDir = targetDir;
             this.remote = remote;
             this.overwrite = overwrite;
+        }
+
+        /** 전송 목록에 보이지 않는 작업인지. */
+        public boolean hidden() {
+            return hidden;
         }
 
         public long id() {
@@ -183,13 +192,24 @@ public final class TransferQueue implements AutoCloseable {
      * @param overwrite 같은 이름의 파일이 있으면 덮어쓸지(false면 건너뛴다)
      */
     public Job upload(Path local, String remoteDir, boolean overwrite) {
-        Job job = new Job(Direction.UPLOAD, local.getFileName().toString(), local.toString(), remoteDir, null, overwrite);
+        return upload(local, remoteDir, overwrite, false);
+    }
+
+    /** @param hidden 전송 목록에 보이지 않게 한다(끝나면 호출한 쪽이 {@link #remove}로 치운다) */
+    public Job upload(Path local, String remoteDir, boolean overwrite, boolean hidden) {
+        Job job = new Job(Direction.UPLOAD, local.getFileName().toString(), local.toString(), remoteDir, null, overwrite,
+                hidden);
         return submit(job);
     }
 
     /** 서버의 파일이나 폴더를 이 컴퓨터 폴더로 받는다. */
     public Job download(RemoteFile remote, Path localDir, boolean overwrite) {
-        Job job = new Job(Direction.DOWNLOAD, remote.name(), remote.path(), localDir.toString(), remote, overwrite);
+        return download(remote, localDir, overwrite, false);
+    }
+
+    /** @param hidden 전송 목록에 보이지 않게 한다(끝나면 호출한 쪽이 {@link #remove}로 치운다) */
+    public Job download(RemoteFile remote, Path localDir, boolean overwrite, boolean hidden) {
+        Job job = new Job(Direction.DOWNLOAD, remote.name(), remote.path(), localDir.toString(), remote, overwrite, hidden);
         return submit(job);
     }
 

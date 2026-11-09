@@ -47,6 +47,7 @@ public final class FilesHost extends JPanel {
     /** 보여 주려고 한 서버. 설정을 마친 뒤 다시 시도하는 데 쓴다. */
     private Server wanted;
     private Runnable onTransfersChanged = () -> { };
+    private boolean readOnly;
 
     public FilesHost() {
         super();
@@ -112,6 +113,7 @@ public final class FilesHost extends JPanel {
         } else {
             FilesTab created = new FilesTab(service, server);
             created.onTransfersChanged(() -> onTransfersChanged.run());
+            created.setReadOnly(readOnly);
             tabs.put(server.id(), created);
             add(created, server.id());
             cards.show(this, server.id());
@@ -137,6 +139,17 @@ public final class FilesHost extends JPanel {
     }
 
     /** 어느 서버의 전송이든 목록이 바뀌면 불린다(EDT). 창 아래 상태 막대가 전송 수를 보여 주는 데 쓴다. */
+    /**
+     * 읽기 모드를 파일 탭 모두에 알린다. 탭이 숨는 것과 별개로, 이미 열려 있는 편집 창과 외부 편집기 복사본이
+     * 서버에 저장하지 못하게 하려는 것이다.
+     */
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+        for (FilesTab tab : tabs.values()) {
+            tab.setReadOnly(readOnly);
+        }
+    }
+
     public void onTransfersChanged(Runnable listener) {
         this.onTransfersChanged = listener;
     }
