@@ -156,4 +156,25 @@ class ServerScreenTest {
 
         assertNull(f.screen.logs().selected());
     }
+
+    @Test
+    void 서버가_바뀌면_컨테이너_탭의_이전_서버_상태가_로딩으로_바뀐다() {
+        Fixture f = new Fixture();
+        f.screen.containers().showContainers(List.of(container("web", true)), "docker ps");
+        assertFalse(f.screen.containers().isBusy());
+
+        f.screen.show(server("two"), ACCOUNT);
+
+        assertTrue(f.screen.containers().isBusy(), "새 서버의 목록을 기다리는 중이다");
+    }
+
+    @Test
+    void 같은_서버를_다시_보여_줄_때는_컨테이너_표를_건드리지_않는다() {
+        Fixture f = new Fixture();
+        f.screen.containers().showContainers(List.of(container("web", true)), "docker ps");
+
+        f.screen.show(server("one"), ACCOUNT);   // 상태만 바뀌어 다시 부른 경우
+
+        assertFalse(f.screen.containers().isBusy());
+    }
 }
