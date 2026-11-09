@@ -78,6 +78,22 @@ public final class UiSnapshot {
         com.infradesk.ui.containers.ContainerLogWindow[] logWindow = new com.infradesk.ui.containers.ContainerLogWindow[1];
         SwingUtilities.invokeAndWait(() -> mainFrame[0].serverScreen().showContainersTab());
         Thread.sleep(1200);
+        // 컨테이너 탭을 본 채로 다른 서버를 고르면, 새 목록이 오기 전에 이전 서버의 컨테이너가 남아 있으면 안 된다.
+        // 결과는 화면 스레드의 다음 일감으로 도착하므로, 서버를 바꾼 같은 일감 안에서 보면 "새 목록을 기다리는 중"이다.
+        boolean[] waiting = new boolean[1];
+        SwingUtilities.invokeAndWait(() -> {
+            mainFrame[0].showServer(inventory.get(1).servers().getFirst());
+            waiting[0] = mainFrame[0].serverScreen().containers().isBusy();
+            try {
+                write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "server-containers-switching.png");
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            mainFrame[0].showServer(inventory.getFirst().servers().getFirst());   // 원래 서버로 돌아온다(아래 스냅샷용)
+        });
+        System.out.println(waiting[0] ? "CONTAINERS-SWITCH: OK (다른 서버를 고른 직후 이전 서버의 표가 비고 로딩 중이다)"
+                : "CONTAINERS-SWITCH: FAILED (새 서버의 목록을 기다리는 상태가 아니다)");
+        Thread.sleep(1500);
         SwingUtilities.invokeAndWait(() -> {
             try {
                 write(mainFrame[0], mainFrame[0].getContentPane(), 1280, 800, "server-containers.png");

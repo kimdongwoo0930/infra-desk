@@ -79,7 +79,7 @@
 
 **테스트:** `ContainersPanelTest` 2개(서버 전환 시 행·개수가 비워지고 새로고침 중에는 유지), `ServerScreenTest` 2개(서버가 바뀌면 로딩 상태, 같은 서버면 그대로). 두 클래스 전체 통과.
 
-**남은 일:** 서버 전환 직후의 한 프레임은 `./gradlew snapshot`에 없어서 화면으로는 확인하지 못했다(단위 테스트로 확인). 실제 앱(`./gradlew runDemo`)에서 서버를 바꿔 보며 한 번 눈으로 확인하면 좋다.
+**확인:** `UiSnapshot`에 시나리오를 더해(`CONTAINERS-SWITCH`, `server-containers-switching.png`) 컨테이너 탭을 본 채로 다른 서버를 고른 **직후 화면**을 실제 `MainFrame`으로 확인했다: 표가 비고 "불러오는 중…", 칩 개수 0, 로그 패널도 비어 있다. 처음에는 단위 테스트로만 확인했고, 이 수정을 `feat/sftp-copy-select`·`feat/sftp-editor`에 합치지 않아 그 브랜치에서 실행하면 그대로 남아 있었다(`feat/sftp-editor`에 합쳐 해결).
 
 ---
 
