@@ -321,6 +321,16 @@ public class ContainersPanel extends JPanel {
         }
     }
 
+    /**
+     * 다른 서버로 바뀌어 새 목록을 기다린다: 이전 서버의 행을 지우고 "불러오는 중…"을 보여 준다.
+     * 같은 서버의 새로고침에는 쓰지 않는다({@link #showLoading()}은 행을 그대로 둔다).
+     * 캐시된 목록이 있으면 호출한 쪽이 곧바로 {@link #showContainers}로 채운다.
+     */
+    public void showSwitching() {
+        showMessage("불러오는 중…", null);
+        setBusy(true, "불러오는 중…");
+    }
+
     /** @param statusText 오른쪽 위의 짧은 텍스트. 없으면 null */
     public void showMessage(String text, String statusText) {
         all = List.of();
